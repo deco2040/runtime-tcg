@@ -943,7 +943,7 @@
     wrap.appendChild(titlebar(tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app   ·   turn ' + G.turnNo + ' / ' + G.TURN_CAP));
 
     // status strip
-    var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '11px', flexWrap: 'wrap', color: SKIN.txt } }, [
+    var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '2px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '10px', flexWrap: 'wrap', color: SKIN.txt } }, [
       el('span', { style: { fontWeight: 700 } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대 차례…')]),
       el('span', { style: { color: SKIN.muted } }, ['내덱 ' + (DECKS[myDeck] ? myDeck : '') ]),
       el('span', { style: { color: SKIN.muted } }, ['상대 ' + (G.oppKey || '?')]),
@@ -953,8 +953,8 @@
     wrap.appendChild(strip);
     if (tutorial) wrap.appendChild(tutBanner());
 
-    var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap' } });
-    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '11px' } });
+    var main = el('div', { style: { display: 'flex', gap: '10px', padding: 'clamp(6px,1vw,10px)', alignItems: 'stretch', flexWrap: 'wrap' } });
+    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '7px' } });
 
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl());
@@ -1013,11 +1013,11 @@
     var digit = low ? SKIN.heat : SKIN.gold;
     // 덱 두께 미터 — 남은 카드 1장 = 골드 슬리버 1개(엣지 커넥터 언어 재사용), 상한 24
     var CAP = 24, shown = Math.min(count, CAP);
-    var meter = el('div', { style: { display: 'flex', gap: '1px', alignItems: 'stretch', height: '15px', padding: '2px', background: SKIN.padEmpty, borderRadius: '2px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } });
+    var meter = el('div', { style: { display: 'flex', gap: '1px', alignItems: 'stretch', height: '11px', padding: '2px', background: SKIN.padEmpty, borderRadius: '2px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } });
     for (var i = 0; i < CAP; i++) meter.appendChild(el('div', { style: { width: '2px', flex: 'none', background: i < shown ? SKIN.gold : 'transparent', boxShadow: i < shown ? 'inset 0 1px 0 rgba(255,255,255,.3)' : 'none' } }));
     // 배출구 슬롯 — 어두운 슬릿 + 튀어나온 다음 카드 모서리
     var slitPos = me ? { bottom: '3px' } : { top: '3px' }, cardPos = me ? { bottom: '5px' } : { top: '5px' };
-    var slot = el('div', { id: 'deckslot-' + owner, style: { position: 'relative', width: '32px', height: '24px', flex: 'none', background: 'linear-gradient(180deg,' + SKIN.chipTop + ',' + SKIN.dieGradEnd + ')', borderRadius: '3px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,.5), inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } }, [
+    var slot = el('div', { id: 'deckslot-' + owner, style: { position: 'relative', width: '30px', height: '17px', flex: 'none', background: 'linear-gradient(180deg,' + SKIN.chipTop + ',' + SKIN.dieGradEnd + ')', borderRadius: '3px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,.5), inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } }, [
       el('div', { style: Object.assign({ position: 'absolute', left: '4px', right: '4px', height: '3px', background: '#05060a', borderRadius: '2px', boxShadow: 'inset 0 1px 1px rgba(0,0,0,.9)' }, slitPos) }),
       count ? el('div', { style: Object.assign({ position: 'absolute', left: '6px', right: '6px', height: '7px', background: 'linear-gradient(180deg,' + SKIN.pcb + ',' + SKIN.pcb2 + ')', border: '1px solid ' + SKIN.edge, borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,.4)' }, cardPos) }, [
         el('div', { style: { position: 'absolute', left: '2px', top: '1px', width: '5px', height: '2px', background: accent, borderRadius: '1px' } })
@@ -1027,12 +1027,12 @@
       el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: SKIN.silkDim, letterSpacing: '.12em' } }, ['DECK']),
       el('div', { class: 'mono', style: { fontSize: '15px', fontWeight: 700, color: digit, background: '#05060a', padding: '0 6px', borderRadius: '2px', minWidth: '26px', textAlign: 'center', boxShadow: 'inset 0 1px 2px rgba(0,0,0,.7), 0 0 0 1px ' + SKIN.edge, textShadow: '0 0 6px ' + hexa(digit, .6) } }, [String(count)])
     ]);
-    var device = el('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: SKIN.pcb, borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge } }, [
+    var device = el('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 8px', background: SKIN.pcb, borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge } }, [
       slot,
       el('div', { style: { flex: 1, minWidth: '24px', display: 'flex', justifyContent: 'center' } }, [meter]),
       counter
     ]);
-    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
+    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '2px 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none' } }, [me ? '나' : '상대']),
       el('span', { class: 'mono', title: d ? d.name : '', style: { fontSize: '9px', fontWeight: 700, color: '#fff', background: dc, padding: '2px 6px', whiteSpace: 'nowrap', flex: 'none' } }, [(d ? GLY[d.cls] + ' ' : '') + (dk || '?')]),
       device,
@@ -1184,7 +1184,7 @@
     var hand = G.players[HUMAN].hand;
     // 가로 스크롤 컨테이너는 세로도 클리핑되므로(overflowX:auto → overflowY 강제 auto), 호버 시 떠오르는
     // 카드 윗부분이 잘린다. 상단 패딩으로 헤드룸을 주고 음수 마진으로 레이아웃 간격을 보정, z-index 로 위 요소 위에 그림.
-    var row = el('div', { style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: hand.length > 6 ? 'flex-start' : 'center', minHeight: '40px', alignItems: 'flex-end', padding: '26px 6px 8px', marginTop: '-16px' } });
+    var row = el('div', { style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: hand.length > 6 ? 'flex-start' : 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } });
     if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음']));
     hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
     if (drawPulse) drawPulse = false;
@@ -1196,7 +1196,7 @@
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
     var mullSel = mode === 'mull' && mullPick[i];
-    var big = mode === 'mull', W = big ? 176 : 150, MINH = big ? 250 : 200, VPH = big ? 116 : 92;
+    var big = mode === 'mull', W = big ? 176 : 150, MINH = big ? 250 : 150, VPH = big ? 116 : 92;
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
     var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
@@ -1259,7 +1259,7 @@
 
   // ---- controls
   function controls(meTurn) {
-    var row = el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo, flexWrap: 'wrap' } });
+    var row = el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '5px 12px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo, flexWrap: 'wrap' } });
     var pips = el('div', { style: { display: 'flex', gap: '4px', alignItems: 'center' } });
     for (var i = 0; i < 2; i++) pips.appendChild(el('span', { style: { width: '22px', height: '12px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
     row.appendChild(pips);

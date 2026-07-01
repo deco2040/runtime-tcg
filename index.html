@@ -41,9 +41,9 @@
   .btn{font-family:'Space Grotesk',sans-serif;font-weight:700;padding:9px 14px;background:var(--btn-bg);color:var(--btn-fg);border:1px solid var(--ink);box-shadow:inset 1px 1px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.45), 2px 2px 0 rgba(0,0,0,.25);letter-spacing:.03em}
   .btn.ghost{background:var(--chassis-sunk);color:var(--txt);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -2px -2px 0 var(--bevel-lo)}
   .btn:disabled{opacity:.45;cursor:default}
-  .titlebar{display:flex;align-items:center;gap:8px;padding:5px 7px;border-bottom:1px solid var(--ink);background:repeating-linear-gradient(var(--ink) 0 1px,var(--chassis) 1px 3px)}
-  .titlebar .dot{width:13px;height:13px;flex:none;border:1px solid var(--ink);background:var(--chassis);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--tb-dot)}
-  .titlebar .t{margin:0 auto;font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:.2em;font-size:13px;background:var(--chassis);color:var(--txt);padding:1px 14px;border:1px solid var(--ink);box-shadow:inset 1px 1px 0 var(--bevel-hi)}
+  .titlebar{display:flex;align-items:center;gap:8px;padding:2px 7px;border-bottom:1px solid var(--ink);background:repeating-linear-gradient(var(--ink) 0 1px,var(--chassis) 1px 3px)}
+  .titlebar .dot{width:11px;height:11px;flex:none;border:1px solid var(--ink);background:var(--chassis);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--tb-dot)}
+  .titlebar .t{margin:0 auto;font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:.18em;font-size:11px;background:var(--chassis);color:var(--txt);padding:0 12px;border:1px solid var(--ink);box-shadow:inset 1px 1px 0 var(--bevel-hi)}
   @keyframes pop{0%{transform:scale(.85);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
   @keyframes bannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.86)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
   @keyframes flash{0%,100%{opacity:1}50%{opacity:.4}}
@@ -59,7 +59,9 @@
 </style>
 </head>
 <body>
-<div id="app" style="max-width:1180px;margin:0 auto;padding:clamp(8px,1.6vw,20px)"></div>
+<div id="app" style="max-width:1180px;margin:0 auto;padding:clamp(4px,0.8vw,12px)"></div>
+<script src="cards.js"></script>
+<script src="decks.js"></script>
 <script src="engine.js"></script>
 <script src="ui.js"></script>
 </body>
