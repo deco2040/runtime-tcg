@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUNTIME — 프로그래밍 테마 웹 TCG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>
+  // 첫 페인트 전 테마 확정(플래시 방지) — ui.js 의 rt_theme 와 동일 키
+  (function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('rt_theme')||'light');}catch(e){}})();
+</script>
+<style>
+  /* 라이트(기본) = 레트로 PC + PCB 융합 팔레트 */
+  :root{
+    --shell:#b7b8c0; --chassis:#e9eaee; --chassis-alt:#ffffff; --chassis-sunk:#d4d5db;
+    --ink:#1d1d24; --txt:#1d1d24; --muted:#6b6b75;
+    --bevel-hi:#ffffff; --bevel-lo:#aeafb6; --bevel-lo2:#c4c5cc;
+    --btn-bg:#1d1d24; --btn-fg:#e9eaee; --dot-hi:rgba(255,255,255,.55); --dot-lo:rgba(28,28,38,.10);
+    --sel-bg:#1d1d24; --sel-fg:#e9eaee; --tb-dot:#86868f;
+  }
+  /* 다크 = 칩 다크 PCB(토글 선택 시) */
+  :root[data-theme="dark"]{
+    --shell:#0b0b11; --chassis:#15161e; --chassis-alt:#1b1d27; --chassis-sunk:#101018;
+    --ink:#33343f; --txt:#e6e6ee; --muted:#8b90a0;
+    --bevel-hi:rgba(255,255,255,.06); --bevel-lo:rgba(0,0,0,.55); --bevel-lo2:rgba(0,0,0,.4);
+    --btn-bg:#C7A24A; --btn-fg:#15161e; --dot-hi:rgba(255,255,255,.035); --dot-lo:rgba(0,0,0,.30);
+    --sel-bg:#C7A24A; --sel-fg:#0e0e14; --tb-dot:#0b0b11;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--shell);color:var(--txt);font-family:'IBM Plex Sans KR',sans-serif}
+  body{background-image:radial-gradient(var(--dot-hi) 1px,transparent 1px),radial-gradient(var(--dot-lo) 1px,transparent 1px);background-size:6px 6px,6px 6px;background-position:0 0,3px 3px;min-height:100vh}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:left}
+  input{font:inherit}
+  ::selection{background:var(--sel-bg);color:var(--sel-fg)}
+  .mono{font-family:'Space Mono',monospace}
+  .grot{font-family:'Space Grotesk',sans-serif}
+  .bevel{border:1px solid var(--ink);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -2px -2px 0 var(--bevel-lo), 4px 4px 0 rgba(0,0,0,.30)}
+  .bevel-s{border:1px solid var(--ink);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -2px -2px 0 var(--bevel-lo2)}
+  .btn{font-family:'Space Grotesk',sans-serif;font-weight:700;padding:9px 14px;background:var(--btn-bg);color:var(--btn-fg);border:1px solid var(--ink);box-shadow:inset 1px 1px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.45), 2px 2px 0 rgba(0,0,0,.25);letter-spacing:.03em}
+  .btn.ghost{background:var(--chassis-sunk);color:var(--txt);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -2px -2px 0 var(--bevel-lo)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .titlebar{display:flex;align-items:center;gap:8px;padding:5px 7px;border-bottom:1px solid var(--ink);background:repeating-linear-gradient(var(--ink) 0 1px,var(--chassis) 1px 3px)}
+  .titlebar .dot{width:13px;height:13px;flex:none;border:1px solid var(--ink);background:var(--chassis);box-shadow:inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--tb-dot)}
+  .titlebar .t{margin:0 auto;font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:.2em;font-size:13px;background:var(--chassis);color:var(--txt);padding:1px 14px;border:1px solid var(--ink);box-shadow:inset 1px 1px 0 var(--bevel-hi)}
+  @keyframes pop{0%{transform:scale(.85);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+  @keyframes bannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.86)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+  @keyframes flash{0%,100%{opacity:1}50%{opacity:.4}}
+  @keyframes hitShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}50%{transform:translateX(3px)}80%{transform:translateX(-2px)}}
+  @keyframes popIn{0%{transform:scale(.55);opacity:0}65%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+  @keyframes drawIn{0%{transform:translateY(30px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
+  @keyframes hitFlash{0%{box-shadow:0 0 0 3px rgba(216,71,43,.0)}30%{box-shadow:0 0 0 3px rgba(216,71,43,.7)}100%{box-shadow:0 0 0 3px rgba(216,71,43,0)}}
+  @keyframes fireGlow{0%,100%{box-shadow:0 0 0 0 rgba(60,138,102,0)}40%{box-shadow:0 0 0 4px rgba(60,138,102,.55)}}
+  @keyframes hbShake{0%,100%{transform:translate(0,0)}15%{transform:translate(-4px,3px)}30%{transform:translate(4px,-3px)}45%{transform:translate(-3px,2px)}60%{transform:translate(3px,-2px)}80%{transform:translate(-2px,1px)}}
+  @keyframes hbShakeHard{0%,100%{transform:translate(0,0)}10%{transform:translate(-8px,5px)}25%{transform:translate(8px,-5px)}40%{transform:translate(-6px,4px)}55%{transform:translate(6px,-3px)}70%{transform:translate(-4px,2px)}85%{transform:translate(3px,-1px)}}
+  @keyframes readyPulse{0%,100%{box-shadow:1px 1px 0 rgba(28,28,38,.18),0 0 0 0 rgba(200,149,27,0)}50%{box-shadow:1px 1px 0 rgba(28,28,38,.18),0 0 7px 1px rgba(200,149,27,.65)}}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important}}
+</style>
+</head>
+<body>
+<div id="app" style="max-width:1180px;margin:0 auto;padding:clamp(8px,1.6vw,20px)"></div>
+<script src="engine.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
