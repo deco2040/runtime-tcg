@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>RUNTIME — 프로그래밍 테마 웹 TCG</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,10 +56,33 @@
   @keyframes hbShakeHard{0%,100%{transform:translate(0,0)}10%{transform:translate(-8px,5px)}25%{transform:translate(8px,-5px)}40%{transform:translate(-6px,4px)}55%{transform:translate(6px,-3px)}70%{transform:translate(-4px,2px)}85%{transform:translate(3px,-1px)}}
   @keyframes readyPulse{0%,100%{box-shadow:1px 1px 0 rgba(28,28,38,.18),0 0 0 0 rgba(200,149,27,0)}50%{box-shadow:1px 1px 0 rgba(28,28,38,.18),0 0 7px 1px rgba(200,149,27,.65)}}
   @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important}}
+  @keyframes rotateHint{0%,100%{transform:rotate(0)}50%{transform:rotate(-90deg)}}
+  /* ===== 모바일/좁은 화면(≤900px) — 셸을 화면에 꽉 채움. 내부 레이아웃(가로2단)은 ui.js COMPACT 가 담당 ===== */
+  button{touch-action:manipulation}
+  #rotateHint{display:none}
+  @media (max-width:900px){
+    #app{max-width:none!important;margin:0!important;padding:0!important}
+  }
+  /* 세로(portrait)에서는 게임을 숨기고 "가로로 돌려주세요" 안내 */
+  @media (max-width:900px) and (orientation:portrait){
+    #app{display:none!important}
+    body>button{display:none!important}
+    #rotateHint{
+      display:flex;position:fixed;inset:0;z-index:999;
+      flex-direction:column;align-items:center;justify-content:center;gap:16px;
+      background:var(--shell);color:var(--txt);text-align:center;padding:24px;
+      font-family:'Space Grotesk',sans-serif;
+    }
+  }
 </style>
 </head>
 <body>
 <div id="app" style="max-width:1180px;margin:0 auto;padding:clamp(4px,0.8vw,12px)"></div>
+<div id="rotateHint" aria-hidden="true">
+  <div style="font-size:56px;line-height:1;animation:rotateHint 2.2s ease-in-out infinite">📱</div>
+  <div style="font-weight:700;font-size:19px;letter-spacing:.04em">가로로 돌려주세요</div>
+  <div style="font-size:13px;opacity:.7;max-width:280px;line-height:1.5">RUNTIME 은 가로 모드에 최적화되어 있어요.<br>기기를 가로로 눕히면 게임이 시작됩니다.</div>
+</div>
 <script src="cards.js"></script>
 <script src="decks.js"></script>
 <script src="engine.js"></script>
