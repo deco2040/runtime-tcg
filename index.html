@@ -59,6 +59,9 @@
   /* ===== 모바일/좁은 화면(≤900px) — 셸을 화면에 꽉 채움. 내부 레이아웃은 ui.js COMPACT 가 담당.
        덱 설정(타이틀)은 세로/가로 모두 지원, 대국 화면은 세로면 ui.js 가 90° 회전해 항상 가로로 표시 ===== */
   button{touch-action:manipulation}
+  /* 게임 화면: 길게 눌러도 텍스트 선택/롱프레스 콜아웃/탭 하이라이트가 안 뜨게(모바일 조작 방해 제거) */
+  #app{-webkit-tap-highlight-color:transparent}
+  #app, #app *{-webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none; -webkit-touch-callout:none}
   @media (max-width:900px){
     #app{max-width:none!important;margin:0!important;padding:0!important}
     body>button{display:none!important} /* 상단 고정 음소거/테마 버튼 숨김 — 화면 정리 */
