@@ -751,6 +751,8 @@
   function renderMulligan() {
     clear(); // NOTE: do NOT reset mullPick here — that would wipe the selection on every click
     var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt, display: 'flex', flexDirection: 'column' } });
+    if (COMPACT) { renderMulliganCompact(wrap); }
+    else {
     wrap.appendChild(titlebar('RUNTIME — MATCH.app   ·   멀리건 · 시작 패 교체'));
     var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '11px', flexWrap: 'wrap', color: SKIN.txt } }, [
       el('span', { style: { fontWeight: 700 } }, ['◈ 멀리건']),
@@ -780,6 +782,7 @@
     main.appendChild(sidePanel());
     wrap.appendChild(main);
     app.appendChild(wrap);
+    }
 
     // 배분 전/재배분 대상 카드는 숨겨 두고 애니메이션으로 등장시킨다.
     mullHideIdx.forEach(function (i) { var n = document.querySelector('[data-mull-idx="' + i + '"]'); if (n) n.style.opacity = '0'; });
@@ -990,17 +993,20 @@
 
   // ── 모바일 대국 화면 ── 필드(중앙) + 손패(아래) + 미니 상단바(턴/액션/카운트/[턴 종료]).
   //   자잘한 요소(디스펜서·사이드패널·용어·기록)는 제거. 세로로 들면 90° 회전해 항상 가로로 표시(회전 안내 없음).
-  function renderMatchCompact(wrap, meTurn) {
+  // 모바일 셸 크기/회전 — 세로(터치)면 90° 회전해 가로 캔버스로. 대국·멀리건 공용.
+  function sizeCompactWrap(wrap) {
     var W = window.innerWidth || 800, H = window.innerHeight || 400;
     var portrait = H > W, rotate = portrait && isTouchDevice();
     wrap.style.position = 'fixed'; wrap.style.overflow = 'hidden'; wrap.style.margin = '0'; wrap.style.boxShadow = 'none';
     if (rotate) {
-      // 세로 화면 → 가로 캔버스로 회전(폭=화면높이, 높이=화면폭). 기기를 눕히면 orientationchange 로 자동 해제.
       wrap.style.top = '0'; wrap.style.left = W + 'px'; wrap.style.width = H + 'px'; wrap.style.height = W + 'px';
       wrap.style.transformOrigin = 'top left'; wrap.style.transform = 'rotate(90deg)';
     } else {
       wrap.style.top = '0'; wrap.style.left = '0'; wrap.style.width = W + 'px'; wrap.style.height = H + 'px'; wrap.style.transform = 'none';
     }
+  }
+  function renderMatchCompact(wrap, meTurn) {
+    sizeCompactWrap(wrap);
 
     // 미니 상단바 — 상대덱 · 턴상태 · 액션 · (연승) | 내덱/손 · 해제/취소 · [턴 종료]
     var top = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 8px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none' } });
@@ -1027,6 +1033,30 @@
 
     // 손패(아래)
     wrap.appendChild(handBar(meTurn));
+    app.appendChild(wrap);
+  }
+
+  // ── 모바일 멀리건 ── 대국과 동일한 가로 고정 셸. 상단바(멀리건·[✔ 시작]) + 카드가 주인공(가운데 가로 스크롤).
+  function renderMulliganCompact(wrap) {
+    sizeCompactWrap(wrap);
+
+    var top = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 8px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none' } });
+    top.appendChild(el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: SKIN.own, flex: 'none' } }, ['◈ 멀리건']));
+    top.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, flex: 'none' } }, [(DECKS[myDeck] ? myDeck : '') + ' vs ' + (G.oppKey || '?')]));
+    if (challenge) top.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆 ' + challenge.stage]));
+    top.appendChild(el('span', { style: { flex: 1 } }));
+    if (mullReady) {
+      top.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '10px', padding: '4px 8px', flex: 'none' }, onclick: function () { if (mullBusy) return; mullPick = {}; renderMulligan(); } }, ['↺ 해제']));
+      top.appendChild(el('button', { class: 'btn', style: { fontSize: '12px', padding: '6px 13px', flex: 'none' }, onclick: confirmMulligan }, ['✔ 시작']));
+    }
+    wrap.appendChild(top);
+
+    wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '10px', color: SKIN.muted, textAlign: 'center', padding: '3px 8px', minHeight: '14px' } }, [mullReady ? '바꿀 카드를 탭 → 덱으로 반환하고 새로 뽑습니다. 안 고르면 유지 (1회).' : '패를 나눠주는 중…']));
+
+    // 카드(가운데) — 가로 스크롤. 코인플립은 이 영역 위에서 재생(#board 없으면 화면 중앙 폴백).
+    var row = el('div', { id: 'mullrow', style: { flex: '1 1 auto', minHeight: '0', display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', overflowY: 'hidden', alignItems: 'center', justifyContent: G.players[HUMAN].hand.length > 4 ? 'flex-start' : 'center', padding: '6px 8px' } });
+    G.players[HUMAN].hand.forEach(function (id, i) { row.appendChild(handCardEl(id, i, 'mull')); });
+    wrap.appendChild(row);
     app.appendChild(wrap);
   }
 
@@ -1262,7 +1292,7 @@
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
     var mullSel = mode === 'mull' && mullPick[i];
     var big = mode === 'mull';
-    var W = big ? 176 : (COMPACT ? 116 : 150), MINH = big ? 250 : (COMPACT ? 122 : 150), VPH = big ? 116 : (COMPACT ? 52 : 92);
+    var W = big ? (COMPACT ? 150 : 176) : (COMPACT ? 116 : 150), MINH = big ? (COMPACT ? 208 : 250) : (COMPACT ? 122 : 150), VPH = big ? (COMPACT ? 90 : 116) : (COMPACT ? 52 : 92);
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
     var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
