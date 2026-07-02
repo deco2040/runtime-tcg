@@ -276,7 +276,10 @@
     var bg = CLS[card.cls] || CLS.generic, kids = [];
     if (o.led != null) kids.push(ledDot(o.led, o.ledPx));
     if (o.icon !== false) kids.push(appIcon(card, o.iconPx));
-    kids.push(el('span', { class: 'mono', style: { flex: 1, minWidth: 0, fontSize: (o.nameFs || 9) + 'px', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '.02em' } }, [o.name != null ? o.name : card.name]));
+    var nameSt = { flex: 1, minWidth: 0, fontSize: (o.nameFs || 9) + 'px', fontWeight: 600, color: '#fff', letterSpacing: '.02em' };
+    if (o.wrap) { nameSt.whiteSpace = 'normal'; nameSt.lineHeight = 1.05; nameSt.wordBreak = 'break-word'; } // 전체 이름 표시(줄바꿈 허용)
+    else { nameSt.whiteSpace = 'nowrap'; nameSt.overflow = 'hidden'; nameSt.textOverflow = 'ellipsis'; }
+    kids.push(el('span', { class: 'mono', style: nameSt }, [o.name != null ? o.name : card.name]));
     if (o.badge) kids.push(o.badge);
     if (o.right) kids.push(o.right);
     var st = { display: 'flex', alignItems: 'center', gap: (o.gap || 4) + 'px', padding: (o.pad || '3px 5px'), background: bg, color: '#fff', flex: 'none' };
@@ -339,9 +342,12 @@
       svgIco(SERIES_PATH.attack, opts.icoPx || 10, 'currentColor', 2),
       el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, color: opts.buffed ? SKIN.buff : 'inherit', lineHeight: 1 } }, [String(atk)])
     ]);
-    var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) }, [
+    // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 기존 뉴트럴 미터.
+    var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: COMPACT ? 'center' : 'flex-start', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) }, [
       el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']),
-      hpMeter(hp, maxHp, { h: opts.meterH || 8 })
+      COMPACT
+        ? el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none' } }, [String(hp)])
+        : hpMeter(hp, maxHp, { h: opts.meterH || 8 })
     ]);
     return el('div', { style: { display: 'flex', gap: '3px', margin: opts.margin || '3px 2px 2px' } }, [atkEl, hpEl]);
   }
@@ -1415,8 +1421,8 @@
     var card = CARDS[id], isP = card.kind === 'pointer';
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
-    var W = 88, H = 112;
-    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x', transition: 'transform .08s ease' }, raisedBev());
+    var W = 94, H = 124, cl = CLS[card.cls] || CLS.generic;
+    var st = Object.assign({ position: 'relative', width: W + 'px', height: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x', transition: 'transform .08s ease' }, raisedBev());
     if (playable && !seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
     if (seld) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + SKIN.faceLo; st.transform = 'translateY(-6px)'; }
     if (mode === 'play' && !playable) st.opacity = .5;
@@ -1425,11 +1431,16 @@
     var props = { style: st };
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
+    // 아트가 가운데 빈 공간을 채우도록 flex:1 (카드가 알차게 보이게)
+    var art = el('div', { style: Object.assign({ flex: '1 1 auto', minHeight: '22px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
+      el('span', { style: { fontSize: 'clamp(38px,15vw,60px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic])
+    ]);
     return el('button', props, [
-      winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '2px 4px', right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) }),
-      viewportBox(card, 40, { gScale: 0.6, margin: '2px 2px 0' }),
-      isP ? el('div', { class: 'mono', style: { flex: 1, minHeight: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, color: SKIN.muted } }, ['◆ 포인터'])
-          : statusStrip(card.atk, card.hp, card.hp, { atkW: 30, fs: 13, icoPx: 11, meterH: 7, margin: '2px 2px 2px' })
+      // 상단(타이틀바)을 키우고 이름 줄바꿈 허용 → 전체 이름이 한번에 보이게
+      winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '3px 4px', wrap: true, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) }),
+      art,
+      isP ? el('div', { class: 'mono', style: { flex: 'none', textAlign: 'center', fontSize: '9px', fontWeight: 700, color: '#d8472b', background: SKIN.effBg, padding: '3px 0', margin: '0 2px 2px', whiteSpace: 'nowrap', overflow: 'hidden' } }, ['◆ 드래그 시전'])
+          : statusStrip(card.atk, card.hp, card.hp, { atkW: 32, fs: 13, icoPx: 11, margin: '0 2px 2px' })
     ]);
   }
   // 가로형 카드 상세 패널(모바일 peek 전용) — 왼쪽=카드(아트·ATK/HP), 오른쪽=이름·효과·사거리.
@@ -1673,6 +1684,8 @@
     sel = null;
     if (card.kind === 'pointer') {
       if (!G.canCast(HUMAN, id)) { flash(castWhy(card)); return; }
+      // 모바일: 포인터는 탭이 아니라 필드로 드래그해서 놓을 때만 시전(오발동 방지).
+      if (COMPACT) { flash('포인터는 필드로 드래그해서 시전하세요'); return; }
       if (card.need === 'none') { G.cast(HUMAN, i, null, false); afterAction(); return; }
       ptr = { i: i, card: card, need: card.need, picks: [] };
       // if no legal targets, just resolve with null (e.g., area pointers)
@@ -1815,7 +1828,8 @@
     var id = G.players[HUMAN].hand[d.i], card = id ? CARDS[id] : null;
     if (d.invalid || !card) { sel = ptr = null; render(); return; }
     if (card.kind === 'pointer') {
-      if (card.need === 'none') { G.cast(HUMAN, d.i, null, false); afterAction(); return; }
+      // 무대상 포인터도 '필드 위'에 놓아야 시전(모바일). 필드 밖에 놓으면 취소.
+      if (card.need === 'none') { if (COMPACT && !key) { flash('필드에 놓아 시전하세요'); sel = ptr = null; render(); return; } G.cast(HUMAN, d.i, null, false); afterAction(); return; }
       var legal = ptr ? pointerTargets(ptr) : [];
       if (key && legal.indexOf(key) >= 0) {
         if (card.need === 'twoAlly') G.cast(HUMAN, d.i, key, false, { second: legal.filter(function (k) { return k !== key; })[0] });
