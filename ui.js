@@ -797,16 +797,21 @@
       });
     }
   }
-  // 선후공 코인플립 — 보드 중앙에서 코인이 뒤집히며 결정된 선공에 착지.
+  // 선후공 코인플립 — 코인이 뒤집히며 결정된 선공에 착지.
+  // 모바일: 가로 고정 셸(회전 포함) 안에 퍼센트 배치 → 항상 가로로 정렬. 데스크톱: 보드 중앙(픽셀).
   function runCoinFlip(onDone) {
-    var board = document.getElementById('board');
-    var r = board ? board.getBoundingClientRect() : { left: 0, top: 140, width: window.innerWidth, height: 300 };
-    var cx = r.left + r.width / 2, cy = r.top + r.height * 0.42, me = (mullFirst === HUMAN);
-    var meCol = '#2456a6', aiCol = '#c23c70';
-    var base = { position: 'fixed', left: cx + 'px', zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' };
-    var cap = el('div', { class: 'mono', style: Object.assign({}, base, { top: (cy - 76) + 'px', fontSize: '12px', color: SKIN.muted }) }, ['선 · 후공 결정']);
-    var coin = el('div', { class: 'grot', style: Object.assign({}, base, { top: cy + 'px', width: '96px', height: '96px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.gold, border: '3px solid ' + SKIN.ink, boxShadow: '0 12px 26px rgba(0,0,0,.4)', fontWeight: 700, fontSize: '26px', color: SKIN.ink }) }, ['?']);
-    fxLayer().appendChild(cap); fxLayer().appendChild(coin);
+    var me = (mullFirst === HUMAN), meCol = '#2456a6', aiCol = '#c23c70';
+    var stage = COMPACT ? app.querySelector('.bevel') : null; // 셸(회전됨)에 붙여 가로 정렬
+    var parent = stage || fxLayer(), cx = 0, cy = 0;
+    if (!stage) {
+      var board = document.getElementById('board');
+      var r = board ? board.getBoundingClientRect() : { left: 0, top: 140, width: window.innerWidth, height: 300 };
+      cx = r.left + r.width / 2; cy = r.top + r.height * 0.42;
+    }
+    function bs(pct, px) { return stage ? { position: 'absolute', left: '50%', top: pct, zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' } : { position: 'fixed', left: cx + 'px', top: px + 'px', zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }; }
+    var cap = el('div', { class: 'mono', style: Object.assign(bs('30%', cy - 76), { fontSize: '12px', color: SKIN.muted }) }, ['선 · 후공 결정']);
+    var coin = el('div', { class: 'grot', style: Object.assign(bs('48%', cy), { width: '86px', height: '86px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.gold, border: '3px solid ' + SKIN.ink, boxShadow: '0 12px 26px rgba(0,0,0,.4)', fontWeight: 700, fontSize: '24px', color: SKIN.ink }) }, ['?']);
+    parent.appendChild(cap); parent.appendChild(coin);
     var flips = 0, TOTAL = 7;
     function half() {
       if (!coin.animate) { land(); return; }
@@ -822,8 +827,8 @@
     }
     function land() {
       Sound.spawn();
-      var banner = el('div', { class: 'grot', style: Object.assign({}, base, { top: (cy + 80) + 'px', fontWeight: 700, fontSize: '20px', color: (me ? meCol : aiCol), whiteSpace: 'nowrap' }) }, [me ? '선공 — 나' : '선공 — 상대(AI)']);
-      fxLayer().appendChild(banner);
+      var banner = el('div', { class: 'grot', style: Object.assign(bs('66%', cy + 80), { fontWeight: 700, fontSize: '20px', color: (me ? meCol : aiCol), whiteSpace: 'nowrap' }) }, [me ? '선공 — 나' : '선공 — 상대(AI)']);
+      parent.appendChild(banner);
       if (coin.animate) coin.animate([{ transform: 'translate(-50%,-50%) scale(1)' }, { transform: 'translate(-50%,-50%) scale(1.22)' }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 300, easing: 'ease-out' });
       setTimeout(function () {
         [coin, cap, banner].forEach(function (n) { if (n.animate) { n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: 'ease-in', fill: 'forwards' }).onfinish = function () { n.remove(); }; } else n.remove(); });
@@ -1028,8 +1033,8 @@
       wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '10px', fontWeight: 700, color: SKIN.enemy, padding: '2px 8px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisSunk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, ['◆ ' + ptr.card.name + ' 시전 — ' + (pi ? '사거리 ' + pi.text + ' · ' : '') + '빨강 대상 선택']));
     }
 
-    // 필드(중앙) — 남는 높이를 채우는 보드
-    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px' } }, [boardEl(true)]));
+    // 필드(중앙) — 남는 높이를 최대한 채우는 보드(패를 작게 해 필드를 키움)
+    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' } }, [boardEl(true)]));
 
     // 손패(아래)
     wrap.appendChild(handBar(meTurn));
@@ -1287,12 +1292,14 @@
   }
   // 손패 풀창(L0). 인스턴스 = 창(타이틀바+뷰포트+효과문+상태바). 포인터 = 다이얼로그(상태바 없이 시전 버튼).
   function handCardEl(id, i, mode) {
+    // 모바일 손패는 작은 미니카드(칩) — 손가락을 대면 큰 미리보기가 떠서 내용 확인.
+    if (COMPACT && (mode === 'play' || mode === 'idle')) return miniHandCard(id, i, mode);
     var card = CARDS[id], isP = card.kind === 'pointer';
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
     var mullSel = mode === 'mull' && mullPick[i];
-    var big = mode === 'mull';
-    var W = big ? (COMPACT ? 150 : 176) : (COMPACT ? 116 : 150), MINH = big ? (COMPACT ? 208 : 250) : (COMPACT ? 122 : 150), VPH = big ? (COMPACT ? 90 : 116) : (COMPACT ? 52 : 92);
+    var big = mode === 'mull', prev = mode === 'preview';
+    var W = prev ? 186 : big ? (COMPACT ? 150 : 176) : 150, MINH = prev ? 246 : big ? (COMPACT ? 208 : 250) : 150, VPH = prev ? 116 : big ? (COMPACT ? 90 : 116) : 92;
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
     var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
@@ -1353,6 +1360,48 @@
       card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '7px', color: SKIN.heat, margin: '2px 2px 0', textAlign: 'right' } }, ['덱당 ' + card.deckLimit]) : null,
       statusStrip(card.atk, card.hp, card.hp, { fs: big ? 12 : 11, icoPx: big ? 11 : 10, meterH: big ? 9 : 8 })
     ]));
+  }
+
+  // 모바일 손패 미니카드 — 이름·글리프·ATK/HP만. 탭=선택, 위로 드래그=시전, 꾹 누르면 큰 미리보기(peek).
+  function miniHandCard(id, i, mode) {
+    var card = CARDS[id], isP = card.kind === 'pointer';
+    var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
+    var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
+    var W = 88, H = 104;
+    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x' }, raisedBev());
+    if (playable && !seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
+    if (seld) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + SKIN.faceLo; st.transform = 'translateY(-4px)'; }
+    if (mode === 'play' && !playable) st.opacity = .5;
+    var props = { style: st };
+    if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
+    else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
+    return el('button', props, [
+      winTitlebar(card, { iconPx: 10, nameFs: 8, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) }),
+      viewportBox(card, 40, { gScale: 0.52, margin: '2px 2px 0' }),
+      isP ? el('div', { class: 'mono', style: { flex: 1, minHeight: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: SKIN.muted } }, ['포인터'])
+          : statusStrip(card.atk, card.hp, card.hp, { atkW: 26, fs: 10, icoPx: 9, meterH: 6, margin: '2px 2px 2px' })
+    ]);
+  }
+  function cardPreviewEl(id) { return handCardEl(id, -1, 'preview'); }
+
+  // ---- 손패 peek: 꾹 누르면 큰 카드 미리보기가 셸 중앙에 떠서 내용 확인(회전 셸과 함께 정렬)
+  var peek = null, peekT = null;
+  function schedulePeek(i) { clearTimeout(peekT); var id = G.players[HUMAN].hand[i]; if (!id) return; peekT = setTimeout(function () { showPeek(id); }, 150); }
+  function showPeek(id) {
+    hidePeek(false);
+    var stage = app.querySelector('.bevel') || fxLayer();
+    var box = el('div', { id: 'handpeek', style: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%) scale(.7)', opacity: '0', zIndex: 130, pointerEvents: 'none', transition: 'transform .12s ease, opacity .12s ease', filter: 'drop-shadow(0 10px 22px rgba(0,0,0,.55))' } }, [cardPreviewEl(id)]);
+    stage.appendChild(box);
+    void box.offsetWidth; // reflow → 트랜지션 발동
+    box.style.transform = 'translate(-50%,-50%) scale(1)'; box.style.opacity = '1';
+    peek = box;
+  }
+  function hidePeek() { clearTimeout(peekT); peekT = null; if (peek) { peek.remove(); peek = null; } }
+  function idlePeek(i) { // 드래그/선택 없이 미리보기만 (idle 손패)
+    schedulePeek(i);
+    function done() { hidePeek(); document.removeEventListener('pointerup', done); document.removeEventListener('pointercancel', done); }
+    document.addEventListener('pointerup', done);
+    document.addEventListener('pointercancel', done);
   }
 
   // ---- controls
@@ -1624,6 +1673,7 @@
     if (e.pointerType === 'mouse') e.preventDefault(); // 마우스: 텍스트 선택/네이티브 드래그 방지. 터치: 스크롤 허용 위해 보류.
     try { var hc = e.currentTarget; pendingPlay = { rect: hc.getBoundingClientRect(), id: G.players[HUMAN].hand[i] }; } catch (er) { pendingPlay = null; }
     drag = { i: i, moved: false, sx: e.clientX, sy: e.clientY, invalid: false, ghost: null, pid: e.pointerId };
+    if (COMPACT) schedulePeek(i); // 꾹 누르면 큰 미리보기
     document.addEventListener('pointermove', onDragMove);
     document.addEventListener('pointerup', onDragUp);
     document.addEventListener('pointercancel', onDragCancel);
@@ -1632,7 +1682,7 @@
     if (!drag || (drag.pid != null && e.pointerId !== drag.pid)) return;
     if (!drag.moved) {
       if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) < 6) return;
-      drag.moved = true; beginDragVisual();
+      drag.moved = true; hidePeek(); beginDragVisual();
     }
     if (e.cancelable) e.preventDefault(); // 드래그 확정 후엔 스크롤/기본동작 억제
     if (drag.ghost) { drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px'; }
@@ -1640,17 +1690,17 @@
   function onDragUp(e) {
     if (drag && drag.pid != null && e.pointerId !== drag.pid) return;
     endDragListeners();
-    var d = drag; drag = null;
+    var d = drag; drag = null; hidePeek();
     if (!d) return;
     if (!d.moved) { clickHand(d.i); return; } // no movement → treat as a click
     if (d.ghost) d.ghost.remove();
     performDrop(d, cellKeyAt(e.clientX, e.clientY));
   }
-  // 터치에서 브라우저가 세로 스크롤로 판단하면 pointercancel 발생 — 이동 전이면 그냥 스크롤로 넘긴다.
+  // 터치에서 브라우저가 가로 스크롤로 판단하면 pointercancel 발생 — 이동 전이면 그냥 스크롤로 넘긴다.
   function onDragCancel(e) {
     if (drag && drag.pid != null && e.pointerId !== drag.pid) return;
     endDragListeners();
-    var d = drag; drag = null;
+    var d = drag; drag = null; hidePeek();
     if (!d) return;
     if (d.ghost) d.ghost.remove();
     if (d.moved) { sel = ptr = null; render(); }
