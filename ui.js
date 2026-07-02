@@ -1330,7 +1330,8 @@
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
       // 모바일: 필드 아래 가로 스크롤 손패. 위(필드)로 끌어 시전 → touch-action:pan-x 로 가로 스크롤과 공존.
-      var row = el('div', { style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '5px', overflowX: 'auto', overflowY: 'hidden', alignItems: 'flex-end', justifyContent: hand.length > 5 ? 'flex-start' : 'center', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
+      // safe center: 카드가 넘칠 땐 왼쪽부터 정렬(양끝이 잘려 스크롤 못하는 문제 방지). 관성 스크롤 on.
+      var row = el('div', { style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'safe center', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
@@ -1780,10 +1781,13 @@
   function onDragMove(e) {
     if (!drag || (drag.pid != null && e.pointerId !== drag.pid)) return;
     if (!drag.moved) {
-      if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) < 6) return;
+      var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (Math.abs(dx) + Math.abs(dy) < 10) return; // 임계값(작은 흔들림 무시)
+      // 모바일: '위로'(필드 방향) 우세일 때만 플레이 드래그 시작. 가로/아래 → 손패 좌우 스크롤에 양보하고 취소.
+      if (COMPACT && !(dy < 0 && Math.abs(dy) > Math.abs(dx))) { endDragListeners(); drag = null; hidePeek(); return; }
       drag.moved = true; hidePeek(); beginDragVisual();
     }
-    if (e.cancelable) e.preventDefault(); // 드래그 확정 후엔 스크롤/기본동작 억제
+    if (e.cancelable) e.preventDefault(); // 드래그 확정 후에만 기본동작(스크롤) 억제
     if (drag.ghost) { drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px'; }
   }
   function onDragUp(e) {
@@ -1815,7 +1819,7 @@
       else sel = { type: 'hand', i: drag.i };
     }
     // 실제 카드가 손가락 위로 떠오르며(팝) 따라다님. invalid 이면 붉게 흐림.
-    var g = el('div', { style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,-108%) scale(.72) rotate(-3deg)', filter: 'drop-shadow(0 14px 22px rgba(0,0,0,.55))', opacity: drag.invalid ? .5 : 1, transition: 'transform .1s ease' } }, [dragGhostEl(id)]);
+    var g = el('div', { id: 'draghost', style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,-108%) scale(.72) rotate(-3deg)', filter: 'drop-shadow(0 14px 22px rgba(0,0,0,.55))', opacity: drag.invalid ? .5 : 1, transition: 'transform .1s ease' } }, [dragGhostEl(id)]);
     g.style.left = drag.sx + 'px'; g.style.top = drag.sy + 'px';
     fxLayer().appendChild(g); drag.ghost = g;
     // 다음 프레임에 확대(집어드는 팝 애니메이션)
