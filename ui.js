@@ -61,8 +61,13 @@
   var app = document.getElementById('app');
   // ---- 반응형: COMPACT(모바일/좁은 화면) 모드. 화면폭 ≤900px 에서 필드|손패 2단 가로 레이아웃으로 전환.
   var COMPACT = false, _rzT = null;
-  function computeCompact() { try { COMPACT = window.matchMedia('(max-width: 900px)').matches; } catch (e) { COMPACT = (window.innerWidth || 1200) <= 900; } }
   function isTouchDevice() { try { return window.matchMedia('(pointer: coarse)').matches; } catch (e) { return 'ontouchstart' in window; } }
+  // 컴팩트(모바일) = 좁은 폭 이거나, 터치기기의 낮은 높이(가로로 든 폰) — 큰 폰 가로에서도 데스크톱 레이아웃으로 안 빠지게.
+  function computeCompact() {
+    try { COMPACT = window.matchMedia('(max-width: 900px)').matches || (isTouchDevice() && window.matchMedia('(max-height: 600px)').matches); }
+    catch (e) { COMPACT = (window.innerWidth || 1200) <= 900; }
+  }
+  function isPortrait() { return (window.innerHeight || 0) > (window.innerWidth || 0); }
   computeCompact();
   window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); render(); }, 150); });
   window.addEventListener('orientationchange', function () { computeCompact(); setTimeout(function () { render(); }, 80); });
@@ -998,17 +1003,42 @@
 
   // ── 모바일 대국 화면 ── 필드(중앙) + 손패(아래) + 미니 상단바(턴/액션/카운트/[턴 종료]).
   //   자잘한 요소(디스펜서·사이드패널·용어·기록)는 제거. 세로로 들면 90° 회전해 항상 가로로 표시(회전 안내 없음).
-  // 모바일 셸 크기/회전 — 세로(터치)면 90° 회전해 가로 캔버스로. 대국·멀리건 공용.
+  // 모바일 셸 — 화면을 꽉 채움(회전 없음). 세로일 땐 renderMatch/Mulligan 이 가로 유도 오버레이를 덮는다.
   function sizeCompactWrap(wrap) {
     var W = window.innerWidth || 800, H = window.innerHeight || 400;
-    var portrait = H > W, rotate = portrait && isTouchDevice();
     wrap.style.position = 'fixed'; wrap.style.overflow = 'hidden'; wrap.style.margin = '0'; wrap.style.boxShadow = 'none';
-    if (rotate) {
-      wrap.style.top = '0'; wrap.style.left = W + 'px'; wrap.style.width = H + 'px'; wrap.style.height = W + 'px';
-      wrap.style.transformOrigin = 'top left'; wrap.style.transform = 'rotate(90deg)';
-    } else {
-      wrap.style.top = '0'; wrap.style.left = '0'; wrap.style.width = W + 'px'; wrap.style.height = H + 'px'; wrap.style.transform = 'none';
-    }
+    wrap.style.top = '0'; wrap.style.left = '0'; wrap.style.width = W + 'px'; wrap.style.height = H + 'px'; wrap.style.transform = 'none';
+  }
+  // 가로 유도 오버레이 — 대국/멀리건에서 세로일 때 게임 위에 덮어 "가로로 돌려주세요" 안내.
+  function landscapeGuide() {
+    return el('div', { id: 'lsguide', style: { position: 'fixed', inset: '0', zIndex: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: SKIN.chassis, color: SKIN.txt, textAlign: 'center', padding: '24px' } }, [
+      el('div', { style: { fontSize: '58px', lineHeight: 1, animation: 'rotateGuide 2.2s ease-in-out infinite' } }, ['📱']),
+      el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '19px', letterSpacing: '.03em' } }, ['가로로 돌려주세요']),
+      el('div', { style: { fontSize: '13px', opacity: .72, maxWidth: '290px', lineHeight: 1.55 } }, ['RUNTIME 은 가로 모드로 플레이합니다.', el('br'), '기기를 가로로 눕히면 게임이 이어집니다.'])
+    ]);
+  }
+  // 좌측 마진 스탯 위젯 — 본체 HP · 덱 · 묘지(버려진 카드). 상대=위, 나=아래.
+  function sideStat(owner, pos) {
+    var me = owner === HUMAN, pl = G.players[owner], b = G.body(owner);
+    var hp = b ? G.curHp(b) : 0, mx = b ? G.effMaxHp(b) : 1, accent = ownerColor(owner), low = mx && hp / mx <= 0.34;
+    return el('div', { style: Object.assign({ position: 'absolute', left: '5px', zIndex: 24, width: '84px', display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px 6px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', 2px 2px 0 rgba(0,0,0,.28)' }, pos) }, [
+      el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden' } }, [
+        el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: accent, flex: 'none' } }, [me ? '나' : '상대']),
+        el('span', { class: 'mono', style: { fontSize: '8px', color: SKIN.muted, overflow: 'hidden', textOverflow: 'ellipsis' } }, [me ? (DECKS[myDeck] ? myDeck : '') : (G.oppKey || 'AI')])
+      ]),
+      el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '3px' } }, [
+        el('span', { style: { fontSize: '11px', color: low ? SKIN.heat : accent } }, ['♥']),
+        el('b', { class: 'mono', style: { fontSize: '17px', fontWeight: 700, color: low ? SKIN.heat : accent, lineHeight: 1 } }, [String(hp)]),
+        el('span', { class: 'mono', style: { fontSize: '8px', color: SKIN.muted } }, ['/' + mx])
+      ]),
+      el('div', { style: { height: '5px', background: SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, position: 'relative', overflow: 'hidden' } }, [
+        el('div', { style: { position: 'absolute', inset: '0', width: Math.max(0, Math.min(100, mx ? hp / mx * 100 : 0)) + '%', background: low ? SKIN.heat : accent } })
+      ]),
+      el('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '4px' } }, [
+        el('span', { class: 'mono', title: '남은 덱', style: { fontSize: '9px', color: SKIN.muted } }, ['🗇 ' + pl.deck.length]),
+        el('span', { class: 'mono', title: '묘지(버려진 카드)', style: { fontSize: '9px', color: SKIN.muted } }, ['🪦 ' + pl.graveyard.length])
+      ])
+    ]);
   }
   function renderMatchCompact(wrap, meTurn) {
     sizeCompactWrap(wrap);
@@ -1026,18 +1056,22 @@
     top.appendChild(el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.own, flex: 'none' } }, ['🗇' + G.players[HUMAN].deck.length + ' ✋' + G.players[HUMAN].hand.length]));
     wrap.appendChild(top);
 
-    // 필드(중앙) — 남는 높이를 최대한 채우는 보드
-    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1px' } }, [boardEl(true)]));
+    // 필드(중앙) — 남는 높이를 최대한 채우는 보드. 좌(스탯 레일)·우(턴 종료) 마진을 패딩으로 확보.
+    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 60px 2px 96px' } }, [boardEl(true)]));
 
     // 손패(아래)
     wrap.appendChild(handBar(meTurn));
 
-    // 우측 마진 플로팅 컨트롤 — 턴 종료(하스스톤/마듀식). 빈 측면 공간 활용 → 필드 높이 보존.
-    var ec = meTurn ? SKIN.own : SKIN.muted;
-    var endBtn = el('button', { class: 'btn', style: { position: 'absolute', right: '8px', top: '40%', transform: 'translateY(-50%)', zIndex: 25, fontSize: '13px', padding: '12px 12px', lineHeight: 1.15, textAlign: 'center', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted, boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.3)' }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, meTurn ? ['턴', el('br'), '종료'] : ['상대', el('br'), '턴']);
-    wrap.appendChild(endBtn);
-    if (sel || ptr) wrap.appendChild(el('button', { class: 'btn ghost', style: { position: 'absolute', right: '8px', top: '40%', marginTop: '-64px', zIndex: 25, fontSize: '11px', padding: '8px 10px' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '취소' : '해제']));
+    // 좌측 마진 스탯 레일 — 상대(위)/나(아래) 본체 HP·덱·묘지
+    wrap.appendChild(sideStat(AI, { top: '30px' }));
+    wrap.appendChild(sideStat(HUMAN, { bottom: '96px' }));
 
+    // 우측 마진 플로팅 — 턴 종료(하스스톤/마듀식). 빈 측면 공간 활용 → 필드 높이 보존.
+    var endBtn = el('button', { class: 'btn', style: { position: 'absolute', right: '8px', top: '42%', transform: 'translateY(-50%)', zIndex: 25, fontSize: '13px', padding: '12px 12px', lineHeight: 1.15, textAlign: 'center', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted, boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.3)' }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, meTurn ? ['턴', el('br'), '종료'] : ['상대', el('br'), '턴']);
+    wrap.appendChild(endBtn);
+    if (sel || ptr) wrap.appendChild(el('button', { class: 'btn ghost', style: { position: 'absolute', right: '8px', top: '42%', marginTop: '-66px', zIndex: 25, fontSize: '11px', padding: '8px 10px' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '취소' : '해제']));
+
+    if (isPortrait() && isTouchDevice()) wrap.appendChild(landscapeGuide()); // 세로(터치) → 가로 유도 안내로 덮음
     app.appendChild(wrap);
   }
 
@@ -1062,6 +1096,7 @@
     var row = el('div', { id: 'mullrow', style: { flex: '1 1 auto', minHeight: '0', display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', overflowY: 'hidden', alignItems: 'center', justifyContent: G.players[HUMAN].hand.length > 4 ? 'flex-start' : 'center', padding: '6px 8px' } });
     G.players[HUMAN].hand.forEach(function (id, i) { row.appendChild(handCardEl(id, i, 'mull')); });
     wrap.appendChild(row);
+    if (isPortrait() && isTouchDevice()) wrap.appendChild(landscapeGuide()); // 세로(터치) → 가로 유도
     app.appendChild(wrap);
   }
 
