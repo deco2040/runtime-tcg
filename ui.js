@@ -1042,9 +1042,11 @@
   }
   function renderMatchCompact(wrap, meTurn) {
     sizeCompactWrap(wrap);
+    // 안전영역(펀치홀·노치·홈 인디케이터) — 테두리 텍스트/버튼이 가려지지 않게 env() 로 안쪽으로 밀어줌.
+    var SAL = 'env(safe-area-inset-left,0px)', SAR = 'env(safe-area-inset-right,0px)', SAT = 'env(safe-area-inset-top,0px)', SAB = 'env(safe-area-inset-bottom,0px)';
 
     // 얇은 상단 HUD — 상대덱 · 턴상태 · 액션 · (연승) | 내덱/손. (턴 종료는 우측 플로팅으로 분리)
-    var top = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '2px 8px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none', fontSize: '10px' } });
+    var top = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', padding: 'calc(2px + ' + SAT + ') calc(8px + ' + SAR + ') 2px calc(8px + ' + SAL + ')', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none', fontSize: '10px' } });
     top.appendChild(el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.enemy, flex: 'none' } }, ['AI 🗇' + G.players[AI].deck.length + ' ✋' + G.players[AI].hand.length]));
     top.appendChild(el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: meTurn ? SKIN.own : SKIN.muted, flex: 'none' } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대…')]));
     var pips = el('div', { style: { display: 'flex', gap: '3px', alignItems: 'center', flex: 'none' } });
@@ -1056,20 +1058,20 @@
     top.appendChild(el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.own, flex: 'none' } }, ['🗇' + G.players[HUMAN].deck.length + ' ✋' + G.players[HUMAN].hand.length]));
     wrap.appendChild(top);
 
-    // 필드(중앙) — 남는 높이를 최대한 채우는 보드. 좌(스탯 레일)·우(턴 종료) 마진을 패딩으로 확보.
-    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 60px 2px 96px' } }, [boardEl(true)]));
+    // 필드(중앙) — 남는 높이를 최대한 채우는 보드. 좌(스탯 레일)·우(턴 종료) 마진 + 안전영역을 패딩으로 확보.
+    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px calc(60px + ' + SAR + ') 2px calc(96px + ' + SAL + ')' } }, [boardEl(true)]));
 
     // 손패(아래)
     wrap.appendChild(handBar(meTurn));
 
-    // 좌측 마진 스탯 레일 — 상대(위)/나(아래) 본체 HP·덱·묘지
-    wrap.appendChild(sideStat(AI, { top: '30px' }));
-    wrap.appendChild(sideStat(HUMAN, { bottom: '96px' }));
+    // 좌측 마진 스탯 레일 — 상대(위)/나(아래) 본체 HP·덱·묘지 (안전영역 안쪽)
+    wrap.appendChild(sideStat(AI, { top: 'calc(30px + ' + SAT + ')', left: 'calc(5px + ' + SAL + ')' }));
+    wrap.appendChild(sideStat(HUMAN, { bottom: 'calc(96px + ' + SAB + ')', left: 'calc(5px + ' + SAL + ')' }));
 
     // 우측 마진 플로팅 — 턴 종료(하스스톤/마듀식). 빈 측면 공간 활용 → 필드 높이 보존.
-    var endBtn = el('button', { class: 'btn', style: { position: 'absolute', right: '8px', top: '42%', transform: 'translateY(-50%)', zIndex: 25, fontSize: '13px', padding: '12px 12px', lineHeight: 1.15, textAlign: 'center', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted, boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.3)' }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, meTurn ? ['턴', el('br'), '종료'] : ['상대', el('br'), '턴']);
+    var endBtn = el('button', { class: 'btn', style: { position: 'absolute', right: 'calc(8px + ' + SAR + ')', top: '42%', transform: 'translateY(-50%)', zIndex: 25, fontSize: '13px', padding: '12px 12px', lineHeight: 1.15, textAlign: 'center', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted, boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.3), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.3)' }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, meTurn ? ['턴', el('br'), '종료'] : ['상대', el('br'), '턴']);
     wrap.appendChild(endBtn);
-    if (sel || ptr) wrap.appendChild(el('button', { class: 'btn ghost', style: { position: 'absolute', right: '8px', top: '42%', marginTop: '-66px', zIndex: 25, fontSize: '11px', padding: '8px 10px' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '취소' : '해제']));
+    if (sel || ptr) wrap.appendChild(el('button', { class: 'btn ghost', style: { position: 'absolute', right: 'calc(8px + ' + SAR + ')', top: '42%', marginTop: '-66px', zIndex: 25, fontSize: '11px', padding: '8px 10px' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '취소' : '해제']));
 
     if (isPortrait() && isTouchDevice()) wrap.appendChild(landscapeGuide()); // 세로(터치) → 가로 유도 안내로 덮음
     app.appendChild(wrap);
@@ -1244,11 +1246,18 @@
     if (marker && (!u || hi === 'target' || hi === 'attack')) kids.push(el('span', { class: 'mono', style: { position: 'absolute', top: u ? '1px' : '50%', left: u ? 'auto' : '50%', right: u ? '2px' : 'auto', transform: u ? 'none' : 'translate(-50%,-50%)', color: mc, fontWeight: 700, fontSize: u ? '14px' : '20px', pointerEvents: 'none', zIndex: 5, textShadow: '0 1px 2px rgba(0,0,0,.45)' } }, [marker]));
     if (u && u.type === 'body') kids.push(bodyTile(u));
     else if (u) kids.push(objTile(u, key));
-    return el('button', { 'data-key': key, style: st, onclick: function () { clickCell(key); }, onmouseenter: function (e) {
-      if (u) showCardTip(e.currentTarget.getBoundingClientRect(), u.cardId, u); else hideCardTip();
-      var nc = (u && u.type === 'object') ? key : null;
-      if (nc !== hoverCell) { hoverCell = nc; render(); }
-    }, onmouseleave: hideCardTip }, kids);
+    var props = { 'data-key': key, style: st, onclick: function () { clickCell(key); } };
+    // 호버(범위 미리보기)는 데스크톱 전용. 터치에선 onmouseenter 가 합성돼 render() 로 셀을 재생성 →
+    // 뒤이은 click 이 사라져 유닛 선택/이동/For 발동이 먹통이 됨. 그래서 터치기기에선 호버 핸들러를 달지 않는다.
+    if (!isTouchDevice()) {
+      props.onmouseenter = function (e) {
+        if (u) showCardTip(e.currentTarget.getBoundingClientRect(), u.cardId, u); else hideCardTip();
+        var nc = (u && u.type === 'object') ? key : null;
+        if (nc !== hoverCell) { hoverCell = nc; render(); }
+      };
+      props.onmouseleave = hideCardTip;
+    }
+    return el('button', props, kids);
   }
   function bodyTile(u) {
     var me = u.owner === HUMAN, hp = G.curHp(u), mx = G.effMaxHp(u), own = ownerColor(u.owner);
@@ -1311,7 +1320,7 @@
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
       // 모바일: 필드 아래 가로 스크롤 손패. 위(필드)로 끌어 시전 → touch-action:pan-x 로 가로 스크롤과 공존.
-      var row = el('div', { style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '5px', overflowX: 'auto', overflowY: 'hidden', alignItems: 'flex-end', justifyContent: hand.length > 5 ? 'flex-start' : 'center', padding: '3px 56px 3px 6px', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
+      var row = el('div', { style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '5px', overflowX: 'auto', overflowY: 'hidden', alignItems: 'flex-end', justifyContent: hand.length > 5 ? 'flex-start' : 'center', padding: '3px calc(56px + env(safe-area-inset-right,0px)) calc(3px + env(safe-area-inset-bottom,0px)) calc(6px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
