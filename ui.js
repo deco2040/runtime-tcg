@@ -992,7 +992,13 @@
 
     var pop = fieldPopover(); if (pop) app.appendChild(pop);
     if (actionToast) app.appendChild(el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '80px', transform: 'translateX(-50%)', zIndex: 55, fontWeight: 700, fontSize: '13px', padding: '7px 16px', background: actionToast.actor === HUMAN ? SKIN.own : SKIN.enemy, color: '#fff', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.3)', animation: 'popIn .25s ease', pointerEvents: 'none' } }, [(actionToast.actor === HUMAN ? '나 · ' : '상대 · ') + actionToast.text]));
-    if (toast) app.appendChild(el('div', { class: 'grot', style: { position: 'fixed', left: '50%', bottom: '28px', transform: 'translateX(-50%)', zIndex: 50, fontWeight: 700, fontSize: '12px', padding: '9px 18px', background: SKIN.txt, color: SKIN.chassis, border: '1px solid ' + SKIN.ink, boxShadow: '3px 3px 0 rgba(0,0,0,.3)' } }, [toast]));
+    if (toast) {
+      // 모바일: 손패와 겹치지 않게 화면 중앙에 띄움. 데스크톱: 기존 하단.
+      var tStyle = COMPACT
+        ? { position: 'fixed', left: '50%', top: '42%', transform: 'translate(-50%,-50%)', zIndex: 50, fontWeight: 700, fontSize: '13px', padding: '10px 20px', maxWidth: '86%', textAlign: 'center', background: SKIN.txt, color: SKIN.chassis, border: '1px solid ' + SKIN.ink, boxShadow: '3px 3px 0 rgba(0,0,0,.3)', pointerEvents: 'none' }
+        : { position: 'fixed', left: '50%', bottom: '28px', transform: 'translateX(-50%)', zIndex: 50, fontWeight: 700, fontSize: '12px', padding: '9px 18px', background: SKIN.txt, color: SKIN.chassis, border: '1px solid ' + SKIN.ink, boxShadow: '3px 3px 0 rgba(0,0,0,.3)' };
+      app.appendChild(el('div', { class: 'grot', style: tStyle }, [toast]));
+    }
     if (tutorial && tutorial.finished) app.appendChild(tutDoneOverlay());
     else if (G.winner !== undefined) {
       if (reviewMode) app.appendChild(reviewBar());   // 오버레이 대신 결과 다시보기 버튼만
@@ -1059,13 +1065,17 @@
       el('span', { style: { flex: 1, minWidth: '4px' } }),
       el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: meTurn ? SKIN.own : SKIN.muted, flex: 'none' } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대…')]),
       pips,
-      (sel || ptr) ? el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 9px', flex: 'none' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '취소' : '해제']) : null,
       el('button', { class: 'btn', style: { fontSize: '13px', padding: '8px 15px', flex: 'none', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료'])
     ];
     wrap.appendChild(statBarH(HUMAN, { extra: extra, style: { borderTop: '1px solid ' + SKIN.ink, paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
 
     // ── 손패(맨 아래) ──
     wrap.appendChild(handBar(meTurn));
+
+    // ── 눈에 띄는 취소 버튼 — 능력/유닛 선택 중일 때 상단 중앙에 크게(드래그 중엔 숨김) ──
+    if ((sel || ptr) && !(drag && drag.moved)) {
+      wrap.appendChild(el('button', { style: { position: 'absolute', top: 'calc(50px + ' + SAT + ')', left: '50%', transform: 'translateX(-50%)', zIndex: 60, fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: '14px', padding: '9px 20px', color: '#fff', background: SKIN.enemy, border: '1px solid ' + SKIN.ink, boxShadow: '0 3px 0 rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.4)', letterSpacing: '.03em' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '✕ 시전 취소' : '✕ 선택 해제']));
+    }
 
     if (!isPortrait() && isTouchDevice()) wrap.appendChild(portraitGuide()); // 가로(터치) → 세로 유도
     app.appendChild(wrap);
@@ -1405,19 +1415,21 @@
     var card = CARDS[id], isP = card.kind === 'pointer';
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
-    var W = 64, H = 78;
-    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x' }, raisedBev());
+    var W = 88, H = 112;
+    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x', transition: 'transform .08s ease' }, raisedBev());
     if (playable && !seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
-    if (seld) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + SKIN.faceLo; st.transform = 'translateY(-5px)'; }
+    if (seld) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + SKIN.faceLo; st.transform = 'translateY(-6px)'; }
     if (mode === 'play' && !playable) st.opacity = .5;
+    // 드래그 중인 카드는 손패에서 자리를 비운 것처럼 흐리게(하스스톤식 '집어든' 느낌)
+    if (mode === 'play' && drag && drag.moved && drag.i === i) { st.opacity = .28; st.transform = 'translateY(2px)'; st.boxShadow = 'inset 0 0 0 2px ' + hexa(SKIN.ink, .3); }
     var props = { style: st };
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
     return el('button', props, [
-      winTitlebar(card, { iconPx: 9, nameFs: 8, right: isP ? el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 2px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) }),
-      viewportBox(card, 34, { gScale: 0.6, margin: '1px 1px 0' }),
-      isP ? el('div', { class: 'mono', style: { flex: 1, minHeight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: SKIN.muted } }, ['포인터'])
-          : statusStrip(card.atk, card.hp, card.hp, { atkW: 22, fs: 10, icoPx: 8, meterH: 5, margin: '1px 1px 1px' })
+      winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '2px 4px', right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) }),
+      viewportBox(card, 40, { gScale: 0.6, margin: '2px 2px 0' }),
+      isP ? el('div', { class: 'mono', style: { flex: 1, minHeight: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, color: SKIN.muted } }, ['◆ 포인터'])
+          : statusStrip(card.atk, card.hp, card.hp, { atkW: 30, fs: 13, icoPx: 11, meterH: 7, margin: '2px 2px 2px' })
     ]);
   }
   // 가로형 카드 상세 패널(모바일 peek 전용) — 왼쪽=카드(아트·ATK/HP), 오른쪽=이름·효과·사거리.
@@ -1442,9 +1454,25 @@
     return el('div', { style: Object.assign({ display: 'flex', gap: '3px', width: '360px', background: SKIN.chassis, padding: '3px' }, raisedBev()) }, [left, right]);
   }
 
+  // 드래그 고스트 = 실제 카드(중간 크기)를 손가락 따라 이동(하스스톤/마듀식 반응형). 비상호작용.
+  function dragGhostEl(id) {
+    var card = CARDS[id], isP = card.kind === 'pointer';
+    var st = Object.assign({ width: '124px', minHeight: '160px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', overflow: 'hidden' }, raisedBev());
+    var head = winTitlebar(card, { iconPx: 12, nameFs: 10, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) });
+    if (isP) return el('div', { style: st }, [
+      head, viewportBox(card, 64, { gScale: 0.5 }),
+      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.4, overflow: 'hidden' }, sunkenBev()) }, richText(card.text))
+    ]);
+    return el('div', { style: st }, [
+      head, viewportBox(card, 60, { gScale: 0.5 }),
+      effectPanel(card, { fs: 8, flex: true, min: 22 }),
+      statusStrip(card.atk, card.hp, card.hp, { fs: 13, icoPx: 11, meterH: 7 })
+    ]);
+  }
+
   // ---- 손패 peek: 꾹 누르면 큰 카드 미리보기가 셸 중앙에 떠서 내용 확인(회전 셸과 함께 정렬)
   var peek = null, peekT = null;
-  function schedulePeek(i) { clearTimeout(peekT); var id = G.players[HUMAN].hand[i]; if (!id) return; peekT = setTimeout(function () { showPeek(id); }, 150); }
+  function schedulePeek(i) { clearTimeout(peekT); var id = G.players[HUMAN].hand[i]; if (!id) return; peekT = setTimeout(function () { showPeek(id); }, 430); } // 길게 눌러야 상세가 뜨도록(빠른 드래그와 구분)
   function showPeek(id) {
     hidePeek(false);
     var stage = app.querySelector('.bevel') || fxLayer();
@@ -1773,9 +1801,13 @@
       if (!G.canDeclare(HUMAN, id)) { drag.invalid = true; flash(card.require ? 'require 미충족' : '선언 불가'); }
       else sel = { type: 'hand', i: drag.i };
     }
-    var g = el('div', { class: 'mono', style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transform: 'translate(-50%,-130%)', background: card.kind === 'pointer' ? '#1d1d24' : (CLS[card.cls] || '#1d1d24'), color: '#fff', padding: '4px 9px', fontSize: '11px', fontWeight: 700, boxShadow: '2px 2px 0 rgba(0,0,0,.4)', opacity: .94, whiteSpace: 'nowrap' } }, [(card.kind === 'pointer' ? '◆ ' : (GLY[card.cls] + ' ')) + card.name]);
+    // 실제 카드가 손가락 위로 떠오르며(팝) 따라다님. invalid 이면 붉게 흐림.
+    var g = el('div', { style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,-108%) scale(.72) rotate(-3deg)', filter: 'drop-shadow(0 14px 22px rgba(0,0,0,.55))', opacity: drag.invalid ? .5 : 1, transition: 'transform .1s ease' } }, [dragGhostEl(id)]);
     g.style.left = drag.sx + 'px'; g.style.top = drag.sy + 'px';
     fxLayer().appendChild(g); drag.ghost = g;
+    // 다음 프레임에 확대(집어드는 팝 애니메이션)
+    void g.offsetWidth;
+    g.style.transform = 'translate(-50%,-108%) scale(1.04) rotate(-3deg)';
     render();
   }
   function cellKeyAt(x, y) { try { var e = document.elementFromPoint(x, y); var c = e && e.closest ? e.closest('[data-key]') : null; return c ? c.getAttribute('data-key') : null; } catch (err) { return null; } }
