@@ -956,6 +956,9 @@
 
   // =================================================================== MATCH
   function render() {
+    // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
+    // 스크롤이 왼쪽으로 튀지 않게 — 저장값에 의존하지 않고 매번 DOM 에서 직접 읽어 정확).
+    var _hr = document.getElementById('handrow'); if (_hr) handScroll = _hr.scrollLeft;
     if (!G) { renderTitle(); return; }
     if (mullPhase) { renderMulligan(); return; } // 멀리건 단계에선 필드+멀리건 UI 유지
     if (app.querySelector('#board') || G) renderMatch();
@@ -1087,8 +1090,10 @@
 
     if (!isPortrait() && isTouchDevice()) wrap.appendChild(portraitGuide()); // 가로(터치) → 세로 유도
     app.appendChild(wrap);
-    // 재렌더 시 손패 가로 스크롤 위치 유지 — 오른쪽으로 스크롤해 둔 상태가 왼쪽 끝으로 튀지 않게(버벅임 방지)
-    var hr = document.getElementById('handrow'); if (hr && handScroll) hr.scrollLeft = handScroll;
+    // 재렌더 시 손패 가로 스크롤 위치 복원 — render() 진입 때 포착한 실제 위치를 그대로 다시 적용(왼쪽 튐 방지).
+    // 동기 적용(플리커 없음) + iOS 관성 스크롤 레이어 대비 다음 프레임에 한 번 더 보정.
+    var hr = document.getElementById('handrow');
+    if (hr) { hr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
   }
 
   // ── 모바일 멀리건 ── 실제 게임 화면(상대바·필드·나바)을 블러 배경으로 깔고, 그 위에 멀리건 오버레이.
