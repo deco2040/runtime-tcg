@@ -1033,11 +1033,11 @@
       el('div', { style: { fontSize: '13px', opacity: .72, maxWidth: '290px', lineHeight: 1.55 } }, ['RUNTIME 은 세로 모드로 플레이합니다.', el('br'), '기기를 세로로 세우면 게임이 이어집니다.'])
     ]);
   }
-  // 덱/묘지/손패 카운트 칩 — 아이콘+숫자를 살짝 띄우고 은은한 배경으로 묶어 또렷하게(상단/하단 바 공용).
-  function pileStat(icon, n, title) {
-    return el('span', { class: 'mono', title: title, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.txt, background: SKIN.chassisSunk, padding: '1px 5px', borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.line } }, [
-      el('span', { style: { fontSize: '12px', lineHeight: 1 } }, [icon]),
-      el('span', { style: { minWidth: '9px', textAlign: 'right', color: SKIN.muted } }, [String(n)])
+  // 덱/묘지/손패 카운트 칩 — 한글 라벨+숫자를 은은한 배경으로 묶어 또렷하게. 이모지 미사용(어느 폰에서도 동일 렌더).
+  function pileStat(label, n, title) {
+    return el('span', { class: 'mono', title: title, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, background: SKIN.chassisSunk, padding: '1px 6px', borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.line } }, [
+      el('span', { style: { fontSize: '10px', color: SKIN.muted, fontWeight: 700 } }, [label]),
+      el('span', { style: { minWidth: '9px', textAlign: 'right', color: SKIN.txt } }, [String(n)])
     ]);
   }
   // 가로 스탯 바 — 본체 HP+게이지 · 🗃️덱 · 🪦묘지 · 🖐️손패. 상단(상대)/하단(나) 공용.
@@ -1053,9 +1053,9 @@
       el('div', { style: { flex: 1, minWidth: '24px', height: '7px', background: SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, position: 'relative', overflow: 'hidden' } }, [
         el('div', { style: { position: 'absolute', inset: '0', width: Math.max(0, Math.min(100, mx ? hp / mx * 100 : 0)) + '%', background: low ? SKIN.heat : accent } })
       ]),
-      pileStat('🗃️', pl.deck.length, '남은 덱'),
-      pileStat('🪦', pl.graveyard.length, '묘지'),
-      pileStat('🖐️', pl.hand.length, '손패')
+      pileStat('덱', pl.deck.length, '남은 덱'),
+      pileStat('묘', pl.graveyard.length, '묘지'),
+      pileStat('패', pl.hand.length, '손패')
     ];
     if (opts.extra) opts.extra.forEach(function (n) { if (n) kids.push(n); });
     return el('div', { style: Object.assign({ display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 10px', background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none', flexWrap: 'wrap' }, opts.style || {}) }, kids);
