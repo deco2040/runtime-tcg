@@ -79,6 +79,10 @@
   .gcard .thumb{position:relative;display:block;width:100%;height:var(--gh,154px);background:var(--sunk);overflow:hidden;border-bottom:1px solid var(--line)}
   .gcard .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .gcard .thumb .gly{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(38px,3.4vw,60px);line-height:1}
+  .gcard .thumb.broken{background:repeating-linear-gradient(45deg,var(--sunk),var(--sunk) 5px,rgba(216,71,43,.14) 5px,rgba(216,71,43,.14) 10px)}
+  .gcard .thumb.broken::after{content:'⚠ 파일 없음';position:absolute;left:0;right:0;bottom:0;font-family:'Space Mono',monospace;font-size:9px;font-weight:700;color:#fff;background:var(--warn);padding:2px;text-align:center}
+  .framebox.broken{outline:2px solid var(--warn);outline-offset:-2px}
+  .crop .box.broken{outline:1px solid var(--warn);outline-offset:-1px}
   .gcard .nm{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;padding:5px 6px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .gcard .csub{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:0 6px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .gcard .clsbar{height:4px}
@@ -160,7 +164,8 @@
 <script src="cards.js?v=24"></script>
 <script src="decks.js?v=24"></script>
 <script src="engine.js?v=24"></script>
-<script src="art-map.js?v=24"></script>
+<!-- art-map.js: 저장 후 새로고침 시 항상 최신 매니페스트를 읽도록 캐시 무력화(고정 ?v= 는 브라우저 캐시로 옛 파일이 뜰 수 있음) -->
+<script>document.write('<scr'+'ipt src="art-map.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
 <script>window.RT_NO_BOOT = true;</script>
 <script src="ui.js?v=24"></script>
 <script>
@@ -304,7 +309,7 @@
       // 폴더 미연결 → 내려받기 폴백
       if (p) { downloadBlob(p.file, s + '.' + p.ext); setEntry(sel, { src:'art/' + s + '.' + p.ext, pos: e?e.pos:'50% 50%', fit: e?e.fit:'cover' }); delete pending[sel]; }
       downloadBlob(new Blob([manifestText()], { type:'text/javascript' }), 'art-map.js');
-      msg('내려받기: 이미지→art/, art-map.js→루트에 넣으세요');
+      msg('⚠ 폴더 미연결 — 다운로드됨. 이미지(' + s + '.' + (p ? p.ext : '*') + ')를 deploy/art/ 로, art-map.js를 deploy/ 루트로 직접 옮겨야 화면에 뜹니다', true);
     }
     renderGrid(); renderDetail(); updateProg();
   }
@@ -327,7 +332,8 @@
     pending[id] = { file: file, ext: ext };
     ART[id] = { src: url, pos: prev ? prev.pos : '50% 50%', fit: prev ? prev.fit : 'cover' };
     renderGrid(); renderDetail(); updateProg();
-    msg('불러옴 — 초점/맞춤 조절 후 저장하세요');
+    msg(dirHandle ? '불러옴 — 초점/맞춤 조절 후 저장하세요'
+                  : '불러옴 — 저장 전에 상단 📁 폴더 연결을 먼저 하면 art/ 에 바로 저장됩니다', !dirHandle);
   }
   function removeArt(id) {
     delete ART[id]; delete pending[id];
@@ -364,7 +370,7 @@
       box.className = 'gcard' + (id === sel ? ' sel' : '');
       box.onclick = function () { select(id); };
       var thumb = '<div class="thumb">' +
-        (e ? '<img src="' + escAttr(e.src) + '" style="object-fit:' + e.fit + ';object-position:' + escAttr(e.pos) + '" onerror="this.remove()">' : '') +
+        (e ? '<img src="' + escAttr(e.src) + '" style="object-fit:' + e.fit + ';object-position:' + escAttr(e.pos) + '" onerror="this.style.display=&quot;none&quot;;this.parentNode.classList.add(&quot;broken&quot;)">' : '') +
         '<span class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</span></div>';
       box.innerHTML =
         '<div class="clsbar" style="background:' + col + '"></div>' +
@@ -417,6 +423,7 @@
       focus.style.left = pm[1] + '%'; focus.style.top = pm[2] + '%';
       focus.style.display = e.fit === 'cover' ? 'block' : 'none';
       var hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = '클릭 → 초점 이동';
+      fimg.onerror = function () { fimg.style.display = 'none'; fb.classList.add('broken'); hint.textContent = '⚠ 파일 없음: ' + e.src; hint.style.background = 'var(--warn)'; };
       fb.appendChild(fimg); fb.appendChild(focus); fb.appendChild(hint);
       fb.onclick = function (ev) {
         var r = fb.getBoundingClientRect();
@@ -502,7 +509,7 @@
       var box = document.createElement('div'); box.className = 'crop';
       var b = document.createElement('div'); b.className = 'box'; b.style.width = spec[1] + 'px'; b.style.height = spec[2] + 'px';
       b.innerHTML = '<div class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</div>';
-      if (e) { var im = document.createElement('img'); im.src = e.src; im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); }; b.appendChild(im); }
+      if (e) { var im = document.createElement('img'); im.src = e.src; im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); b.classList.add('broken'); }; b.appendChild(im); }
       box.appendChild(b);
       var cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = spec[0];
       box.appendChild(cap); wrap.appendChild(box);
