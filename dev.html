@@ -136,7 +136,7 @@
   <span class="sub">RUNTIME 카드풀 · 개발자 도구</span>
   <span class="prog" id="prog">–</span>
   <span class="spacer"></span>
-  <span class="fsstat" id="fsstat">폴더 미연결 — 저장은 내려받기로</span>
+  <span class="fsstat" id="fsstat">폴더 미연결 — 📁 한 번만 연결하면 다음부터 자동 저장</span>
   <button class="btn ghost" id="connectBtn" title="Chrome/Edge: deploy 폴더를 연결하면 파일이 자동 저장됩니다">📁 폴더 연결</button>
   <button class="btn ghost" id="scanBtn" title="art/ 폴더를 스캔해 규칙에 맞는 파일을 자동 인식" disabled>🔄 폴더 스캔</button>
   <button class="btn ok" id="saveAllBtn" title="이번 세션에 올린(미저장) 이미지를 art/ 에 한 번에 저장" disabled>💾 전체 저장</button>
@@ -251,16 +251,56 @@
     return HEADER + 'window.RT_ART = {\n' + lines.join('\n') + '\n};\n';
   }
 
+  // ---- 폴더 연결 영구 기억(IndexedDB): 한 번 연결하면 다음 방문 때 자동 재연결
+  var _rememberedHandle = null;
+  function _idb(cb){ try{ var r=indexedDB.open('rt-dev',1); r.onupgradeneeded=function(){ r.result.createObjectStore('kv'); }; r.onsuccess=function(){ cb(r.result); }; r.onerror=function(){ cb(null); }; }catch(e){ cb(null); } }
+  function idbGet(k){ return new Promise(function(res){ _idb(function(db){ if(!db)return res(null); var q=db.transaction('kv','readonly').objectStore('kv').get(k); q.onsuccess=function(){ res(q.result||null); }; q.onerror=function(){ res(null); }; }); }); }
+  function idbSet(k,v){ return new Promise(function(res){ _idb(function(db){ if(!db)return res(); var tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=function(){ res(); }; tx.onerror=function(){ res(); }; }); }); }
+
+  // ---- 한 카드 즉시 저장(폴더 연결 시) + 프레이밍 변경 자동 저장
+  async function saveOne(id){
+    var e=entry(id), p=pending[id]; if(!dirHandle||(!e&&!p)) return false;
+    try{
+      if(p){ var adir=await getArtDir(true), name=slug(id)+'.'+p.ext; await writeFile(adir,name,p.file); setEntry(id,{src:'art/'+name,pos:e?e.pos:'50% 50%',fit:e?e.fit:'cover'}); delete pending[id]; }
+      await writeManifest(); return true;
+    }catch(err){ msg('저장 실패: '+err.message,true); return false; }
+  }
+  function autoSave(){ if(dirHandle) writeManifest(); }
+
   // ---- File System Access
   function fsSupported() { return typeof window.showDirectoryPicker === 'function'; }
   async function connectFolder() {
-    if (!fsSupported()) { setFsStat('이 브라우저는 폴더 연결 미지원 — 내려받기 사용', false); return; }
+    if (!fsSupported()) { setFsStat('폴더 연결 미지원 — localhost + Chrome/Edge 에서 열어주세요(현재는 내려받기만 가능)', false); return; }
     try {
-      dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
-      setFsStat('연결됨: ' + dirHandle.name + ' — 저장/스캔 가능', true);
+      if (_rememberedHandle) {
+        var perm = await _rememberedHandle.requestPermission({ mode:'readwrite' });
+        if (perm === 'granted') { dirHandle = _rememberedHandle; _rememberedHandle = null; }
+      }
+      if (!dirHandle) dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+      await idbSet('dir', dirHandle);
+      document.getElementById('connectBtn').textContent = '📁 폴더 연결됨';
+      setFsStat('연결됨: ' + dirHandle.name + ' — 이제 드롭하면 art/ 에 자동 저장(기억됨)', true);
       document.getElementById('scanBtn').disabled = false;
       await scanFolder();
     } catch (e) { /* 사용자가 취소 */ }
+  }
+  // 이전에 연결한 폴더를 페이지 로드 시 복원(권한 유지 시 자동, 아니면 1클릭 재연결)
+  async function restoreFolder() {
+    if (!fsSupported()) return;
+    var h = null; try { h = await idbGet('dir'); } catch (e) {}
+    if (!h) return;
+    var perm = 'prompt'; try { perm = await h.queryPermission({ mode:'readwrite' }); } catch (e) {}
+    if (perm === 'granted') {
+      dirHandle = h;
+      document.getElementById('scanBtn').disabled = false;
+      document.getElementById('connectBtn').textContent = '📁 폴더 연결됨';
+      setFsStat('자동 연결됨: ' + h.name + ' — 드롭하면 art/ 에 자동 저장', true);
+      await scanFolder();
+    } else if (perm !== 'denied') {
+      _rememberedHandle = h;
+      document.getElementById('connectBtn').textContent = '🔗 폴더 다시 연결';
+      setFsStat('이전 폴더 기억됨: ' + h.name + ' — 버튼 1클릭으로 재연결', false);
+    }
   }
   async function getArtDir(create) {
     if (!dirHandle) return null;
@@ -361,13 +401,17 @@
     pending[id] = { file: file, ext: ext };
     ART[id] = { src: url, pos: prev ? prev.pos : '50% 50%', fit: prev ? prev.fit : 'cover' };
     renderGrid(); renderDetail(); updateProg();
-    msg(dirHandle ? '불러옴 — 초점/맞춤 조절 후 저장하세요'
-                  : '불러옴 — 저장 전에 상단 📁 폴더 연결을 먼저 하면 art/ 에 바로 저장됩니다', !dirHandle);
+    if (dirHandle) {
+      saveOne(id).then(function (ok) { if (ok) { msg('자동 저장됨 → art/' + slug(id) + '.' + ext); renderGrid(); if (sel === id) renderDetail(); updateProg(); } });
+    } else {
+      msg('불러옴 — localhost + Chrome/Edge 에서 폴더를 연결하면 드롭 즉시 art/ 에 자동 저장됩니다(다운로드 불필요)', true);
+    }
   }
   function removeArt(id) {
     delete ART[id]; delete pending[id];
     renderGrid(); renderDetail(); updateProg();
-    msg('일러스트 해제(매니페스트에서 저장 필요)');
+    if (dirHandle) { writeManifest(); msg('일러스트 해제 — 자동 저장됨'); }
+    else msg('일러스트 해제(art-map.js 저장 필요)');
   }
 
   // ---- 렌더: 상단 진행률
@@ -465,7 +509,7 @@
         var x = Math.max(0, Math.min(100, Math.round((ev.clientX - r.left) / r.width * 100)));
         var y = Math.max(0, Math.min(100, Math.round((ev.clientY - r.top) / r.height * 100)));
         var cur = entry(sel); cur.pos = x + '% ' + y + '%'; setEntry(sel, cur);
-        renderDetail();
+        renderDetail(); autoSave();
       };
       var fbcol = document.createElement('div'); fbcol.className = 'fcol';
       fbcol.innerHTML = '<span class="flabel">초점/프레이밍 (데스크톱 뷰포트 비율)</span>';
@@ -478,12 +522,12 @@
       ['cover','contain'].forEach(function (f) {
         var b = document.createElement('button'); b.textContent = f === 'cover' ? 'cover(꽉)' : 'contain(전체)';
         if (e.fit === f) b.className = 'on';
-        b.onclick = function () { var cur = entry(sel); cur.fit = f; setEntry(sel, cur); renderDetail(); };
+        b.onclick = function () { var cur = entry(sel); cur.fit = f; setEntry(sel, cur); renderDetail(); autoSave(); };
         seg.appendChild(b);
       });
       ctl.appendChild(seg);
       var reset = document.createElement('button'); reset.className = 'btn ghost'; reset.style.marginTop = '8px'; reset.textContent = '초점 가운데로';
-      reset.onclick = function () { var cur = entry(sel); cur.pos = '50% 50%'; setEntry(sel, cur); renderDetail(); };
+      reset.onclick = function () { var cur = entry(sel); cur.pos = '50% 50%'; setEntry(sel, cur); renderDetail(); autoSave(); };
       ctl.appendChild(reset);
       var rm = document.createElement('button'); rm.className = 'btn ghost'; rm.style.marginTop = '6px'; rm.style.color = 'var(--warn)'; rm.textContent = '🗑 일러스트 해제';
       rm.onclick = function () { removeArt(sel); };
@@ -607,7 +651,11 @@
     if (sel) renderDetail();
   };
   document.getElementById('themeBtn').textContent = themeMode === 'dark' ? '🌙 다크' : '☀ 라이트';
-  if (!fsSupported()) document.getElementById('connectBtn').disabled = true, document.getElementById('connectBtn').title = '이 브라우저는 미지원(Chrome/Edge 권장)';
+  if (!fsSupported()) {
+    var cb = document.getElementById('connectBtn'); cb.disabled = true;
+    cb.title = 'file://(직접 열기) 또는 미지원 브라우저 — localhost + Chrome/Edge 로 열면 폴더 연결 저장이 됩니다';
+    setFsStat('폴더 연결 불가 — localhost + Chrome/Edge 로 열어야 자동 저장(지금은 내려받기만)', false);
+  }
 
   // ---- 초기 렌더
   refreshChips();
@@ -616,6 +664,7 @@
   renderGrid();
   updateProg();
   if (IDS.length) select(IDS[0]);
+  restoreFolder(); // 이전에 연결한 폴더 자동 복원
 })();
 </script>
 </body>
