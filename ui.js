@@ -1267,7 +1267,7 @@
     else if (hi === 'target') { st.border = '2px solid ' + SKIN.enemy; st.background = hexa(SKIN.enemy, .16); marker = '×'; mc = SKIN.enemy; }
     else if (hi === 'attack') { st.border = '2px solid ' + SKIN.enemy; st.boxShadow = '0 0 0 2px ' + hexa(SKIN.enemy, .25); marker = '⚔'; mc = SKIN.enemy; }
     else if (hi === 'range') { st.background = hexa(SKIN.rangeGold, .16); st.boxShadow = 'inset 0 0 0 1.5px ' + hexa(SKIN.rangeGold, .5); }
-    else if (hi === 'zone') { st.background = hexa(SKIN.own, .1); st.boxShadow = 'inset 0 0 0 1px ' + hexa(SKIN.own, .35); }
+    else if (hi === 'zone') { st.border = '1.5px dashed ' + hexa(SKIN.own, .75); st.background = hexa(SKIN.own, .2); st.boxShadow = 'inset 0 0 0 1px ' + hexa(SKIN.own, .3); } // 포인터 시전 사거리 — 점선 테두리로 또렷하게
     else if (hi === 'origin') { st.border = '3px solid ' + SKIN.silk; }
     else { // 진영 = 본체가 있는 홈 '1행'만: 내 홈(row4)=틸 / 상대 홈(row1)=마젠타 / 가운데(row2·3)=중립 통로.
       var tc = p[1] === RT.homeRow(HUMAN) ? SKIN.own : (p[1] === RT.homeRow(1 - HUMAN) ? SKIN.enemy : null);
@@ -1499,6 +1499,7 @@
     if (pr) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + pr.text]));
     if (card.castCondition) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.muted } }, ['시전조건 · ' + RT.castCondText(card.castCondition)]));
     if (card.deckLimit) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.heat } }, ['덱당 ' + card.deckLimit + '장']));
+    rows.push(rangeGridEl(RT.cardRange(id), cl)); // 인스턴스 함수 범위 / 포인터 시전 사거리 그리드(데스크톱 호버와 동일)
     var right = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 10px', background: SKIN.effBg, color: SKIN.effTxt, overflow: 'hidden' }, sunkenBev()) }, rows);
     return el('div', { style: Object.assign({ display: 'flex', gap: '3px', width: '360px', background: SKIN.chassis, padding: '3px' }, raisedBev()) }, [left, right]);
   }
@@ -1557,7 +1558,9 @@
       });
     }
     var stage = app.querySelector('.bevel') || fxLayer();
-    var box = el('div', { id: 'fieldpeek', style: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%) scale(.7)', opacity: '0', zIndex: 130, pointerEvents: 'none', transition: 'transform .12s ease, opacity .12s ease', filter: 'drop-shadow(0 10px 22px rgba(0,0,0,.55))' } }, [
+    // 누르는 손가락에 상세창이 가리지 않도록 — 손가락이 화면 아래쪽이면 위에, 위쪽이면 아래에 띄운다.
+    var vh = window.innerHeight || 700, boxTop = (fpeekSY > vh * 0.46) ? '24%' : '72%';
+    var box = el('div', { id: 'fieldpeek', style: { position: 'absolute', left: '50%', top: boxTop, transform: 'translate(-50%,-50%) scale(.7)', opacity: '0', zIndex: 130, pointerEvents: 'none', transition: 'transform .12s ease, opacity .12s ease', filter: 'drop-shadow(0 10px 22px rgba(0,0,0,.55))' } }, [
       el('div', { style: { width: '230px', background: SKIN.chassis, color: SKIN.txt, border: '1.5px solid ' + SKIN.ink, boxShadow: '4px 4px 0 rgba(0,0,0,.4)', overflow: 'hidden' } }, [cardTipContent(u.cardId, u)])
     ]);
     stage.appendChild(box);
