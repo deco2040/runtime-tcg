@@ -41,7 +41,7 @@
 
   // ---------------- thread pointers
   def({ id: 'boost()', cls: 'thread', kind: 'pointer', need: 'allyThread', text: '내 thread 1장 공격력 +4', cast: function (G, p, tk) { var u = G.board[tk]; if (u && u.owner === p) G.buffAtk(u, 4); } });
-  def({ id: 'overclock()', cls: 'thread', kind: 'pointer', need: 'none', castCondition: { type: 'classOnBoard', cls: 'thread', n: 2 }, text: '내 thread 전부 공격력 +2', cast: function (G, p) { G.allyObjects(p).filter(function (x) { return cardCls(x) === 'thread'; }).forEach(function (x) { G.buffAtk(x, 2); }); } });
+  def({ id: 'overclock()', cls: 'thread', kind: 'pointer', need: 'allyThread', text: '내 thread 1장 공격력 2배(현재 공격력만큼 증가)', cast: function (G, p, tk) { var u = G.board[tk]; if (u && u.owner === p && cardCls(u) === 'thread') G.buffAtk(u, G.effAtk(u)); } });
   def({ id: 'crash()', cls: 'thread', kind: 'pointer', need: 'enemy', text: '적 1명 4 피해, 파괴 시 「옆칸」 3 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var pk = tk; G.deal(u, 4, { attacker: { owner: p } }); if (!G.board[pk]) { var q = P(pk); ortho(q[0], q[1]).map(function (k) { return G.board[k]; }).filter(function (x) { return x && x.owner !== p; }).forEach(function (x) { G.deal(x, 3, { attacker: { owner: p } }); }); } } });
   def({ id: 'strike()', cls: 'thread', kind: 'pointer', need: 'none', text: '「앞직선3·첫」 적에게 8 피해', cast: function (G, p, tk, o) { var t = G.firstEnemyInLine(bodyKey(p), p, 3 + (o.rangeBonus || 0), false); if (t) G.deal(t, 8, { attacker: { owner: p } }); else G.deal(G.enemyBody(p), 8, { attacker: { owner: p } }); } });
   def({ id: 'spawn()', cls: 'thread', kind: 'pointer', need: 'none', text: '「홈칸」에 분신(공5 체2)', cast: function (G, p) { G.summon(p, 'Token5', G.firstEmptyHome(p)); } });
@@ -85,7 +85,7 @@
   def({ id: 'barrier()', cls: 'memory', kind: 'pointer', need: 'none', text: '본체 다음 피해 10 막음', cast: function (G, p) { G.players[p].bodyShield += 10; } });
   def({ id: 'purge()', cls: 'memory', kind: 'pointer', need: 'enemy', text: '적 1명 공격력 영구 0', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.setAtkZeroPerm(u); } });
   def({ id: 'reflect()', cls: 'memory', kind: 'pointer', need: 'none', text: '이번 턴 내 memory 피해 절반 반사', cast: function (G, p) { G.players[p].reflectTurn = G.turnNo; } });
-  def({ id: 'compact()', cls: 'memory', kind: 'pointer', need: 'none', text: '내 memory 전부 체력 +3', cast: function (G, p) { G.allyObjects(p).filter(function (x) { return cardCls(x) === 'memory'; }).forEach(function (x) { G.buffHp(x, 3); }); } });
+  def({ id: 'compact()', cls: 'memory', kind: 'pointer', need: 'none', text: '내 memory 전부 받은 피해 전부 회복(수리)', cast: function (G, p) { G.allyObjects(p).filter(function (x) { return cardCls(x) === 'memory'; }).forEach(function (x) { G.healInst(x, 99); }); } });
   def({ id: 'wall()', cls: 'memory', kind: 'pointer', need: 'none', text: '「통로칸」에 벽(공0 체10)', cast: function (G, p) { var cell = midEmpty(G); G.summon(p, 'Wall10', cell || G.firstEmptyHome(p)); } });
   def({ id: 'freeze()', cls: 'memory', kind: 'pointer', need: 'none', text: '내 인스턴스 「2칸이내」 적 전부 1턴 봉쇄', cast: function (G, p) { var seen = {}; G.allyObjects(p).forEach(function (a) { G.unitsInShape(a, square, 2).forEach(function (x) { if (x.owner !== p && x.type === 'object' && !seen[x.uid]) { seen[x.uid] = 1; G.bind(x, 1); } }); }); } });
   def({ id: 'fortify()', cls: 'memory', kind: 'pointer', need: 'none', castCondition: { type: 'classOnBoard', cls: 'memory', n: 2 }, text: 'memory 전부 체력 +4', cast: function (G, p) { G.allyObjects(p).filter(function (x) { return cardCls(x) === 'memory'; }).forEach(function (x) { G.buffHp(x, 4); }); } });
@@ -171,21 +171,19 @@
   def({ id: 'malloc()', cls: 'generic', kind: 'pointer', need: 'none', text: '「홈칸」에 분신(공2 체3)', cast: function (G, p) { G.summon(p, 'Token2b', G.firstEmptyHome(p)); } });
   def({ id: 'Token2b', cls: 'generic', kind: 'object', atk: 2, hp: 3, text: '분신' });
   def({ id: 'kill()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 5 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.deal(u, 5, { attacker: { owner: p } }); } });
-  def({ id: 'ping()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 3 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.deal(u, 3, { attacker: { owner: p } }); } });
-  def({ id: 'sync()', cls: 'generic', kind: 'pointer', need: 'allyOrBody', text: '아군 1장 체력 +4 회복', cast: function (G, p, tk) { var u = tk ? G.board[tk] : woundedAlly(G, p); if (u) G.healInst(u, 4); } });
+  def({ id: 'ping()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 2 피해 + 카드 1장 뽑기', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.deal(u, 2, { attacker: { owner: p } }); G.draw(p, 1); } });
+  def({ id: 'sync()', cls: 'generic', kind: 'pointer', need: 'none', text: '내 인스턴스 전부 체력 +3 회복', cast: function (G, p) { G.allyObjects(p).forEach(function (x) { G.healInst(x, 3); }); } });
   def({ id: 'flush()', cls: 'generic', kind: 'pointer', need: 'none', text: '내 인스턴스 「옆칸」 적 전부 3 피해', cast: function (G, p) { var seen = {}; G.allyObjects(p).forEach(function (a) { G.adj(a).forEach(function (x) { if (x.owner !== p && x.type === 'object' && !seen[x.uid]) { seen[x.uid] = 1; G.deal(x, 3, { attacker: { owner: p } }); } }); }); } });
   def({ id: 'shift()', cls: 'generic', kind: 'pointer', need: 'ally', text: '아군 1장 「1칸이동」', cast: function (G, p, tk, o) { var u = G.board[tk]; if (u && o.dest && G.moveCells(u).indexOf(o.dest) >= 0) G.move(u, o.dest, true); else if (u) { var d = G.moveCells(u)[0]; if (d) G.move(u, d, true); } } });
-  def({ id: 'drop()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명을 적 진영 쪽으로 「밀어내기」 (적 뒤칸이 비어야 함)',
-    castValid: function (G, p, tk) { var u = G.board[tk]; if (!u || u.owner === p) return false; var q = P(tk), nr = q[1] + fwd(p); return inB(q[0], nr) && !G.board[K(q[0], nr)]; },
-    cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.pushAway(u, p); } });
-  def({ id: 'assert()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 공격력 -2', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.buffAtk(u, -2); } });
+  def({ id: 'drop()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명에게 그 적의 공격력만큼 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.deal(u, G.effAtk(u), { attacker: { owner: p } }); } });
+  def({ id: 'assert()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 3 피해 + 공격력 -1', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; G.deal(u, 3, { attacker: { owner: p } }); if (G.board[tk]) G.buffAtk(u, -1); } });
   def({ id: 'grep()', cls: 'generic', kind: 'pointer', need: 'none', text: '카드 1장 뽑기', cast: function (G, p) { G.draw(p, 1); } });
   def({ id: 'yield()', cls: 'generic', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 5 }, text: '이번 턴 행동 +1', cast: function (G, p) { G.actions++; } });
   def({ id: 'wait()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 1턴 봉쇄', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.bind(u, 1); } });
   def({ id: 'cast()', cls: 'generic', kind: 'pointer', need: 'ally', text: '아군 1장 공격력 +3', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.buffAtk(u, 3); } });
   def({ id: 'throw()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 4, 「옆칸」 2 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; G.deal(u, 4, { attacker: { owner: p } }); var q = P(tk); ortho(q[0], q[1]).map(function (k) { return G.board[k]; }).filter(function (x) { return x && x.owner !== p; }).forEach(function (x) { G.deal(x, 2, { attacker: { owner: p } }); }); } });
-  def({ id: 'catch()', cls: 'generic', kind: 'pointer', need: 'none', text: '본체 다음 피해 6 막음', cast: function (G, p) { G.players[p].bodyShield += 6; } });
-  def({ id: 'bind()', cls: 'generic', kind: 'pointer', need: 'enemy', castCondition: { type: 'turnCount', n: 4 }, text: '적 1명 2턴 봉쇄', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.bind(u, 2); } });
+  def({ id: 'catch()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 4 피해, 처치 시 본체 체력 +4 회복', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; G.deal(u, 4, { attacker: { owner: p } }); if (!G.board[tk]) G.healInst(G.body(p), 4); } });
+  def({ id: 'bind()', cls: 'generic', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 4 }, text: 'require 내 턴 4회+ 진행 · 적 전부 1턴 봉쇄', cast: function (G, p) { G.enemyObjects(p).forEach(function (x) { G.bind(x, 1); }); } });
   def({ id: 'echo()', cls: 'generic', kind: 'pointer', need: 'cell', text: '떨어진 칸 1개 3 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (u && u.owner !== p) G.deal(u, 3, { attacker: { owner: p } }); } });
   def({ id: 'patch()', cls: 'generic', kind: 'pointer', need: 'ally', text: '아군 1장 체력 +3, 공격력 +1', cast: function (G, p, tk) { var u = G.board[tk]; if (u) { G.buffHp(u, 3); G.buffAtk(u, 1); } } });
   def({ id: 'clear()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 1턴 공격력 0', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.setAtkZeroTurns(u, 1); } });
