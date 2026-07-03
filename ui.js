@@ -1079,8 +1079,9 @@
     // ── 손패(맨 아래) ──
     wrap.appendChild(handBar(meTurn));
 
-    // ── 눈에 띄는 취소 버튼 — 능력/유닛 선택 중일 때 상단 중앙에 크게(드래그 중엔 숨김) ──
-    if ((sel || ptr) && !(drag && drag.moved)) {
+    // ── 눈에 띄는 취소 버튼 — 상단 중앙(드래그 중엔 숨김). 단, 필드 유닛 선택 시엔 상단이 공격 대상(상대 본체/전진 유닛)
+    //    라인이라 여기 두면 대상을 가린다 → 그 경우는 fieldPopover 안의 ✕ 로 대체하고 상단 버튼은 숨긴다. ──
+    if ((ptr || (sel && sel.type === 'hand')) && !(drag && drag.moved)) {
       wrap.appendChild(el('button', { style: { position: 'absolute', top: 'calc(50px + ' + SAT + ')', left: '50%', transform: 'translateX(-50%)', zIndex: 60, fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: '14px', padding: '9px 20px', color: '#fff', background: SKIN.enemy, border: '1px solid ' + SKIN.ink, boxShadow: '0 3px 0 rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.4)', letterSpacing: '.03em' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '✕ 시전 취소' : '✕ 선택 해제']));
     }
 
@@ -1149,13 +1150,28 @@
     });
     if (G.canBasicAttack(u)) btns.push(el('button', { style: popBtn('#c23c70'), onclick: function () { var t = G.basicAttackTargets(u); if (t.length === 1) { G.basicAttack(u, t[0]); render(); } else flash('빨강 대상을 클릭'); } }, ['⚔ 공격']));
     if (!btns.length) return null; // nothing to do → no popover (move via blue cells still works)
+    btns.push(el('button', { style: popBtn('#6b6b75'), onclick: function () { sel = null; render(); } }, ['✕'])); // 취소를 팝오버 안에 둬서 별도 상단 버튼이 대상 칸을 가리지 않게
     var pop = el('div', { id: 'fieldpop', style: { position: 'fixed', zIndex: 70, display: 'flex', gap: '4px', background: '#1d1d24', padding: '4px', boxShadow: '2px 2px 0 rgba(28,28,38,.4)', whiteSpace: 'nowrap' } }, btns);
     var cell = app.querySelector('[data-key="' + sel.key + '"]');
     if (cell) {
-      var r = cell.getBoundingClientRect(), above = r.top > 64;
-      pop.style.left = (r.left + r.width / 2) + 'px';
-      pop.style.top = (above ? r.top - 6 : r.bottom + 6) + 'px';
-      pop.style.transform = 'translateX(-50%)' + (above ? ' translateY(-100%)' : '');
+      // 팝오버가 공격 대상 칸(빨강)을 덮으면 탭이 막힌다. 유닛 '아래쪽'(전방=상대 본체·전진 유닛이 있는 위쪽의 반대)에
+      // 두는 걸 기본으로 하고, 대상 칸과 겹치거나 화면 밖이면 위/차선책으로 보정한다.
+      app.appendChild(pop); // 실측용 선(先)부착 — renderMatch 의 이후 appendChild 는 위치 이동일 뿐(스타일 유지)
+      var r = cell.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+      var vw = window.innerWidth || 360, vh = window.innerHeight || 640, M = 6;
+      var su = G.board[sel.key];
+      var avoid = (su ? G.basicAttackTargets(su) : []).map(function (k) { var e = app.querySelector('[data-key="' + k + '"]'); return e ? e.getBoundingClientRect() : null; }).filter(Boolean);
+      var cx = r.left + r.width / 2;
+      function rcAt(cy) { return { left: cx - pr.width / 2, right: cx + pr.width / 2, top: cy - pr.height / 2, bottom: cy + pr.height / 2 }; }
+      function hits(x) { return avoid.some(function (a) { return !(x.right <= a.left || x.left >= a.right || x.bottom <= a.top || x.top >= a.bottom); }); }
+      function fits(x) { return x.top >= M && x.bottom <= vh - M; }
+      var belowY = r.bottom + M + pr.height / 2, aboveY = r.top - M - pr.height / 2, cy;
+      if (fits(rcAt(belowY)) && !hits(rcAt(belowY))) cy = belowY;         // 기본: 아래(전방 라인 회피)
+      else if (fits(rcAt(aboveY)) && !hits(rcAt(aboveY))) cy = aboveY;    // 아래가 막히면 위
+      else cy = fits(rcAt(belowY)) ? belowY : aboveY;                     // 최후: 화면 안쪽 아무 쪽
+      cx = Math.max(M + pr.width / 2, Math.min(vw - M - pr.width / 2, cx));
+      cy = Math.max(M + pr.height / 2, Math.min(vh - M - pr.height / 2, cy));
+      pop.style.left = cx + 'px'; pop.style.top = cy + 'px'; pop.style.transform = 'translate(-50%,-50%)';
     }
     return pop;
   }
