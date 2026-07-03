@@ -694,18 +694,26 @@
   var AMB = '#ffb000', AMB_HI = '#ffd27a', AMB_DIM = '#b3791f';
   function renderTitle() {
     clear();
+    // 테마별 팔레트 — 다크=앰버 인광, 라이트=먹색(페이퍼 화이트 화면). index.html .crt-monitor CSS 변수와 짝을 맞춤.
+    var dark = themeMode === 'dark';
+    if (dark) { AMB = '#ffb000'; AMB_HI = '#ffd27a'; AMB_DIM = '#b3791f'; }
+    else { AMB = '#1d1d24'; AMB_HI = '#111319'; AMB_DIM = '#6b6b75'; }
+    var hdrLine = dark ? 'rgba(255,176,0,.25)' : 'rgba(29,29,36,.20)';
+    var titleGlow = dark ? '0 0 10px rgba(255,176,0,.55), 0 0 2px rgba(255,176,0,.9)' : '0 0 1px rgba(0,0,0,.12)';
+    var ledCol = dark ? '#ffb000' : '#3c8a66';
+    var brandCol = dark ? '#7a6b45' : '#8a857a', brandCol2 = dark ? '#5f5436' : '#9c968a';
     var monitor = el('div', { class: 'crt-monitor' });
     var screen = el('div', { class: 'crt-screen' });
     var b = el('div', { class: 'crt-body' });
 
     // 터미널 헤더 상태줄
-    b.appendChild(el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: AMB_DIM, letterSpacing: '.08em', borderBottom: '1px solid rgba(255,176,0,.25)', paddingBottom: '7px', marginBottom: '16px' } }, [
+    b.appendChild(el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: AMB_DIM, letterSpacing: '.08em', borderBottom: '1px solid ' + hdrLine, paddingBottom: '7px', marginBottom: '16px' } }, [
       el('span', {}, ['RUNTIME OS  v1.0']),
       el('span', {}, ['MEM 50/50K  ·  ONLINE'])
     ]));
 
     // 대형 타이틀(인광 글로우)
-    b.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: 'clamp(30px,6.4vw,54px)', letterSpacing: '.16em', lineHeight: 1, color: AMB_HI, textShadow: '0 0 10px rgba(255,176,0,.55), 0 0 2px rgba(255,176,0,.9)' } }, ['RUNTIME']));
+    b.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: 'clamp(30px,6.4vw,54px)', letterSpacing: '.16em', lineHeight: 1, color: AMB_HI, textShadow: titleGlow } }, ['RUNTIME']));
     b.appendChild(el('div', { style: { fontSize: '11px', color: AMB_DIM, marginTop: '7px', marginBottom: '20px', letterSpacing: '.04em' } }, ['turn-based memory-grid TCG  ·  seed cards v4']));
 
     // ▸ MY DECK
@@ -755,9 +763,9 @@
     monitor.appendChild(screen);
     // 모니터 하판 — 전원 LED + 브랜드 + 모델명
     monitor.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '9px 6px 2px' } }, [
-      el('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: AMB, boxShadow: '0 0 7px ' + AMB } }),
-      el('span', { class: 'grot', style: { fontSize: '10px', letterSpacing: '.34em', color: '#7a6b45', fontWeight: 700 } }, ['R U N T I M E']),
-      el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9px', color: '#5f5436', letterSpacing: '.1em' } }, ['MODEL RT-50'])
+      el('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: ledCol, boxShadow: '0 0 7px ' + ledCol } }),
+      el('span', { class: 'grot', style: { fontSize: '10px', letterSpacing: '.34em', color: brandCol, fontWeight: 700 } }, ['R U N T I M E']),
+      el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9px', color: brandCol2, letterSpacing: '.1em' } }, ['MODEL RT-50'])
     ]));
     app.appendChild(monitor);
   }
