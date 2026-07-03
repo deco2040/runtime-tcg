@@ -1333,12 +1333,14 @@
   function bodyTile(u) {
     var me = u.owner === HUMAN, hp = G.curHp(u), mx = G.effMaxHp(u), own = ownerColor(u.owner);
     var key = bodyKey(u.owner);
-    var st = { width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: me ? '#1d1d24' : '#3a2630', color: '#e9eaee', border: '2px solid ' + own, boxShadow: '3px 3px 0 ' + hexa(own, .3) };
+    var st = { position: 'relative', overflow: 'hidden', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: me ? '#1d1d24' : '#3a2630', color: '#e9eaee', border: '2px solid ' + own, boxShadow: '3px 3px 0 ' + hexa(own, .3) };
     if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
     return el('div', { style: st }, [
-      el('span', { style: { fontSize: '8px', letterSpacing: '.2em', color: me ? '#9db8e6' : '#e6a3bd' } }, [me ? '내 본체' : '적 본체']),
-      el('span', { class: 'mono', style: { fontWeight: 700, fontSize: 'clamp(15px,3vw,24px)' } }, [String(hp)]),
-      tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', overflow: 'hidden' })
+      // 본체 = 거점(CPU) 워터마크. 흰 글리프 PNG(불투명 검정 배경)라 screen 블렌드로 검정을 지우고 은은하게. 내/적 구분은 테두리·라벨 색이 담당.
+      el('img', { src: 'art/cpu.png', alt: '', style: { position: 'absolute', top: '50%', left: '50%', width: '72%', height: '72%', transform: 'translate(-50%,-50%)', objectFit: 'contain', opacity: '.2', mixBlendMode: 'screen', pointerEvents: 'none', zIndex: 0 } }),
+      el('span', { style: { position: 'relative', zIndex: 1, fontSize: '8px', letterSpacing: '.2em', color: me ? '#9db8e6' : '#e6a3bd' } }, [me ? '내 본체' : '적 본체']),
+      el('span', { class: 'mono', style: { position: 'relative', zIndex: 1, fontWeight: 700, fontSize: 'clamp(15px,3vw,24px)' } }, [String(hp)]),
+      tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', zIndex: 1, overflow: 'hidden' })
     ]);
   }
   // 필드 셀 = 창(L1). 프레임=오너색 베벨 · 타이틀바=클래스색+LED(+적 빗금) · 뷰포트 · 마이크로 상태바.
