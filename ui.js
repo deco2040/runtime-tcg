@@ -145,7 +145,8 @@
     var cl = CLS[card.cls] || CLS.generic;
     return el('div', { style: { height: hgt + 'px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg,' + hexa(cl, .16) + ',' + hexa(cl, .03) + '), ' + SKIN.die, borderTop: '1px solid ' + SKIN.line, borderBottom: '1px solid ' + SKIN.line } }, [
       el('span', { style: { fontSize: Math.round(hgt * 0.6) + 'px', color: cl, opacity: .8, lineHeight: 1, textShadow: '0 1px 0 rgba(255,255,255,.35)' } }, [GLY[card.cls]]),
-      el('span', { class: 'mono', style: { position: 'absolute', right: '3px', bottom: '1px', fontSize: '6px', color: SKIN.faint, letterSpacing: '.12em' } }, ['ART'])
+      artImgEl(card.id),
+      el('span', { class: 'mono', style: { position: 'absolute', right: '3px', bottom: '1px', fontSize: '6px', color: SKIN.faint, letterSpacing: '.12em', zIndex: 2 } }, ['ART'])
     ]);
   }
   function ownerColor(owner) { return owner === HUMAN ? SKIN.own : SKIN.enemy; }
@@ -311,12 +312,28 @@
     return el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,.3)', padding: '0 3px', flex: 'none', whiteSpace: 'nowrap', letterSpacing: '.02em', cursor: 'help', lineHeight: 1.5 }, onmouseenter: function (e) { showKwTip(e.currentTarget, g); }, onmouseleave: hideKwTip }, [compact ? '⚔' : '⚔옆칸']);
   }
   // 뷰포트 = 콘텐츠 영역(일러스트). artType glyph: 테마 뷰포트 바탕 + 클래스 틴트 글리프.
+  // RT_ART(art-map.js) 매니페스트 조회 — dev.html 의 entry() 와 동일 규칙(문자열/오브젝트 정규화).
+  function artEntry(id) {
+    var v = window.RT_ART && window.RT_ART[id];
+    if (!v) return null;
+    if (typeof v === 'string') return { src: v, pos: '50% 50%', fit: 'cover' };
+    if (!v.src) return null;
+    return { src: v.src, pos: v.pos || '50% 50%', fit: v.fit || 'cover' };
+  }
+  // 일러스트 이미지 el — 슬롯을 채우는 absolute img. 로드 실패 시 자신을 숨겨 뒤의 글리프가 폴백으로 보이게.
+  function artImgEl(id) {
+    var e = artEntry(id); if (!e) return null;
+    var img = el('img', { src: e.src, alt: '', style: { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: e.fit, objectPosition: e.pos, pointerEvents: 'none' } });
+    img.onerror = function () { img.style.display = 'none'; };
+    return img;
+  }
   function viewportBox(card, hgt, opts) {
     opts = opts || {};
     var cl = CLS[card.cls] || CLS.generic, g = GLY[card.cls] || GLY.generic;
-    var st = Object.assign({ height: hgt + 'px', margin: opts.margin || '3px 2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, overflow: 'hidden' }, sunkenBev());
+    var st = Object.assign({ position: 'relative', height: hgt + 'px', margin: opts.margin || '3px 2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, overflow: 'hidden' }, sunkenBev());
     return el('div', { style: st }, [
-      el('span', { style: { fontSize: Math.round(hgt * (opts.gScale || 0.44)) + 'px', lineHeight: 1, color: cl } }, [g])
+      el('span', { style: { fontSize: Math.round(hgt * (opts.gScale || 0.44)) + 'px', lineHeight: 1, color: cl } }, [g]),
+      artImgEl(card.id)  // 아트 있으면 글리프 위를 덮음(폴백=글리프)
     ]);
   }
   // 효과문 패널(sunken). richText 키워드 내장. flex 하한(§9).
@@ -1380,6 +1397,7 @@
       // 뷰포트 — 셀을 채우는 일러스트(글리프). ATK0 오버레이. 오너색 옅은 워시로 소유자 강조.
       el('div', { style: Object.assign({ flex: 1, minHeight: '12px', margin: '2px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(own, me ? 0.14 : 0.2) + ',' + hexa(own, me ? 0.14 : 0.2) + ')', overflow: 'hidden' }, sunkenBev()) }, [
         el('span', { style: { fontSize: 'clamp(12px,2.2vw,22px)', lineHeight: 1, color: cl } }, [GLY[card.cls]]),
+        artImgEl(card.id),  // 필드 유닛 일러스트(폴백=글리프). forBadge/ATK0 는 뒤에 와서 위에 렌더됨.
         forBadge,
         u.atkZero ? el('span', { class: 'mono', style: { position: 'absolute', bottom: '0', right: '2px', fontSize: '7px', color: '#E24B4A', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,.6)' } }, ['ATK0']) : null
       ]),
@@ -1505,8 +1523,9 @@
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
     // 아트가 가운데 빈 공간을 채우도록 flex:1 (카드가 알차게 보이게)
-    var art = el('div', { style: Object.assign({ flex: '1 1 auto', minHeight: '22px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
-      el('span', { style: { fontSize: 'clamp(38px,15vw,60px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic])
+    var art = el('div', { style: Object.assign({ position: 'relative', flex: '1 1 auto', minHeight: '22px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
+      el('span', { style: { fontSize: 'clamp(38px,15vw,60px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic]),
+      artImgEl(card.id)
     ]);
     return el('button', props, [
       // 상단(타이틀바)을 키우고 이름 줄바꿈 허용 → 전체 이름이 한번에 보이게
