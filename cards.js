@@ -46,7 +46,7 @@
   def({ id: 'strike()', cls: 'thread', kind: 'pointer', need: 'none', text: '「앞직선3·첫」 적에게 8 피해', cast: function (G, p, tk, o) { var t = G.firstEnemyInLine(bodyKey(p), p, 3 + (o.rangeBonus || 0), false); if (t) G.deal(t, 8, { attacker: { owner: p } }); else G.deal(G.enemyBody(p), 8, { attacker: { owner: p } }); } });
   def({ id: 'spawn()', cls: 'thread', kind: 'pointer', need: 'none', text: '「홈칸」에 분신(공5 체2)', cast: function (G, p) { G.summon(p, 'Token5', G.firstEmptyHome(p)); } });
   def({ id: 'burst()', cls: 'thread', kind: 'pointer', need: 'enemy', text: '적 1명에게 (「옆칸」 내 thread 수 ×3) 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var n = G.adj(u).filter(function (x) { return x.owner === p && cardCls(x) === 'thread'; }).length; G.deal(u, n * 3, { attacker: { owner: p } }); } });
-  def({ id: 'fork()', cls: 'thread', kind: 'pointer', need: 'allyThread', castCondition: { type: 'turnCount', n: 4 }, text: '내 thread 1장 절반능력치 복제', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var nu = G.summon(p, u.cardId, G.firstEmptyHome(p)); if (nu) { nu.baseAtk = Math.ceil(u.baseAtk / 2); nu.baseHp = Math.ceil(u.baseHp / 2); } } });
+  def({ id: 'fork()', cls: 'thread', kind: 'pointer', need: 'allyThread', castCondition: { type: 'turnCount', n: 4 }, text: '내 thread 1장 절반 능력치 복제', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var nu = G.summon(p, u.cardId, G.firstEmptyHome(p)); if (nu) { nu.baseAtk = Math.ceil(u.baseAtk / 2); nu.baseHp = Math.ceil(u.baseHp / 2); } } });
   def({ id: 'rush()', cls: 'thread', kind: 'pointer', need: 'allyThread', text: '내 thread 1장 앞으로 「1칸이동」',
     castValid: function (G, p, tk) { var u = G.board[tk]; if (!u || u.owner !== p) return false; var q = P(tk), nr = q[1] + fwd(p); return inB(q[0], nr) && !G.board[K(q[0], nr)]; },
     cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var k = unitKey(G, u), q = P(k), dest = K(q[0], q[1] + fwd(p)); if (inB(q[0], q[1] + fwd(p)) && !G.board[dest]) G.move(u, dest, true); } });
@@ -60,7 +60,7 @@
   def({ id: 'Stack', cls: 'memory', kind: 'object', atk: 0, hp: 10, text: 'While 「옆칸」 적 공격력 -2', abilities: [] });
   def({ id: 'Lock', cls: 'memory', kind: 'object', atk: 0, hp: 8, text: 'For(2) 적 1명 다음 턴까지 봉쇄',
     abilities: [{ kw: 'For', forCount: 2, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (t) G.bind(t, 1); } }] });
-  def({ id: 'Buffer', cls: 'memory', kind: 'object', atk: 0, hp: 11, text: 'Once 체력5이하 피격 시 체력 +4 회복',
+  def({ id: 'Buffer', cls: 'memory', kind: 'object', atk: 0, hp: 11, text: 'Once 체력 5 이하 피격 시 체력 +4 회복',
     abilities: [{ kw: 'Once', trigger: 'onDamaged', fn: function (G, u) { if (G.curHp(u) <= 5) G.healInst(u, 4); } }] });
   def({ id: 'Sentinel', cls: 'memory', kind: 'object', atk: 3, hp: 8, text: 'When 적이 「옆칸」으로 다가올 때 3 피해',
     abilities: [{ kw: 'When', trigger: 'onEnterRange', fn: function (G, u, ctx) { if (ctx.mover) G.deal(ctx.mover, 3, { attacker: u }); } }] });
@@ -210,13 +210,13 @@
       { kw: 'For', forCount: 3, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }
     ] });
   def({ id: 'Hivemind', cls: 'thread', kind: 'object', atk: 3, hp: 3, deckLimit: 1, deckRule: 'threadSingle',
-    text: '덱제한 thread단일 · While 옆아군강화 효과 전체 적용(상한 +6)', abilities: [] });
+    text: '덱 제한 thread 단일 · While 옆 아군 강화 효과 전체 적용(상한 +6)', abilities: [] });
   def({ id: 'Bedrock', cls: 'memory', kind: 'object', atk: 0, hp: 15, deckLimit: 1, deckRule: 'memorySingle',
-    text: '덱제한 memory단일 · While 내 memory 받는 피해 절반', abilities: [] });
+    text: '덱 제한 memory 단일 · While 내 memory 받는 피해 절반', abilities: [] });
   def({ id: 'Conduit', cls: 'process', kind: 'object', atk: 4, hp: 5, deckLimit: 1, deckRule: 'processSingle',
-    text: '덱제한 process단일 · While 턴당 첫 포인터 효과 2회', abilities: [] });
+    text: '덱 제한 process 단일 · While 턴당 첫 포인터 효과 2회', abilities: [] });
   def({ id: 'Polymorph', cls: 'generic', kind: 'object', atk: 4, hp: 4, deckLimit: 1,
-    text: '덱당1 · While 단일클래스 덱이면 내 인스턴스 전부 공격력/체력 +1', abilities: [] });
+    text: '덱당 1 · While 단일 클래스 덱이면 내 인스턴스 전부 공격력/체력 +1', abilities: [] });
 
   // ---- effect helper targeters
   function pickAdjEnemy(G, u, ch) { if (ch && ch.target && G.board[ch.target]) return G.board[ch.target]; var e = G.adj(u).filter(function (x) { return x.owner !== u.owner && x.type === 'object'; }); e.sort(function (a, b) { return G.curHp(a) - G.curHp(b); }); return e[0] || null; }
