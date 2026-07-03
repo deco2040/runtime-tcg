@@ -1040,7 +1040,7 @@
       el('span', { style: { minWidth: '9px', textAlign: 'right', color: SKIN.txt } }, [String(n)])
     ]);
   }
-  // 가로 스탯 바 — 본체 HP+게이지 · 🗃️덱 · 🪦묘지 · 🖐️손패. 상단(상대)/하단(나) 공용.
+  // 가로 스탯 바 — 본체 HP+게이지 · 덱 · 묘 · 패(라벨 칩, 이모지 미사용). 상단(상대)/하단(나) 공용.
   function statBarH(owner, opts) {
     opts = opts || {};
     var me = owner === HUMAN, pl = G.players[owner], b = G.body(owner);
@@ -1226,8 +1226,8 @@
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none' } }, [me ? '나' : '상대']),
       el('span', { class: 'mono', title: d ? d.name : '', style: { fontSize: '9px', fontWeight: 700, color: '#fff', background: dc, padding: '2px 6px', whiteSpace: 'nowrap', flex: 'none' } }, [(d ? GLY[d.cls] + ' ' : '') + (dk || '?')]),
       device,
-      el('span', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, flex: 'none' } }, ['✋ ' + pl.hand.length]),
-      pl.bodyShield ? el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.ally, fontWeight: 700, flex: 'none' } }, ['🛡 ' + pl.bodyShield]) : null
+      el('span', { class: 'mono', title: '손패', style: { fontSize: '11px', color: SKIN.muted, flex: 'none' } }, ['패 ' + pl.hand.length]),
+      pl.bodyShield ? el('span', { class: 'mono', title: '방어막', style: { fontSize: '10px', color: SKIN.ally, fontWeight: 700, flex: 'none' } }, ['방어 ' + pl.bodyShield]) : null
     ]);
   }
   // 드로우 시 슬롯에서 카드가 배출되는 애니메이션(전자기기 배출구). human=아래(손패쪽), ai=위.
