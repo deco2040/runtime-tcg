@@ -73,7 +73,7 @@
   // clear() 로 애니메이션(코인·딜)이 지워지는 걸 막는다. 코인은 fxLayer 라 살아남지만 딜 연출까지 보호.
   window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); if (mullPhase && mullBusy) return; render(); }, 150); });
   window.addEventListener('orientationchange', function () { computeCompact(); setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
-  var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false;
+  var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false, aiRevealPause = false;
   var myDeck = 'T1', oppDeck = '__random';
   var challenge = null;   // 도전 모드: { stage, wins, baseBest } 또는 null
   var tutorial = null;    // 실습 튜토리얼: { step, finished, steps } 또는 null
@@ -631,6 +631,7 @@
   // 상대(및 자동) 포인터 시전 시 어떤 카드인지 인지 가능한 속도로 큰 카드를 보여주고 사라지는 연출.
   function revealCard(cardId, owner) {
     var card = CARDS[cardId]; if (!card) return;
+    if (owner !== HUMAN) aiRevealPause = true; // 상대가 카드를 낸 직후 AI 다음 동작을 잠시 늦춰 카드 확인 시간을 준다
     var cl = CLS[card.cls] || CLS.generic, isP = card.kind === 'pointer';
     var lbl = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '15%', transform: 'translateX(-50%)', zIndex: 111, fontWeight: 700, fontSize: '13px', color: '#fff', background: owner === HUMAN ? SKIN.own : SKIN.enemy, padding: '4px 14px', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.35)', pointerEvents: 'none', whiteSpace: 'nowrap' } }, [(owner === HUMAN ? '나' : '상대') + ' · ' + (isP ? '포인터 시전' : '카드') + ' — ' + card.name]);
     var wrap = el('div', { style: { position: 'fixed', left: '50%', top: '34%', transform: 'translate(-50%,-50%)', zIndex: 111, width: '216px', pointerEvents: 'none' } }, [
@@ -646,7 +647,7 @@
     setTimeout(function () {
       anim(wrap, [{ opacity: 1, transform: 'translate(-50%,-50%) scale(1)' }, { opacity: 0, transform: 'translate(-50%,-58%) scale(.92)' }], { duration: 360, easing: 'ease-in' });
       anim(lbl, [{ opacity: 1 }, { opacity: 0 }], { duration: 360, easing: 'ease-in' });
-    }, 1150);
+    }, 1550);
   }
   // like anim() but does NOT auto-remove the node on finish (for multi-stage reveals)
   function anim2(node, frames, opts) { if (node.animate) { try { node.animate(frames, opts); } catch (e) {} } }
@@ -1924,20 +1925,21 @@
     G.endTurn();
     if (G.active === AI && G.winner === undefined) runAI(); else render();
   }
+  // AI 페이싱: 일반 동작은 STEP 간격, 상대가 카드를 낸 직후(revealCard)엔 REVEAL 간격만큼 더 쉬어
+  // 무슨 카드를 냈는지 확인할 시간을 준다. (기존 360ms 고정 setInterval → 가변 setTimeout)
+  var AI_STEP_MS = 500, AI_REVEAL_MS = 1400;
   function runAI() {
     aiThinking = true; render();
-    clearInterval(aiTimer);
-    aiTimer = setInterval(function () {
-      if (G.winner !== undefined) { clearInterval(aiTimer); aiThinking = false; render(); return; }
+    clearTimeout(aiTimer);
+    var tick = function () {
+      if (G.winner !== undefined) { aiThinking = false; render(); return; }
+      aiRevealPause = false;
       var did = RT.ai.step(G);
-      render();
-      if (!did) {
-        clearInterval(aiTimer);
-        G.endTurn();
-        aiThinking = false;
-        render();
-      }
-    }, 360);
+      render(); // 이 안에서 카드 시전이 있었다면 revealCard 가 aiRevealPause 를 세운다
+      if (!did) { G.endTurn(); aiThinking = false; render(); return; }
+      aiTimer = setTimeout(tick, aiRevealPause ? AI_REVEAL_MS : AI_STEP_MS);
+    };
+    aiTimer = setTimeout(tick, AI_STEP_MS);
   }
 
   // optional automation hook (used by the screenshot driver; harmless in normal play)
