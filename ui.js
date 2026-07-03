@@ -1871,6 +1871,7 @@
   function onDragMove(e) {
     if (!drag || (drag.pid != null && e.pointerId !== drag.pid)) return;
     if (!drag.moved) {
+      if (peek) return; // 이미 상세보기(peek) 중이면 손가락이 흔들려도 드래그(시전)로 전환하지 않음 — 인스펙트 유지(토스트/재렌더 방지)
       var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
       if (Math.abs(dx) + Math.abs(dy) < 10) return; // 임계값(작은 흔들림 무시)
       // 모바일: '위로'(필드 방향) 우세일 때만 플레이 드래그 시작. 가로/아래 → 손패 좌우 스크롤에 양보하고 취소.
