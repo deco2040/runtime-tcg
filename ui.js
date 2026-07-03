@@ -1033,7 +1033,14 @@
       el('div', { style: { fontSize: '13px', opacity: .72, maxWidth: '290px', lineHeight: 1.55 } }, ['RUNTIME 은 세로 모드로 플레이합니다.', el('br'), '기기를 세로로 세우면 게임이 이어집니다.'])
     ]);
   }
-  // 가로 스탯 바 — 본체 HP+게이지 · 🗇덱 · 🪦묘지 · ✋손패. 상단(상대)/하단(나) 공용.
+  // 덱/묘지/손패 카운트 칩 — 아이콘+숫자를 살짝 띄우고 은은한 배경으로 묶어 또렷하게(상단/하단 바 공용).
+  function pileStat(icon, n, title) {
+    return el('span', { class: 'mono', title: title, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.txt, background: SKIN.chassisSunk, padding: '1px 5px', borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.line } }, [
+      el('span', { style: { fontSize: '12px', lineHeight: 1 } }, [icon]),
+      el('span', { style: { minWidth: '9px', textAlign: 'right', color: SKIN.muted } }, [String(n)])
+    ]);
+  }
+  // 가로 스탯 바 — 본체 HP+게이지 · 🗃️덱 · 🪦묘지 · 🖐️손패. 상단(상대)/하단(나) 공용.
   function statBarH(owner, opts) {
     opts = opts || {};
     var me = owner === HUMAN, pl = G.players[owner], b = G.body(owner);
@@ -1046,9 +1053,9 @@
       el('div', { style: { flex: 1, minWidth: '24px', height: '7px', background: SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, position: 'relative', overflow: 'hidden' } }, [
         el('div', { style: { position: 'absolute', inset: '0', width: Math.max(0, Math.min(100, mx ? hp / mx * 100 : 0)) + '%', background: low ? SKIN.heat : accent } })
       ]),
-      el('span', { class: 'mono', title: '남은 덱', style: { fontSize: '10px', fontWeight: 700, color: SKIN.muted, flex: 'none' } }, ['🗇' + pl.deck.length]),
-      el('span', { class: 'mono', title: '묘지', style: { fontSize: '10px', fontWeight: 700, color: SKIN.muted, flex: 'none' } }, ['🪦' + pl.graveyard.length]),
-      el('span', { class: 'mono', title: '손패', style: { fontSize: '10px', fontWeight: 700, color: SKIN.muted, flex: 'none' } }, ['✋' + pl.hand.length])
+      pileStat('🗃️', pl.deck.length, '남은 덱'),
+      pileStat('🪦', pl.graveyard.length, '묘지'),
+      pileStat('🖐️', pl.hand.length, '손패')
     ];
     if (opts.extra) opts.extra.forEach(function (n) { if (n) kids.push(n); });
     return el('div', { style: Object.assign({ display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 10px', background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none', flexWrap: 'wrap' }, opts.style || {}) }, kids);
@@ -1067,17 +1074,20 @@
     // ── 필드(중앙) — 화면 폭을 꽉 채우는 보드 ──
     wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px calc(4px + ' + SAR + ') 4px calc(4px + ' + SAL + ')' } }, [boardEl(true)]));
 
-    // ── 하단 컨트롤: 나 스탯 + 턴상태 + 액션 + (해제) + [턴 종료] ──
+    // ── 하단: (1) 나 스탯 바 — 상단 AI 바와 대칭(HP·덱·묘지·손패). 컨트롤은 분리해 줄바꿈 방지 ──
+    wrap.appendChild(statBarH(HUMAN, { style: { borderTop: '1px solid ' + SKIN.ink, paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
+
+    // ── 하단: (2) 컨트롤 바 — 한 줄 고정(nowrap): 턴 상태 · 액션 핍 · [턴 종료] ──
     var pips = el('div', { style: { display: 'flex', gap: '3px', alignItems: 'center', flex: 'none' } });
-    for (var i = 0; i < 2; i++) pips.appendChild(el('span', { style: { width: '14px', height: '9px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
-    var extra = [
-      challenge ? el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆' + challenge.wins]) : null,
-      el('span', { style: { flex: 1, minWidth: '4px' } }),
-      el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: meTurn ? SKIN.own : SKIN.muted, flex: 'none' } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대…')]),
+    for (var i = 0; i < 2; i++) pips.appendChild(el('span', { style: { width: '15px', height: '10px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
+    wrap.appendChild(el('div', { style: { display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: '8px', padding: '5px calc(10px + ' + SAR + ') 5px calc(10px + ' + SAL + ')', background: SKIN.chassisAlt, color: SKIN.txt, borderTop: '1px solid ' + SKIN.ink } }, [
+      el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: meTurn ? SKIN.own : SKIN.muted, flex: 'none', whiteSpace: 'nowrap' } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대 차례…')]),
+      el('span', { class: 'mono', style: { fontSize: '9px', color: SKIN.muted, flex: 'none' } }, ['액션']),
       pips,
-      el('button', { class: 'btn', style: { fontSize: '13px', padding: '8px 15px', flex: 'none', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료'])
-    ];
-    wrap.appendChild(statBarH(HUMAN, { extra: extra, style: { borderTop: '1px solid ' + SKIN.ink, paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
+      challenge ? el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆' + challenge.wins]) : null,
+      el('span', { style: { flex: 1, minWidth: '6px' } }),
+      el('button', { class: 'btn', style: { fontSize: '14px', fontWeight: 700, padding: '9px 22px', flex: 'none', whiteSpace: 'nowrap', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료'])
+    ]));
 
     // ── 손패(맨 아래) ──
     wrap.appendChild(handBar(meTurn));
