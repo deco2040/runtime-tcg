@@ -71,6 +71,42 @@
     #app{max-width:none!important;margin:0!important;padding:0!important}
     body>button{display:none!important} /* 상단 고정 음소거/테마 버튼 숨김 — 화면 정리 */
   }
+  /* =====================================================================
+     메인(타이틀) 화면 — 앰버 모노크롬 CRT. 게임 보드는 기존 PCB 팔레트 유지,
+     타이틀만 자체 완결된 흑배경+호박색 인광 모니터로(테마와 무관). ui.js renderTitle 이 사용. */
+  .crt-monitor{--amb:#ffb000;--amb-hi:#ffd27a;--amb-dim:#b3791f;--scr:#0b0803;
+    background:linear-gradient(#221d14,#151109);border:1px solid #000;border-radius:16px;
+    padding:clamp(11px,1.8vw,20px);
+    box-shadow:inset 2px 2px 0 rgba(255,255,255,.05), inset -3px -3px 0 rgba(0,0,0,.6), 6px 6px 0 rgba(0,0,0,.32)}
+  .crt-screen{position:relative;overflow:hidden;border-radius:12px;border:1px solid #000;
+    background:radial-gradient(125% 105% at 50% 38%,#17110700 0%,#120d04 40%,#0b0803 72%,#060400 100%);
+    box-shadow:inset 0 0 70px rgba(0,0,0,.92), inset 0 0 14px rgba(255,176,0,.07);
+    padding:clamp(16px,2.6vw,32px);color:var(--amb);font-family:'Space Mono',monospace;
+    text-shadow:0 0 1px rgba(255,176,0,.55), 0 0 7px rgba(255,132,0,.22)}
+  /* 스캔라인 */
+  .crt-screen::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:3;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px, rgba(0,0,0,.24) 2px 3px);mix-blend-mode:multiply}
+  /* 비네트 + 미세 깜빡임 */
+  .crt-screen::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:4;
+    background:radial-gradient(135% 125% at 50% 44%, transparent 52%, rgba(0,0,0,.6) 100%);
+    animation:crtFlick 4.5s steps(48) infinite}
+  @keyframes crtFlick{0%,100%{opacity:.55}50%{opacity:.66}}
+  .crt-body{position:relative;z-index:2}
+  .crt-cursor{display:inline-block;width:.6em;height:1.05em;vertical-align:-2px;background:var(--amb);margin-left:4px;
+    box-shadow:0 0 7px rgba(255,176,0,.8);animation:crtBlink 1.05s steps(1) infinite}
+  @keyframes crtBlink{0%,49.9%{opacity:1}50%,100%{opacity:0}}
+  .crt-opt{font-family:'Space Mono',monospace;font-weight:700;color:var(--amb);background:transparent;
+    border:1px solid rgba(255,176,0,.42);padding:7px 11px;cursor:pointer;text-shadow:inherit}
+  .crt-opt:hover{border-color:var(--amb);background:rgba(255,176,0,.10)}
+  .crt-opt.on{background:var(--amb);color:#0b0803;text-shadow:none;border-color:var(--amb);
+    box-shadow:0 0 9px rgba(255,176,0,.5), inset 0 0 0 1px rgba(0,0,0,.15)}
+  .crt-btn{font-family:'Space Mono',monospace;font-weight:700;letter-spacing:.05em;color:#0b0803;background:var(--amb);
+    border:1px solid var(--amb);padding:11px 20px;cursor:pointer;text-shadow:none;
+    box-shadow:0 0 11px rgba(255,176,0,.4), 2px 2px 0 rgba(0,0,0,.4)}
+  .crt-btn.ghost{background:transparent;color:var(--amb);text-shadow:0 0 5px rgba(255,132,0,.4);
+    box-shadow:inset 0 0 0 1px rgba(255,176,0,.15), 2px 2px 0 rgba(0,0,0,.4)}
+  .crt-btn:not(:disabled):hover{filter:brightness(1.09)}
+  @media (prefers-reduced-motion: reduce){.crt-screen::after{animation:none}.crt-cursor{animation:none}}
 </style>
 </head>
 <body>
