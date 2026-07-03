@@ -173,22 +173,24 @@
       own: '#147a76', enemy: '#b23a72', ally: '#3c8a66', rangeGold: '#c8951b',
       panelText: '#34343c'
     },
+    // 다크 = 앰버 CRT 인광(기본). 따뜻한 흑갈색 새시 + 호박색 강조. own/enemy/ally·계열색은
+    // 게임 정보 전달을 위해 유지(색 CRT 모니터 느낌) — index.html :root[data-theme="dark"] 와 값 일치.
     dark: {
-      bg: '#0e0e14', pcb: '#15161e', pcb2: '#1b1d27', edge: '#33343f',
-      gold: '#C7A24A', goldEmpty: '#26261b', heat: '#E88A3A',
-      silk: '#aeb8a6', silkDim: '#6f776a', die: '#3a3b46', dieHi: '#4a4b57',
-      txt: '#e6e6ee', txtDim: '#6a6a7e', statIcon: '#c2c3cf', selfPad: '#8a8a9c', buff: '#8fd6a0',
-      padEmpty: '#101018', dieGradEnd: '#2c2d38', chipTop: '#2a2b36', chipBot: '#191a22', scrim: 'rgba(10,10,16,.72)',
-      // v2 창(window) 토큰 — 다크 PCB
-      face: '#33333b', faceHi: '#55555f', faceLo: '#16161b',
-      viewportBg: '#3c414d', effBg: '#2a2a30', effTxt: '#d8d6cc',
-      atkField: '#2a2a30', hpTrack: '#22222a', hpFill: '#b8bcc8',
-      shell: '#0b0b11', chassis: '#15161e', chassisAlt: '#1b1d27', chassisSunk: '#101018',
-      ink: '#33343f', muted: '#8b90a0', faint: '#5a5c68', line: '#2a2b36',
-      bevelHi: 'rgba(255,255,255,.05)', bevelLo: 'rgba(0,0,0,.45)', bevelLo2: 'rgba(0,0,0,.55)',
-      boardFace: '#0b0b11', cellFace: '#131420', trace: 'rgba(199,162,74,.10)',
-      own: '#2ec9c4', enemy: '#e0699a', ally: '#7BB528', rangeGold: '#C7A24A',
-      panelText: '#c9cad6'
+      bg: '#0c0a05', pcb: '#17110a', pcb2: '#1f180d', edge: '#3d3220',
+      gold: '#ffb000', goldEmpty: '#2a2010', heat: '#ff8a3a',
+      silk: '#d8c49a', silkDim: '#8a7a55', die: '#2f2617', dieHi: '#3e3320',
+      txt: '#f2e2c2', txtDim: '#b7a074', statIcon: '#e8cf9a', selfPad: '#8a7a55', buff: '#8fd6a0',
+      padEmpty: '#0d0a04', dieGradEnd: '#241c10', chipTop: '#241c10', chipBot: '#140f07', scrim: 'rgba(8,6,2,.74)',
+      // v2 창(window) 토큰 — 앰버 CRT
+      face: '#2a2013', faceHi: '#453619', faceLo: '#120d05',
+      viewportBg: '#2a2417', effBg: '#221a0d', effTxt: '#e6d3ac',
+      atkField: '#221a0d', hpTrack: '#1c1509', hpFill: '#c8a24a',
+      shell: '#0a0805', chassis: '#17110a', chassisAlt: '#1f180d', chassisSunk: '#0d0a04',
+      ink: '#3d3220', muted: '#b7a074', faint: '#6b5c3c', line: '#2a2214',
+      bevelHi: 'rgba(255,210,120,.06)', bevelLo: 'rgba(0,0,0,.5)', bevelLo2: 'rgba(0,0,0,.6)',
+      boardFace: '#0a0805', cellFace: '#17110a', trace: 'rgba(255,176,0,.10)',
+      own: '#2ec9c4', enemy: '#e0699a', ally: '#7BB528', rangeGold: '#ffb000',
+      panelText: '#d8c49a'
     }
   };
   var SKIN = {};
@@ -207,8 +209,8 @@
     cardTip = null; kwtip = null;
   }
   function initTheme() {
-    var m = 'light';
-    try { m = window.localStorage.getItem('rt_theme') || 'light'; } catch (e) {}
+    var m = 'dark';   // 기본 = 앰버 CRT(다크). 사용자가 명시적으로 라이트를 고른 경우만 라이트.
+    try { m = window.localStorage.getItem('rt_theme') || 'dark'; } catch (e) {}
     applyTheme(m);
   }
   function toggleTheme() { applyTheme(themeMode === 'dark' ? 'light' : 'dark'); if (G) render(); else if (typeof renderTitle === 'function') renderTitle(); }

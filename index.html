@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script>
   // 첫 페인트 전 테마 확정(플래시 방지) — ui.js 의 rt_theme 와 동일 키
-  (function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('rt_theme')||'light');}catch(e){}})();
+  (function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('rt_theme')||'dark');}catch(e){}})();
 </script>
 <style>
   /* 라이트(기본) = 레트로 PC + PCB 융합 팔레트 */
@@ -24,13 +24,13 @@
     --btn-bg:#1d1d24; --btn-fg:#e9eaee; --dot-hi:rgba(255,255,255,.55); --dot-lo:rgba(28,28,38,.10);
     --sel-bg:#1d1d24; --sel-fg:#e9eaee; --tb-dot:#86868f;
   }
-  /* 다크 = 칩 다크 PCB(토글 선택 시) */
+  /* 다크 = 앰버 CRT 인광(기본 테마). 따뜻한 흑갈색 새시 + 호박색 강조 — 게임 보드가 이 팔레트를 씀. */
   :root[data-theme="dark"]{
-    --shell:#0b0b11; --chassis:#15161e; --chassis-alt:#1b1d27; --chassis-sunk:#101018;
-    --ink:#33343f; --txt:#e6e6ee; --muted:#8b90a0;
-    --bevel-hi:rgba(255,255,255,.06); --bevel-lo:rgba(0,0,0,.55); --bevel-lo2:rgba(0,0,0,.4);
-    --btn-bg:#C7A24A; --btn-fg:#15161e; --dot-hi:rgba(255,255,255,.035); --dot-lo:rgba(0,0,0,.30);
-    --sel-bg:#C7A24A; --sel-fg:#0e0e14; --tb-dot:#0b0b11;
+    --shell:#0a0805; --chassis:#17110a; --chassis-alt:#1f180d; --chassis-sunk:#0d0a04;
+    --ink:#3d3220; --txt:#f2e2c2; --muted:#b7a074;
+    --bevel-hi:rgba(255,210,120,.06); --bevel-lo:rgba(0,0,0,.55); --bevel-lo2:rgba(0,0,0,.42);
+    --btn-bg:#ffb000; --btn-fg:#17110a; --dot-hi:rgba(255,200,120,.04); --dot-lo:rgba(0,0,0,.32);
+    --sel-bg:#ffb000; --sel-fg:#0c0a05; --tb-dot:#0a0805;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--shell);color:var(--txt);font-family:'IBM Plex Sans KR',sans-serif}
@@ -83,8 +83,8 @@
     box-shadow:inset 0 0 70px rgba(0,0,0,.92), inset 0 0 14px rgba(255,176,0,.07);
     padding:clamp(16px,2.6vw,32px);color:var(--amb);font-family:'Space Mono',monospace;
     text-shadow:0 0 1px rgba(255,176,0,.55), 0 0 7px rgba(255,132,0,.22)}
-  /* 스캔라인 */
-  .crt-screen::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:3;
+  /* 스캔라인 — 라이트 테마에서만 타이틀 내부에 적용. 다크(기본)는 아래 전역 오버레이가 화면 전체에 깔아 중복 방지. */
+  :root[data-theme="light"] .crt-screen::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:3;
     background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px, rgba(0,0,0,.24) 2px 3px);mix-blend-mode:multiply}
   /* 비네트 + 미세 깜빡임 */
   .crt-screen::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:4;
@@ -107,6 +107,14 @@
     box-shadow:inset 0 0 0 1px rgba(255,176,0,.15), 2px 2px 0 rgba(0,0,0,.4)}
   .crt-btn:not(:disabled):hover{filter:brightness(1.09)}
   @media (prefers-reduced-motion: reduce){.crt-screen::after{animation:none}.crt-cursor{animation:none}}
+  /* =====================================================================
+     전역 CRT 오버레이 — 다크(레트로) 테마에서 타이틀·대국 화면 전체를 하나의 브라운관 유리 아래로.
+     스캔라인 + 비네트 + 은은한 인광. position:fixed·pointer-events:none 라 레이아웃/클릭에 무간섭. */
+  :root[data-theme="dark"] body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:2147483000;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px, rgba(0,0,0,.22) 2px 3px);mix-blend-mode:multiply}
+  :root[data-theme="dark"] body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:2147482999;
+    background:radial-gradient(130% 118% at 50% 44%, transparent 58%, rgba(0,0,0,.44) 100%);
+    box-shadow:inset 0 0 130px rgba(0,0,0,.6), inset 0 0 46px rgba(255,150,0,.045)}
 </style>
 </head>
 <body>
