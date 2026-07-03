@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUNTIME — 일러스트 스튜디오 (개발자)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>
+  // 첫 페인트 전 테마 확정(게임과 동일 키)
+  (function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('rt_theme')||'light');}catch(e){}})();
+</script>
+<style>
+  :root{
+    --bg:#b7b8c0; --panel:#e9eaee; --panel2:#d9dae0; --sunk:#d4d5db;
+    --ink:#1d1d24; --txt:#1d1d24; --muted:#6b6b75; --line:#aeafb6;
+    --hi:#ffffff; --accent:#c8951b; --ok:#3c8a66; --warn:#d8472b;
+    --grid-bg:#c9cad1;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0b11; --panel:#15161e; --panel2:#1b1d27; --sunk:#101018;
+    --ink:#33343f; --txt:#e6e6ee; --muted:#8b90a0; --line:#2a2c38;
+    --hi:rgba(255,255,255,.06); --accent:#C7A24A; --ok:#5fbf8f; --warn:#e0592b;
+    --grid-bg:#101018;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{background:var(--bg);color:var(--txt);font-family:'IBM Plex Sans KR',sans-serif;
+    background-image:radial-gradient(rgba(255,255,255,.35) 1px,transparent 1px),radial-gradient(rgba(28,28,38,.08) 1px,transparent 1px);
+    background-size:6px 6px,6px 6px;background-position:0 0,3px 3px;}
+  :root[data-theme="dark"] body{background-image:radial-gradient(rgba(255,255,255,.03) 1px,transparent 1px),radial-gradient(rgba(0,0,0,.3) 1px,transparent 1px);}
+  /* 게임 ui.js 가 body 에 붙이는 고정 버튼(효과음/테마) 숨김 */
+  body>button{display:none!important}
+  .mono{font-family:'Space Mono',monospace}
+  .grot{font-family:'Space Grotesk',sans-serif}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  input{font:inherit}
+  .bevel{border:1px solid var(--ink);box-shadow:inset 1px 1px 0 var(--hi), inset -2px -2px 0 var(--line)}
+  .btn{font-family:'Space Grotesk',sans-serif;font-weight:700;padding:7px 12px;background:var(--ink);color:var(--panel);
+    border:1px solid var(--ink);box-shadow:inset 1px 1px 0 rgba(255,255,255,.25), 2px 2px 0 rgba(0,0,0,.22);letter-spacing:.02em}
+  .btn.ghost{background:var(--panel2);color:var(--txt);box-shadow:inset 1px 1px 0 var(--hi), inset -2px -2px 0 var(--line)}
+  .btn.ok{background:var(--ok);color:#fff}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn:not(:disabled):hover{filter:brightness(1.08)}
+
+  #top{display:flex;align-items:center;gap:12px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--ink);
+    box-shadow:0 2px 0 rgba(0,0,0,.1);flex-wrap:wrap}
+  #top .title{font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:.14em;font-size:14px}
+  #top .sub{font-size:11px;color:var(--muted)}
+  .prog{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;padding:3px 9px;background:var(--sunk);border:1px solid var(--line)}
+  .prog b{color:var(--accent)}
+  .spacer{flex:1}
+  .fsstat{font-size:11px;color:var(--muted);max-width:260px}
+  .fsstat.on{color:var(--ok);font-weight:600}
+
+  #tools{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--panel2);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #tools input.search{padding:6px 10px;background:var(--panel);border:1px solid var(--line);box-shadow:inset 1px 1px 0 var(--sunk);min-width:150px;color:var(--txt)}
+  .chips{display:flex;gap:4px;flex-wrap:wrap}
+  .chip{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:4px 9px;background:var(--panel);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .chip.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+  .chip.cls-thread.on{background:#d8472b;border-color:#d8472b;color:#fff}
+  .chip.cls-memory.on{background:#2456a6;border-color:#2456a6;color:#fff}
+  .chip.cls-process.on{background:#c8951b;border-color:#c8951b;color:#fff}
+  .chip.cls-generic.on{background:#6b6b75;border-color:#6b6b75;color:#fff}
+  .tlabel{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-left:4px}
+
+  #main{display:flex;height:calc(100vh - 108px);min-height:360px}
+  @media (max-width:820px){#main{flex-direction:column;height:auto}}
+
+  #grid{flex:0 0 380px;overflow-y:auto;padding:12px;background:var(--grid-bg);border-right:1px solid var(--ink);
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;align-content:start}
+  @media (max-width:820px){#grid{flex:none;height:auto;max-height:44vh;border-right:none;border-bottom:1px solid var(--ink)}}
+  .gcard{position:relative;background:var(--panel);border:1px solid var(--ink);padding:0;cursor:pointer;overflow:hidden;
+    box-shadow:1px 1px 0 rgba(0,0,0,.18);display:flex;flex-direction:column}
+  .gcard.sel{outline:3px solid var(--accent);outline-offset:-1px}
+  .gcard .thumb{position:relative;height:62px;display:flex;align-items:center;justify-content:center;background:var(--sunk);overflow:hidden;border-bottom:1px solid var(--line)}
+  .gcard .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .gcard .thumb .gly{font-size:30px;line-height:1}
+  .gcard .nm{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gcard .clsbar{height:3px}
+  .gcard .ok{position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:50%;background:var(--ok);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .gcard .kd{position:absolute;top:2px;left:2px;font-family:'Space Mono',monospace;font-size:8px;font-weight:700;padding:0 3px;background:rgba(0,0,0,.5);color:#fff}
+
+  #detail{flex:1;overflow-y:auto;padding:16px 20px;min-width:0}
+  #detail .empty{color:var(--muted);text-align:center;margin-top:60px;font-size:14px}
+  .dhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .dhead .nm{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px}
+  .dhead .cls{font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+  .dhead .path{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
+  .dtext{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
+
+  .drop{border:2px dashed var(--line);background:var(--panel);padding:14px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:.12s}
+  .drop.hot{border-color:var(--accent);background:var(--panel2);color:var(--txt)}
+  .drop b{color:var(--accent)}
+
+  .frow{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+  .fcol{display:flex;flex-direction:column;gap:6px}
+  .flabel{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+  .framebox{position:relative;width:220px;height:135px;background:var(--sunk);border:1px solid var(--ink);overflow:hidden;cursor:crosshair}
+  .framebox img{position:absolute;inset:0;width:100%;height:100%}
+  .framebox .focus{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.6);pointer-events:none}
+  .framebox .hint{position:absolute;left:0;right:0;bottom:0;font-size:9px;text-align:center;color:#fff;background:rgba(0,0,0,.45);padding:2px}
+
+  .previews{display:flex;gap:22px;flex-wrap:wrap;margin-top:8px;padding:16px;background:var(--grid-bg);border:1px solid var(--ink);
+    background-image:radial-gradient(rgba(0,0,0,.12) 1px,transparent 1px);background-size:6px 6px}
+  .pv{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .pv .cap{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);font-weight:700}
+
+  .crops{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;align-items:flex-end}
+  .crop{display:flex;flex-direction:column;gap:4px;align-items:center}
+  .crop .box{background:var(--sunk);border:1px solid var(--ink);overflow:hidden;position:relative}
+  .crop .box img{position:absolute;inset:0;width:100%;height:100%}
+  .crop .box .gly{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;opacity:.5}
+  .crop .cap{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)}
+
+  .save{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .seg{display:flex;border:1px solid var(--line)}
+  .seg button{padding:5px 12px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;background:var(--panel);color:var(--muted)}
+  .seg button.on{background:var(--ink);color:var(--panel)}
+  .msg{font-size:11px;color:var(--ok);font-weight:600}
+  .msg.err{color:var(--warn)}
+  kbd{font-family:'Space Mono',monospace;font-size:10px;background:var(--sunk);border:1px solid var(--line);padding:1px 4px;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="top">
+  <span class="title">🎨 일러스트 스튜디오</span>
+  <span class="sub">RUNTIME 카드풀 · 개발자 도구</span>
+  <span class="prog" id="prog">–</span>
+  <span class="spacer"></span>
+  <span class="fsstat" id="fsstat">폴더 미연결 — 저장은 내려받기로</span>
+  <button class="btn ghost" id="connectBtn" title="Chrome/Edge: deploy 폴더를 연결하면 파일이 자동 저장됩니다">📁 폴더 연결</button>
+  <button class="btn ghost" id="scanBtn" title="art/ 폴더를 스캔해 규칙에 맞는 파일을 자동 인식" disabled>🔄 폴더 스캔</button>
+  <button class="btn ghost" id="themeBtn" title="라이트/다크 미리보기">☀ 라이트</button>
+</div>
+
+<div id="tools">
+  <input class="search" id="search" placeholder="이름 검색…" autocomplete="off">
+  <span class="tlabel">클래스</span>
+  <div class="chips" id="clsChips"></div>
+  <span class="tlabel">종류</span>
+  <div class="chips" id="kindChips"></div>
+  <span class="tlabel">일러스트</span>
+  <div class="chips" id="artChips"></div>
+</div>
+
+<div id="main">
+  <div id="grid"></div>
+  <div id="detail"><div class="empty">왼쪽에서 카드를 선택하세요.<br>화살표 키(←→↑↓)로도 이동할 수 있어요.</div></div>
+</div>
+
+<!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → ui. 부트는 막고 렌더 헬퍼만 사용. -->
+<script src="cards.js?v=24"></script>
+<script src="decks.js?v=24"></script>
+<script src="engine.js?v=24"></script>
+<script src="art-map.js?v=24"></script>
+<script>window.RT_NO_BOOT = true;</script>
+<script src="ui.js?v=24"></script>
+<script>
+(function () {
+  'use strict';
+  var RT = window.RT, UI = window.__RT_UI;
+  if (!RT || !UI || !UI.cardFaceEl) {
+    document.getElementById('detail').innerHTML =
+      '<div class="empty" style="color:var(--warn)">게임 스크립트를 불러오지 못했습니다.<br>로컬 서버(예: <span class="mono">python -m http.server</span>)에서 여세요.</div>';
+    return;
+  }
+  var CARDS = RT.CARDS;
+  window.RT_ART = window.RT_ART || {};
+  var ART = window.RT_ART;
+
+  var CLS_COLOR = { thread:'#d8472b', memory:'#2456a6', process:'#c8951b', generic:'#6b6b75', none:'#1d1d24' };
+  var GLY = { thread:'▲', memory:'■', process:'◇', generic:'●', none:'▦' };
+
+  // ---- 전체 카드 목록(정의 순서 유지)
+  var IDS = Object.keys(CARDS);
+
+  // ---- slug: 파일명 규칙. 포인터 "()" → "_fn", 대소문자 유지(Copy/copy() 충돌 방지), 그 외 안전문자만.
+  function slug(id) { return id.replace(/\(\)$/, '_fn').replace(/[^A-Za-z0-9_]/g, '_'); }
+  function extFromType(t) {
+    if (/webp/.test(t)) return 'webp'; if (/png/.test(t)) return 'png';
+    if (/jpe?g/.test(t)) return 'jpg'; if (/gif/.test(t)) return 'gif';
+    if (/svg/.test(t)) return 'svg'; return 'png';
+  }
+  function extFromName(n) { var m = /\.([a-z0-9]+)$/i.exec(n || ''); return m ? m[1].toLowerCase().replace('jpeg','jpg') : null; }
+
+  // ---- 상태
+  var pending = {};      // id → { file, ext } (아직 파일로 저장 안 된 드롭 이미지)
+  var dirHandle = null;  // File System Access: deploy 루트
+  var sel = null;        // 선택된 카드 id
+  var themeMode = (function(){ try { return localStorage.getItem('rt_theme')||'light'; } catch(e){ return 'light'; } })();
+  var filter = { q:'', cls:'all', kind:'all', art:'all' };
+
+  UI.setTheme && UI.setTheme(themeMode);
+
+  // ---- 매니페스트 정규화/조회
+  function entry(id) {
+    var v = ART[id]; if (!v) return null;
+    if (typeof v === 'string') return { src:v, pos:'50% 50%', fit:'cover' };
+    if (!v.src) return null;
+    return { src:v.src, pos:v.pos||'50% 50%', fit:v.fit||'cover' };
+  }
+  function hasArt(id) { return !!entry(id); }
+  function setEntry(id, e) {
+    if (!e || !e.src) { delete ART[id]; }
+    else if ((e.pos && e.pos !== '50% 50%') || (e.fit && e.fit !== 'cover')) ART[id] = { src:e.src, pos:e.pos, fit:e.fit };
+    else ART[id] = e.src; // 간단형
+  }
+
+  // ---- 매니페스트 텍스트 생성(실제 파일 경로 art/… 만 포함; 미저장 blob 제외)
+  var HEADER = [
+    '/* RUNTIME TCG — 카드 일러스트 매핑(매니페스트). dev.html 이 자동 관리. */',
+    '/* 값: "art/x.webp" 또는 { src, pos:"50% 50%", fit:"cover"|"contain" } */'
+  ].join('\n') + '\n';
+  function manifestText() {
+    var keys = Object.keys(ART).filter(function (id) { var e = entry(id); return e && /^art\//.test(e.src); }).sort();
+    var lines = keys.map(function (id) {
+      var e = entry(id), val;
+      if ((e.pos && e.pos !== '50% 50%') || (e.fit && e.fit !== 'cover'))
+        val = '{ src: ' + JSON.stringify(e.src) + ', pos: ' + JSON.stringify(e.pos) + ', fit: ' + JSON.stringify(e.fit) + ' }';
+      else val = JSON.stringify(e.src);
+      return '  ' + JSON.stringify(id) + ': ' + val + ',';
+    });
+    return HEADER + 'window.RT_ART = {\n' + lines.join('\n') + '\n};\n';
+  }
+
+  // ---- File System Access
+  function fsSupported() { return typeof window.showDirectoryPicker === 'function'; }
+  async function connectFolder() {
+    if (!fsSupported()) { setFsStat('이 브라우저는 폴더 연결 미지원 — 내려받기 사용', false); return; }
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+      setFsStat('연결됨: ' + dirHandle.name + ' — 저장/스캔 가능', true);
+      document.getElementById('scanBtn').disabled = false;
+      await scanFolder();
+    } catch (e) { /* 사용자가 취소 */ }
+  }
+  async function getArtDir(create) {
+    if (!dirHandle) return null;
+    try { return await dirHandle.getDirectoryHandle('art', { create: !!create }); }
+    catch (e) { return null; }
+  }
+  async function scanFolder() {
+    var dir = await getArtDir(false); if (!dir) return;
+    var bySlug = {};
+    for await (var ent of dir.values()) { if (ent.kind === 'file') bySlug[ent.name] = ent.name; }
+    var added = 0;
+    IDS.forEach(function (id) {
+      if (hasArt(id)) return;
+      var s = slug(id);
+      ['webp','png','jpg','gif','svg'].some(function (ext) {
+        if (bySlug[s + '.' + ext]) { setEntry(id, { src:'art/' + s + '.' + ext, pos:'50% 50%', fit:'cover' }); added++; return true; }
+        return false;
+      });
+    });
+    if (added) { renderGrid(); if (sel) renderDetail(); }
+    setFsStat('연결됨: ' + dirHandle.name + ' — 스캔 완료(' + added + '개 인식)', true);
+    updateProg();
+  }
+  async function writeFile(dir, name, blob) {
+    var fh = await dir.getFileHandle(name, { create:true });
+    var w = await fh.createWritable(); await w.write(blob); await w.close();
+  }
+  async function saveCurrent() {
+    if (!sel) return;
+    var e = entry(sel), p = pending[sel];
+    if (!e && !p) { msg('저장할 이미지가 없습니다', true); return; }
+    var s = slug(sel);
+    if (dirHandle && p) {
+      try {
+        var adir = await getArtDir(true);
+        var name = s + '.' + p.ext;
+        await writeFile(adir, name, p.file);
+        setEntry(sel, { src:'art/' + name, pos: e ? e.pos : '50% 50%', fit: e ? e.fit : 'cover' });
+        delete pending[sel];
+        await writeManifest();
+        msg('저장됨 → art/' + name);
+      } catch (err) { msg('저장 실패: ' + err.message, true); }
+    } else if (dirHandle && e) {
+      // 이미지 변경 없이 프레이밍만 갱신 → 매니페스트만 다시 씀
+      await writeManifest(); msg('프레이밍 저장됨(매니페스트)');
+    } else {
+      // 폴더 미연결 → 내려받기 폴백
+      if (p) { downloadBlob(p.file, s + '.' + p.ext); setEntry(sel, { src:'art/' + s + '.' + p.ext, pos: e?e.pos:'50% 50%', fit: e?e.fit:'cover' }); delete pending[sel]; }
+      downloadBlob(new Blob([manifestText()], { type:'text/javascript' }), 'art-map.js');
+      msg('내려받기: 이미지→art/, art-map.js→루트에 넣으세요');
+    }
+    renderGrid(); renderDetail(); updateProg();
+  }
+  async function writeManifest() {
+    if (!dirHandle) { downloadBlob(new Blob([manifestText()], { type:'text/javascript' }), 'art-map.js'); return; }
+    await writeFile(dirHandle, 'art-map.js', new Blob([manifestText()], { type:'text/javascript' }));
+  }
+  function downloadBlob(blob, name) {
+    var u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+
+  // ---- 이미지 드롭/선택
+  function acceptFile(id, file) {
+    if (!file || !/^image\//.test(file.type)) { msg('이미지 파일이 아닙니다', true); return; }
+    var prev = entry(id);
+    var url = URL.createObjectURL(file);
+    var ext = extFromName(file.name) || extFromType(file.type);
+    pending[id] = { file: file, ext: ext };
+    ART[id] = { src: url, pos: prev ? prev.pos : '50% 50%', fit: prev ? prev.fit : 'cover' };
+    renderGrid(); renderDetail(); updateProg();
+    msg('불러옴 — 초점/맞춤 조절 후 저장하세요');
+  }
+  function removeArt(id) {
+    delete ART[id]; delete pending[id];
+    renderGrid(); renderDetail(); updateProg();
+    msg('일러스트 해제(매니페스트에서 저장 필요)');
+  }
+
+  // ---- 렌더: 상단 진행률
+  function updateProg() {
+    var n = IDS.filter(hasArt).length;
+    document.getElementById('prog').innerHTML = '일러스트 <b>' + n + '</b> / ' + IDS.length;
+  }
+
+  // ---- 필터
+  function passFilter(id) {
+    var c = CARDS[id];
+    if (filter.q && (c.name || id).toLowerCase().indexOf(filter.q) < 0 && id.toLowerCase().indexOf(filter.q) < 0) return false;
+    if (filter.cls !== 'all' && (c.cls || 'generic') !== filter.cls) return false;
+    if (filter.kind !== 'all' && (c.kind || 'object') !== filter.kind) return false;
+    if (filter.art === 'has' && !hasArt(id)) return false;
+    if (filter.art === 'no' && hasArt(id)) return false;
+    return true;
+  }
+
+  // ---- 렌더: 카드 그리드(경량 썸네일)
+  function renderGrid() {
+    var g = document.getElementById('grid');
+    g.innerHTML = '';
+    var list = IDS.filter(passFilter);
+    if (!list.length) { g.innerHTML = '<div style="color:var(--muted);font-size:12px;grid-column:1/-1;padding:10px">조건에 맞는 카드가 없습니다.</div>'; return; }
+    list.forEach(function (id) {
+      var c = CARDS[id], e = entry(id), col = CLS_COLOR[c.cls] || CLS_COLOR.generic;
+      var box = document.createElement('div');
+      box.className = 'gcard' + (id === sel ? ' sel' : '');
+      box.onclick = function () { select(id); };
+      var thumb = '<div class="thumb">' +
+        (e ? '<img src="' + escAttr(e.src) + '" style="object-fit:' + e.fit + ';object-position:' + escAttr(e.pos) + '" onerror="this.remove()">' : '') +
+        '<span class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</span></div>';
+      box.innerHTML =
+        '<div class="clsbar" style="background:' + col + '"></div>' +
+        thumb +
+        '<div class="nm" title="' + escAttr(id) + '">' + escHtml(c.name || id) + '</div>' +
+        '<span class="kd">' + (c.kind === 'pointer' ? 'FN' : 'OBJ') + '</span>' +
+        (e ? '<span class="ok">✓</span>' : '');
+      g.appendChild(box);
+    });
+  }
+
+  // ---- 렌더: 상세 + 미리보기
+  function renderDetail() {
+    var d = document.getElementById('detail');
+    if (!sel) { d.innerHTML = '<div class="empty">왼쪽에서 카드를 선택하세요.</div>'; return; }
+    var c = CARDS[sel], e = entry(sel), col = CLS_COLOR[c.cls] || CLS_COLOR.generic, s = slug(sel);
+    var ext = (e && extFromName(e.src)) || (pending[sel] && pending[sel].ext) || 'webp';
+    d.innerHTML = '';
+
+    var head = document.createElement('div');
+    head.innerHTML =
+      '<div class="dhead"><span class="nm">' + escHtml(c.name || sel) + '</span>' +
+      '<span class="cls" style="color:' + col + '">' + (c.cls || 'generic').toUpperCase() + ' · ' + (c.kind === 'pointer' ? '포인터' : '인스턴스') + '</span>' +
+      '<span class="path">→ art/' + escHtml(s) + '.' + escHtml(ext) + '</span></div>' +
+      '<div class="dtext">' + escHtml(c.text || '') + '</div>';
+    d.appendChild(head);
+
+    // 드롭존
+    var drop = document.createElement('div');
+    drop.className = 'drop';
+    drop.innerHTML = e ? '이미지 <b>교체</b> — 드래그하거나 클릭' : '이미지를 <b>드래그</b>하거나 <b>클릭</b>해서 선택';
+    var fileIn = document.createElement('input');
+    fileIn.type = 'file'; fileIn.accept = 'image/*'; fileIn.style.display = 'none';
+    fileIn.onchange = function () { if (fileIn.files[0]) acceptFile(sel, fileIn.files[0]); };
+    drop.onclick = function () { fileIn.click(); };
+    drop.ondragover = function (ev) { ev.preventDefault(); drop.classList.add('hot'); };
+    drop.ondragleave = function () { drop.classList.remove('hot'); };
+    drop.ondrop = function (ev) { ev.preventDefault(); drop.classList.remove('hot'); var f = ev.dataTransfer.files[0]; if (f) acceptFile(sel, f); };
+    d.appendChild(drop); d.appendChild(fileIn);
+
+    if (e) {
+      // 프레이밍 컨트롤 행
+      var frow = document.createElement('div'); frow.className = 'frow';
+
+      // 인터랙티브 프레이밍 박스(데스크톱 뷰포트 비율) — 클릭=초점
+      var fb = document.createElement('div'); fb.className = 'framebox';
+      var fimg = document.createElement('img'); fimg.src = e.src; fimg.style.objectFit = e.fit; fimg.style.objectPosition = e.pos;
+      var focus = document.createElement('div'); focus.className = 'focus';
+      var pm = /(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(e.pos) || [0,50,50];
+      focus.style.left = pm[1] + '%'; focus.style.top = pm[2] + '%';
+      focus.style.display = e.fit === 'cover' ? 'block' : 'none';
+      var hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = '클릭 → 초점 이동';
+      fb.appendChild(fimg); fb.appendChild(focus); fb.appendChild(hint);
+      fb.onclick = function (ev) {
+        var r = fb.getBoundingClientRect();
+        var x = Math.max(0, Math.min(100, Math.round((ev.clientX - r.left) / r.width * 100)));
+        var y = Math.max(0, Math.min(100, Math.round((ev.clientY - r.top) / r.height * 100)));
+        var cur = entry(sel); cur.pos = x + '% ' + y + '%'; setEntry(sel, cur);
+        renderDetail();
+      };
+      var fbcol = document.createElement('div'); fbcol.className = 'fcol';
+      fbcol.innerHTML = '<span class="flabel">초점/프레이밍 (데스크톱 뷰포트 비율)</span>';
+      fbcol.appendChild(fb);
+
+      // 맞춤 + 초기화
+      var ctl = document.createElement('div'); ctl.className = 'fcol';
+      ctl.innerHTML = '<span class="flabel">맞춤(object-fit)</span>';
+      var seg = document.createElement('div'); seg.className = 'seg';
+      ['cover','contain'].forEach(function (f) {
+        var b = document.createElement('button'); b.textContent = f === 'cover' ? 'cover(꽉)' : 'contain(전체)';
+        if (e.fit === f) b.className = 'on';
+        b.onclick = function () { var cur = entry(sel); cur.fit = f; setEntry(sel, cur); renderDetail(); };
+        seg.appendChild(b);
+      });
+      ctl.appendChild(seg);
+      var reset = document.createElement('button'); reset.className = 'btn ghost'; reset.style.marginTop = '8px'; reset.textContent = '초점 가운데로';
+      reset.onclick = function () { var cur = entry(sel); cur.pos = '50% 50%'; setEntry(sel, cur); renderDetail(); };
+      ctl.appendChild(reset);
+      var rm = document.createElement('button'); rm.className = 'btn ghost'; rm.style.marginTop = '6px'; rm.style.color = 'var(--warn)'; rm.textContent = '🗑 일러스트 해제';
+      rm.onclick = function () { removeArt(sel); };
+      ctl.appendChild(rm);
+
+      frow.appendChild(fbcol); frow.appendChild(ctl);
+      d.appendChild(frow);
+
+      // 실제 게임 카드 페이스 미리보기(ui.js 재사용)
+      var pvLabel = document.createElement('div'); pvLabel.className = 'flabel'; pvLabel.style.marginTop = '16px';
+      pvLabel.textContent = '실제 게임 화면 미리보기 (' + (themeMode === 'dark' ? '다크' : '라이트') + ')';
+      d.appendChild(pvLabel);
+      d.appendChild(buildPreviews(sel));
+
+      // 비율별 crop 미리보기
+      var cropLabel = document.createElement('div'); cropLabel.className = 'flabel'; cropLabel.style.marginTop = '14px';
+      cropLabel.textContent = '슬롯 비율별 잘림';
+      d.appendChild(cropLabel);
+      d.appendChild(buildCrops(sel));
+    }
+
+    // 저장 행
+    var save = document.createElement('div'); save.className = 'save';
+    var saveBtn = document.createElement('button'); saveBtn.className = 'btn ok';
+    saveBtn.textContent = dirHandle ? '💾 저장 (파일+매니페스트)' : '⬇ 내려받기(이미지+art-map.js)';
+    saveBtn.disabled = !e; saveBtn.onclick = saveCurrent;
+    save.appendChild(saveBtn);
+    if (!dirHandle) {
+      var mfBtn = document.createElement('button'); mfBtn.className = 'btn ghost'; mfBtn.textContent = '📄 art-map.js만 내려받기';
+      mfBtn.onclick = function () { downloadBlob(new Blob([manifestText()], { type:'text/javascript' }), 'art-map.js'); msg('art-map.js 내려받음 — 루트에 넣으세요'); };
+      save.appendChild(mfBtn);
+    }
+    var msgEl = document.createElement('span'); msgEl.className = 'msg'; msgEl.id = 'msg';
+    save.appendChild(msgEl);
+    d.appendChild(save);
+  }
+
+  // 게임 카드 페이스 3종(데스크톱 손패 / 데스크톱 큰 미리보기 / 모바일 미니)
+  function buildPreviews(id) {
+    var wrap = document.createElement('div'); wrap.className = 'previews';
+    [['데스크톱 손패', { compact:false, mode:'idle' }],
+     ['데스크톱 상세', { compact:false, mode:'preview' }],
+     ['모바일 손패', { compact:true, mode:'idle' }]].forEach(function (p) {
+      var col = document.createElement('div'); col.className = 'pv';
+      var node = null; try { node = UI.cardFaceEl(id, p[1]); } catch (e) {}
+      if (node) col.appendChild(node);
+      var cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = p[0];
+      col.appendChild(cap); wrap.appendChild(col);
+    });
+    return wrap;
+  }
+
+  // 슬롯 비율별 crop(데스크톱 뷰포트 150×92 · 모바일 미니 86×square-ish · 필드 타일 정사각)
+  function buildCrops(id) {
+    var e = entry(id), c = CARDS[id], col = CLS_COLOR[c.cls] || CLS_COLOR.generic;
+    var wrap = document.createElement('div'); wrap.className = 'crops';
+    [['데스크톱 뷰포트', 150, 92], ['모바일 미니', 86, 78], ['필드 타일', 72, 72], ['드래그 고스트', 120, 60]].forEach(function (spec) {
+      var box = document.createElement('div'); box.className = 'crop';
+      var b = document.createElement('div'); b.className = 'box'; b.style.width = spec[1] + 'px'; b.style.height = spec[2] + 'px';
+      b.innerHTML = '<div class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</div>';
+      if (e) { var im = document.createElement('img'); im.src = e.src; im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); }; b.appendChild(im); }
+      box.appendChild(b);
+      var cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = spec[0];
+      box.appendChild(cap); wrap.appendChild(box);
+    });
+    return wrap;
+  }
+
+  function msg(t, err) { var m = document.getElementById('msg'); if (m) { m.textContent = t; m.className = 'msg' + (err ? ' err' : ''); } }
+  function setFsStat(t, on) { var s = document.getElementById('fsstat'); s.textContent = t; s.className = 'fsstat' + (on ? ' on' : ''); }
+  function escHtml(s) { return String(s).replace(/[&<>]/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;' }[c]; }); }
+  function escAttr(s) { return String(s).replace(/["'&<>]/g, function (c) { return { '"':'&quot;',"'":'&#39;','&':'&amp;','<':'&lt;','>':'&gt;' }[c]; }); }
+
+  // ---- 선택/네비게이션
+  function select(id) { sel = id; renderGrid(); renderDetail();
+    var node = document.querySelector('.gcard.sel'); if (node) node.scrollIntoView({ block:'nearest' });
+  }
+  function move(delta) {
+    var list = IDS.filter(passFilter); if (!list.length) return;
+    var i = list.indexOf(sel); i = (i < 0) ? 0 : (i + delta + list.length) % list.length;
+    select(list[i]);
+  }
+  document.addEventListener('keydown', function (ev) {
+    if (/input/i.test(ev.target.tagName)) return;
+    if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); move(1); }
+    else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); move(-1); }
+    else if ((ev.key === 'Delete' || ev.key === 'Backspace') && sel && hasArt(sel)) { ev.preventDefault(); removeArt(sel); }
+  });
+
+  // ---- 툴바 chips
+  function buildChips(hostId, defs, key) {
+    var host = document.getElementById(hostId); host.innerHTML = '';
+    defs.forEach(function (d) {
+      var b = document.createElement('button');
+      b.className = 'chip' + (d.cls ? ' cls-' + d.val : '') + (filter[key] === d.val ? ' on' : '');
+      b.textContent = d.label;
+      b.onclick = function () { filter[key] = d.val; buildChips(hostId, defs, key); renderGrid(); };
+      host.appendChild(b);
+    });
+  }
+  function refreshChips() {
+    buildChips('clsChips', [
+      { val:'all', label:'전체' }, { val:'thread', label:'thread', cls:1 },
+      { val:'memory', label:'memory', cls:1 }, { val:'process', label:'process', cls:1 }, { val:'generic', label:'generic', cls:1 }
+    ], 'cls');
+    buildChips('kindChips', [{ val:'all', label:'전체' }, { val:'object', label:'인스턴스' }, { val:'pointer', label:'포인터' }], 'kind');
+    buildChips('artChips', [{ val:'all', label:'전체' }, { val:'has', label:'있음 ✓' }, { val:'no', label:'없음' }], 'art');
+  }
+
+  // ---- 이벤트 바인딩
+  document.getElementById('search').addEventListener('input', function (ev) { filter.q = ev.target.value.trim().toLowerCase(); renderGrid(); });
+  document.getElementById('connectBtn').onclick = connectFolder;
+  document.getElementById('scanBtn').onclick = scanFolder;
+  document.getElementById('themeBtn').onclick = function () {
+    themeMode = themeMode === 'dark' ? 'light' : 'dark';
+    UI.setTheme && UI.setTheme(themeMode);
+    document.documentElement.setAttribute('data-theme', themeMode);
+    document.getElementById('themeBtn').textContent = themeMode === 'dark' ? '🌙 다크' : '☀ 라이트';
+    if (sel) renderDetail();
+  };
+  document.getElementById('themeBtn').textContent = themeMode === 'dark' ? '🌙 다크' : '☀ 라이트';
+  if (!fsSupported()) document.getElementById('connectBtn').disabled = true, document.getElementById('connectBtn').title = '이 브라우저는 미지원(Chrome/Edge 권장)';
+
+  // ---- 초기 렌더
+  refreshChips();
+  renderGrid();
+  updateProg();
+  if (IDS.length) select(IDS[0]);
+})();
+</script>
+</body>
+</html>
