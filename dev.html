@@ -182,7 +182,7 @@
   // ---- 전체 카드 목록(정의 순서 유지)
   var IDS = Object.keys(CARDS);
 
-  // ---- slug: 파일명 규칙. 포인터 "()" → "_fn", 대소문자 유지(Copy/copy() 충돌 방지), 그 외 안전문자만.
+  // ---- slug: 파일명 규칙. 포인터 "()" → "_fn", 대소문자 유지(파일명 충돌 방지), 그 외 안전문자만.
   function slug(id) { return id.replace(/\(\)$/, '_fn').replace(/[^A-Za-z0-9_]/g, '_'); }
   function extFromType(t) {
     if (/webp/.test(t)) return 'webp'; if (/png/.test(t)) return 'png';

@@ -9,7 +9,7 @@
  *     - fit : "cover"(꽉 채움·기본) | "contain"(여백 두고 전체 표시)
  *
  * 파일명 규칙(dev.html slug): 포인터의 "()" 는 "_fn" 으로, 그 외 안전문자만 유지.
- *   예) Fork → art/Fork.webp,  boost() → art/boost_fn.webp
+ *   예) Fiber → art/Fiber.webp,  boost() → art/boost_fn.webp
  */
 window.RT_ART = {
 };
