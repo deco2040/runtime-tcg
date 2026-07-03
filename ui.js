@@ -69,8 +69,10 @@
   }
   function isPortrait() { return (window.innerHeight || 0) > (window.innerWidth || 0); }
   computeCompact();
-  window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); render(); }, 150); });
-  window.addEventListener('orientationchange', function () { computeCompact(); setTimeout(function () { render(); }, 80); });
+  // 멀리건 인트로(코인플립·딜링) 중엔 재렌더 금지 — 모바일 URL바 접힘/방향전환이 resize 를 발생시켜
+  // clear() 로 애니메이션(코인·딜)이 지워지는 걸 막는다. 코인은 fxLayer 라 살아남지만 딜 연출까지 보호.
+  window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); if (mullPhase && mullBusy) return; render(); }, 150); });
+  window.addEventListener('orientationchange', function () { computeCompact(); setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
   var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false;
   var myDeck = 'T1', oppDeck = '__random';
   var challenge = null;   // 도전 모드: { stage, wins, baseBest } 또는 null
@@ -809,17 +811,15 @@
     }
   }
   // 선후공 코인플립 — 코인이 뒤집히며 결정된 선공에 착지.
-  // 모바일: 가로 고정 셸(회전 포함) 안에 퍼센트 배치 → 항상 가로로 정렬. 데스크톱: 보드 중앙(픽셀).
+  // 코인은 항상 fxLayer(뷰포트 고정, body 직속)에 그린다 → clear()/재렌더에도 지워지지 않아
+  // 모바일 URL바 접힘 등으로 코인이 사라지던 문제 해결. 보드가 있으면 보드 중앙, 없으면 화면 중앙.
   function runCoinFlip(onDone) {
     var me = (mullFirst === HUMAN), meCol = '#2456a6', aiCol = '#c23c70';
-    var stage = COMPACT ? app.querySelector('.bevel') : null; // 셸(회전됨)에 붙여 가로 정렬
-    var parent = stage || fxLayer(), cx = 0, cy = 0;
-    if (!stage) {
-      var board = document.getElementById('board');
-      var r = board ? board.getBoundingClientRect() : { left: 0, top: 140, width: window.innerWidth, height: 300 };
-      cx = r.left + r.width / 2; cy = r.top + r.height * 0.42;
-    }
-    function bs(pct, px) { return stage ? { position: 'absolute', left: '50%', top: pct, zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' } : { position: 'fixed', left: cx + 'px', top: px + 'px', zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }; }
+    var parent = fxLayer(), cx, cy;
+    var board = document.getElementById('board');
+    if (board) { var r = board.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height * 0.42; }
+    else { cx = (window.innerWidth || 360) / 2; cy = (window.innerHeight || 640) * 0.42; }
+    function bs(pct, px) { return { position: 'fixed', left: cx + 'px', top: px + 'px', zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }; }
     var cap = el('div', { class: 'mono', style: Object.assign(bs('30%', cy - 76), { fontSize: '12px', color: SKIN.muted }) }, ['선 · 후공 결정']);
     var coin = el('div', { class: 'grot', style: Object.assign(bs('48%', cy), { width: '86px', height: '86px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.gold, border: '3px solid ' + SKIN.ink, boxShadow: '0 12px 26px rgba(0,0,0,.4)', fontWeight: 700, fontSize: '24px', color: SKIN.ink }) }, ['?']);
     parent.appendChild(cap); parent.appendChild(coin);
@@ -1087,27 +1087,48 @@
     app.appendChild(wrap);
   }
 
-  // ── 모바일 멀리건 ── 대국과 동일한 가로 고정 셸. 상단바(멀리건·[✔ 시작]) + 카드가 주인공(가운데 가로 스크롤).
+  // ── 모바일 멀리건 ── 실제 게임 화면(상대바·필드·나바)을 블러 배경으로 깔고, 그 위에 멀리건 오버레이.
+  // 카드는 위 2장·아래 3장 그리드로 한 화면에 표시(가로 스크롤 없음). 코인플립은 fxLayer 에서 보드 중앙에 재생.
   function renderMulliganCompact(wrap) {
     sizeCompactWrap(wrap);
+    wrap.style.background = SKIN.chassis;
 
-    var top = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '3px 8px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none' } });
-    top.appendChild(el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: SKIN.own, flex: 'none' } }, ['◈ 멀리건']));
-    top.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, flex: 'none' } }, [(DECKS[myDeck] ? myDeck : '') + ' vs ' + (G.oppKey || '?')]));
-    if (challenge) top.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆 ' + challenge.stage]));
-    top.appendChild(el('span', { style: { flex: 1 } }));
+    // 배경: 게임 화면(필드 포함) — 블러 + 살짝 확대(가장자리 블러 여백 감춤). 상호작용 차단.
+    var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', flexDirection: 'column', filter: 'blur(3px)', transform: 'scale(1.04)', pointerEvents: 'none' } }, [
+      statBarH(AI, { style: { borderBottom: '1px solid ' + SKIN.ink } }),
+      el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' } }, [boardEl(true)]),
+      statBarH(HUMAN, { style: { borderTop: '1px solid ' + SKIN.ink } })
+    ]);
+    wrap.appendChild(bg);
+    // 어둡게 덮는 스크림
+    wrap.appendChild(el('div', { style: { position: 'absolute', inset: '0', background: 'rgba(12,12,18,.5)', pointerEvents: 'none' } }));
+
+    // 멀리건 오버레이(중앙): 헤더 · 안내 · 2+3 카드 그리드 · 컨트롤
+    var ov = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: 'calc(8px + env(safe-area-inset-top,0px)) calc(8px + env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))' } });
+    ov.appendChild(el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' } }, [
+      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '16px', color: SKIN.own, textShadow: '0 1px 3px rgba(0,0,0,.55)' } }, ['◈ 멀리건']),
+      el('span', { class: 'mono', style: { fontSize: '10px', color: '#e9eaee', opacity: .85 } }, [(DECKS[myDeck] ? myDeck : '') + ' vs ' + (G.oppKey || '?')]),
+      challenge ? el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 ' + challenge.stage]) : null
+    ]));
+    ov.appendChild(el('div', { class: 'mono', style: { fontSize: '10.5px', color: '#e9eaee', opacity: .8, textAlign: 'center', minHeight: '14px', maxWidth: '92%' } }, [mullReady ? '바꿀 카드를 탭 → 덱으로 반환하고 새로 뽑습니다. 안 고르면 유지 (1회).' : '패를 나눠주는 중…']));
+
+    // 2+3 그리드 (위 2장 · 아래 3장)
+    var grid = el('div', { id: 'mullrow', style: { display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' } });
+    var top = el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'nowrap' } });
+    var bot = el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'nowrap' } });
+    G.players[HUMAN].hand.forEach(function (id, i) { (i < 2 ? top : bot).appendChild(handCardEl(id, i, 'mull')); });
+    grid.appendChild(top); grid.appendChild(bot);
+    ov.appendChild(grid);
+    // 딜 애니메이션 배출점(보이지 않는 앵커) — 화면 하단 중앙(=덱 방향)에서 카드가 날아 들어옴.
+    ov.appendChild(el('div', { id: 'mullshoe', style: { position: 'absolute', left: '50%', bottom: '6px', width: '2px', height: '2px', transform: 'translateX(-50%)', pointerEvents: 'none', opacity: 0 } }));
+
     if (mullReady) {
-      top.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '10px', padding: '4px 8px', flex: 'none' }, onclick: function () { if (mullBusy) return; mullPick = {}; renderMulligan(); } }, ['↺ 해제']));
-      top.appendChild(el('button', { class: 'btn', style: { fontSize: '12px', padding: '6px 13px', flex: 'none' }, onclick: confirmMulligan }, ['✔ 시작']));
+      ov.appendChild(el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' } }, [
+        el('button', { class: 'btn', style: { fontSize: '13px', padding: '9px 20px' }, onclick: confirmMulligan }, ['✔ 확정 · 시작']),
+        el('button', { class: 'btn ghost', style: { fontSize: '12px', padding: '9px 15px' }, onclick: function () { if (mullBusy) return; mullPick = {}; renderMulligan(); } }, ['↺ 해제'])
+      ]));
     }
-    wrap.appendChild(top);
-
-    wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '10px', color: SKIN.muted, textAlign: 'center', padding: '3px 8px', minHeight: '14px' } }, [mullReady ? '바꿀 카드를 탭 → 덱으로 반환하고 새로 뽑습니다. 안 고르면 유지 (1회).' : '패를 나눠주는 중…']));
-
-    // 카드(가운데) — 가로 스크롤. 코인플립은 이 영역 위에서 재생(#board 없으면 화면 중앙 폴백).
-    var row = el('div', { id: 'mullrow', style: { flex: '1 1 auto', minHeight: '0', display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', overflowY: 'hidden', alignItems: 'center', justifyContent: G.players[HUMAN].hand.length > 4 ? 'flex-start' : 'center', padding: '6px 8px' } });
-    G.players[HUMAN].hand.forEach(function (id, i) { row.appendChild(handCardEl(id, i, 'mull')); });
-    wrap.appendChild(row);
+    wrap.appendChild(ov);
     if (!isPortrait() && isTouchDevice()) wrap.appendChild(portraitGuide()); // 가로(터치) → 세로 유도
     app.appendChild(wrap);
   }
@@ -1360,7 +1381,16 @@
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
     var mullSel = mode === 'mull' && mullPick[i];
     var big = mode === 'mull', prev = mode === 'preview';
-    var W = prev ? 186 : big ? (COMPACT ? 150 : 176) : 150, MINH = prev ? 246 : big ? (COMPACT ? 208 : 250) : 150, VPH = prev ? 116 : big ? (COMPACT ? 90 : 116) : 92;
+    var W, MINH, VPH;
+    if (prev) { W = 186; MINH = 246; VPH = 116; }
+    else if (big && COMPACT) {
+      // 멀리건 2+3 그리드가 가로 스크롤 없이 한 화면에 들어오도록 하단 3장 기준으로 폭을 뷰포트에 맞춤.
+      var avail = Math.min(window.innerWidth || 360, 480);
+      W = Math.max(94, Math.min(150, Math.floor((avail - 40) / 3)));
+      var rr = W / 150; MINH = Math.round(208 * rr); VPH = Math.round(90 * rr);
+    }
+    else if (big) { W = 176; MINH = 250; VPH = 116; }
+    else { W = 150; MINH = 150; VPH = 92; }
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
     var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
