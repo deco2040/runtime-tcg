@@ -139,6 +139,7 @@
   <span class="fsstat" id="fsstat">폴더 미연결 — 저장은 내려받기로</span>
   <button class="btn ghost" id="connectBtn" title="Chrome/Edge: deploy 폴더를 연결하면 파일이 자동 저장됩니다">📁 폴더 연결</button>
   <button class="btn ghost" id="scanBtn" title="art/ 폴더를 스캔해 규칙에 맞는 파일을 자동 인식" disabled>🔄 폴더 스캔</button>
+  <button class="btn ok" id="saveAllBtn" title="이번 세션에 올린(미저장) 이미지를 art/ 에 한 번에 저장" disabled>💾 전체 저장</button>
   <button class="btn ghost" id="themeBtn" title="라이트/다크 미리보기">☀ 라이트</button>
 </div>
 
@@ -313,6 +314,34 @@
     }
     renderGrid(); renderDetail(); updateProg();
   }
+  // ---- 전체 저장: 이번 세션에 올린(미저장) 이미지 전부를 한 번에 기록
+  async function saveAll() {
+    var ids = Object.keys(pending);
+    if (dirHandle) {
+      if (!ids.length) { await writeManifest(); msg('저장할 신규 이미지가 없어 매니페스트(art-map.js)만 갱신했습니다'); updateProg(); return; }
+      var adir;
+      try { adir = await getArtDir(true); } catch (err) { msg('art 폴더 접근 실패: ' + err.message, true); return; }
+      var ok = 0, fail = 0;
+      for (var i = 0; i < ids.length; i++) {
+        var id = ids[i], p = pending[id], e = entry(id), name = slug(id) + '.' + p.ext;
+        try { await writeFile(adir, name, p.file); setEntry(id, { src:'art/' + name, pos: e ? e.pos : '50% 50%', fit: e ? e.fit : 'cover' }); delete pending[id]; ok++; }
+        catch (err) { fail++; }
+      }
+      await writeManifest();
+      msg('전체 저장 완료 → ' + ok + '개 저장' + (fail ? ' · ' + fail + '개 실패' : '') + ' (art-map.js 갱신)', !!fail);
+    } else {
+      // 폴더 미연결 → 이미지 여러 개 + 매니페스트 내려받기
+      ids.forEach(function (id) {
+        var p = pending[id], e = entry(id), s = slug(id);
+        downloadBlob(p.file, s + '.' + p.ext);
+        setEntry(id, { src:'art/' + s + '.' + p.ext, pos: e ? e.pos : '50% 50%', fit: e ? e.fit : 'cover' });
+        delete pending[id];
+      });
+      downloadBlob(new Blob([manifestText()], { type:'text/javascript' }), 'art-map.js');
+      msg('⚠ 폴더 미연결 — 이미지 ' + ids.length + '개 + art-map.js 내려받음. 이미지를 deploy/art/ 로, art-map.js를 루트로 옮기세요', true);
+    }
+    renderGrid(); if (sel) renderDetail(); updateProg();
+  }
   async function writeManifest() {
     if (!dirHandle) { downloadBlob(new Blob([manifestText()], { type:'text/javascript' }), 'art-map.js'); return; }
     await writeFile(dirHandle, 'art-map.js', new Blob([manifestText()], { type:'text/javascript' }));
@@ -345,6 +374,12 @@
   function updateProg() {
     var n = IDS.filter(hasArt).length;
     document.getElementById('prog').innerHTML = '일러스트 <b>' + n + '</b> / ' + IDS.length;
+    var np = Object.keys(pending).length, b = document.getElementById('saveAllBtn');
+    if (b) {
+      b.textContent = np ? '💾 전체 저장 (' + np + ')' : '💾 전체 저장';
+      b.disabled = !np;
+      b.title = np ? (np + '개의 미저장 이미지를 art/ 에 한 번에 저장') : '미저장(대기 중) 이미지가 없습니다';
+    }
   }
 
   // ---- 필터
@@ -532,6 +567,7 @@
     select(list[i]);
   }
   document.addEventListener('keydown', function (ev) {
+    if ((ev.ctrlKey || ev.metaKey) && (ev.key === 's' || ev.key === 'S')) { ev.preventDefault(); saveAll(); return; }
     if (/input/i.test(ev.target.tagName)) return;
     if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); move(1); }
     else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); move(-1); }
@@ -562,6 +598,7 @@
   document.getElementById('search').addEventListener('input', function (ev) { filter.q = ev.target.value.trim().toLowerCase(); renderGrid(); });
   document.getElementById('connectBtn').onclick = connectFolder;
   document.getElementById('scanBtn').onclick = scanFolder;
+  document.getElementById('saveAllBtn').onclick = saveAll;
   document.getElementById('themeBtn').onclick = function () {
     themeMode = themeMode === 'dark' ? 'light' : 'dark';
     UI.setTheme && UI.setTheme(themeMode);
