@@ -1256,7 +1256,7 @@
     if (marker && (!u || hi === 'target' || hi === 'attack')) kids.push(el('span', { class: 'mono', style: { position: 'absolute', top: u ? '1px' : '50%', left: u ? 'auto' : '50%', right: u ? '2px' : 'auto', transform: u ? 'none' : 'translate(-50%,-50%)', color: mc, fontWeight: 700, fontSize: u ? '14px' : '20px', pointerEvents: 'none', zIndex: 5, textShadow: '0 1px 2px rgba(0,0,0,.45)' } }, [marker]));
     if (u && u.type === 'body') kids.push(bodyTile(u));
     else if (u) kids.push(objTile(u, key));
-    var props = { 'data-key': key, style: st, onclick: function () { clickCell(key); } };
+    var props = { 'data-key': key, style: st, onclick: function () { if (suppressCellClick) { suppressCellClick = false; return; } clickCell(key); } };
     // 호버(범위 미리보기)는 데스크톱 전용. 터치에선 onmouseenter 가 합성돼 render() 로 셀을 재생성 →
     // 뒤이은 click 이 사라져 유닛 선택/이동/For 발동이 먹통이 됨. 그래서 터치기기에선 호버 핸들러를 달지 않는다.
     if (!isTouchDevice()) {
@@ -1266,6 +1266,12 @@
         if (nc !== hoverCell) { hoverCell = nc; render(); }
       };
       props.onmouseleave = hideCardTip;
+    } else {
+      // 터치: 꾹 누르면 사거리+상세 inspect. 짧은 탭은 그대로 clickCell(선택/이동/발동).
+      props.onpointerdown = function (e) { if (e.pointerType === 'mouse') return; suppressCellClick = false; scheduleFieldPeek(key, e.clientX, e.clientY); };
+      props.onpointermove = function (e) { if (!fpeek && Math.abs(e.clientX - fpeekSX) + Math.abs(e.clientY - fpeekSY) > 10) clearTimeout(fpeekT); };
+      props.onpointerup = hideFieldPeek;
+      props.onpointercancel = hideFieldPeek;
     }
     return el('button', props, kids);
   }
@@ -1500,6 +1506,38 @@
     function done() { hidePeek(); document.removeEventListener('pointerup', done); document.removeEventListener('pointercancel', done); }
     document.addEventListener('pointerup', done);
     document.addEventListener('pointercancel', done);
+  }
+
+  // ---- 필드 유닛 롱프레스 inspect(터치): 데스크톱 hover(사거리+카드 상세) 대체.
+  // 손패 peek 과 동일 제스처 — 필드에 선언된 인스턴스(내/적 무관)를 꾹 누르면 함수 범위가 보드에 켜지고
+  // 상세 카드(사거리 그리드 포함)가 셸 중앙에 뜬다. 짧은 탭은 그대로 선택/이동/발동으로 처리.
+  var fpeek = null, fpeekT = null, fpeekSX = 0, fpeekSY = 0, fpeekLit = [], suppressCellClick = false;
+  function scheduleFieldPeek(key, sx, sy) { clearTimeout(fpeekT); fpeekSX = sx; fpeekSY = sy; if (!G.board[key]) return; fpeekT = setTimeout(function () { showFieldPeek(key); }, 430); }
+  function showFieldPeek(key) {
+    var u = G.board[key]; if (!u) return;
+    hideFieldPeek();
+    suppressCellClick = true; // 롱프레스 뒤 합성되는 click 은 무시(선택/이동 방지)
+    if (u.type === 'object') { // 함수 범위를 보드에 라이트업(원본 인라인 스타일 저장 후 복원)
+      G.rangeCellsFor(u).forEach(function (k) {
+        var cell = app.querySelector('[data-key="' + k + '"]'); if (!cell) return;
+        fpeekLit.push({ el: cell, bs: cell.style.boxShadow, bg: cell.style.background });
+        cell.style.boxShadow = 'inset 0 0 0 2px ' + hexa(SKIN.rangeGold, .85);
+        cell.style.background = hexa(SKIN.rangeGold, .2);
+      });
+    }
+    var stage = app.querySelector('.bevel') || fxLayer();
+    var box = el('div', { id: 'fieldpeek', style: { position: 'absolute', left: '50%', top: '44%', transform: 'translate(-50%,-50%) scale(.7)', opacity: '0', zIndex: 130, pointerEvents: 'none', transition: 'transform .12s ease, opacity .12s ease', filter: 'drop-shadow(0 10px 22px rgba(0,0,0,.55))' } }, [
+      el('div', { style: { width: '232px', background: SKIN.chassis, color: SKIN.txt, border: '1.5px solid ' + SKIN.ink, boxShadow: '4px 4px 0 rgba(0,0,0,.4)', overflow: 'hidden' } }, [cardTipContent(u.cardId, u)])
+    ]);
+    stage.appendChild(box);
+    void box.offsetWidth; // reflow → 트랜지션 발동
+    box.style.transform = 'translate(-50%,-50%) scale(1)'; box.style.opacity = '1';
+    fpeek = box;
+  }
+  function hideFieldPeek() {
+    clearTimeout(fpeekT); fpeekT = null;
+    if (fpeek) { fpeek.remove(); fpeek = null; }
+    fpeekLit.forEach(function (o) { o.el.style.boxShadow = o.bs; o.el.style.background = o.bg; }); fpeekLit = [];
   }
 
   // ---- controls
