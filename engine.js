@@ -139,7 +139,7 @@
     // self While auras
     if (u.cardId === 'Race') { if (this.adj(u).some(function (x) { return x.owner === u.owner && x.uid !== u.uid && cardCls(x) === 'thread'; })) a += 3; }
     if (u.cardId === 'Overflow') { a += 2 * this.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }).length; }
-    if (u.cardId === 'Trace') { a += this.unitsInShape(u, square, 1).filter(function (x) { return x.owner !== u.owner && x.type === 'object'; }).length; }
+    if (u.cardId === 'Profiler') { a += this.unitsInShape(u, square, 1).filter(function (x) { return x.owner !== u.owner && x.type === 'object'; }).length; }
     // neighbor-granted auras
     var hive = this.hivemindActive(u.owner) && cardCls(u) === 'thread';
     var grant = 0;
@@ -213,7 +213,7 @@
       var pl = this.players[target.owner];
       if (pl.bodyShield > 0) { var ab = Math.min(pl.bodyShield, amt); pl.bodyShield -= ab; amt -= ab; }
       // Barrier adjacent to this body
-      amt -= 2 * this.adj(target).filter(function (x) { return x.owner === target.owner && x.cardId === 'Barrier'; }).length;
+      amt -= 2 * this.adj(target).filter(function (x) { return x.owner === target.owner && x.cardId === 'Firewall'; }).length;
       if (amt < 0) amt = 0;
       if (this.singletonActive(target.owner)) amt = Math.floor(amt / 2);
       return amt;
@@ -659,7 +659,7 @@
     this.firePointerCast(player, target);
     // Proxy/Lambda set bonuses for the NEXT pointer
     this.allyObjects(player).forEach(function (u) {
-      if (u.cardId === 'Proxy') self.turnFlags.proxyBonus = 1;
+      if (u.cardId === 'Relay') self.turnFlags.proxyBonus = 1;
       if (u.cardId === 'Lambda') self.turnFlags.lambdaBonus = 2;
     });
     this.checkWin(); this.emit();

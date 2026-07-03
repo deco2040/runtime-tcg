@@ -310,13 +310,28 @@
     // 카드 시스템의 표준 다크칩(⚙/✕/라벨과 동일) — 클래스색 타이틀바 위에서도 항상 가독.
     return el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,.3)', padding: '0 3px', flex: 'none', whiteSpace: 'nowrap', letterSpacing: '.02em', cursor: 'help', lineHeight: 1.5 }, onmouseenter: function (e) { showKwTip(e.currentTarget, g); }, onmouseleave: hideKwTip }, [compact ? '⚔' : '⚔옆칸']);
   }
-  // 뷰포트 = 콘텐츠 영역(일러스트). artType glyph: 테마 뷰포트 바탕 + 클래스 틴트 글리프.
+  // 카드 일러스트 매핑(window.RT_ART = art-map.js) 조회. 값은 문자열(경로) 또는 {src,pos,fit}.
+  // 라이브로 window.RT_ART 를 읽으므로 dev.html 에서 객체를 교체하면 즉시 반영된다.
+  function cardArt(card) {
+    var m = window.RT_ART; if (!m || !card) return null;
+    var v = m[card.id]; if (!v) return null;
+    if (typeof v === 'string') return { src: v, pos: '50% 50%', fit: 'cover' };
+    if (!v.src) return null;
+    return { src: v.src, pos: v.pos || '50% 50%', fit: v.fit || 'cover' };
+  }
+  // 뷰포트 위에 덮는 일러스트 이미지 레이어(글리프를 가림). 로드 실패 시 스스로 제거 → 글리프 폴백 노출.
+  function artLayer(card) {
+    var a = cardArt(card); if (!a) return null;
+    return el('img', { src: a.src, alt: '', style: { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: a.fit, objectPosition: a.pos, display: 'block' }, onerror: function () { if (this.parentNode) this.parentNode.removeChild(this); } });
+  }
+  // 뷰포트 = 콘텐츠 영역(일러스트). 일러스트 있으면 이미지, 없으면 클래스 틴트 글리프.
   function viewportBox(card, hgt, opts) {
     opts = opts || {};
     var cl = CLS[card.cls] || CLS.generic, g = GLY[card.cls] || GLY.generic;
-    var st = Object.assign({ height: hgt + 'px', margin: opts.margin || '3px 2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, overflow: 'hidden' }, sunkenBev());
+    var st = Object.assign({ position: 'relative', height: hgt + 'px', margin: opts.margin || '3px 2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, overflow: 'hidden' }, sunkenBev());
     return el('div', { style: st }, [
-      el('span', { style: { fontSize: Math.round(hgt * (opts.gScale || 0.44)) + 'px', lineHeight: 1, color: cl } }, [g])
+      el('span', { style: { fontSize: Math.round(hgt * (opts.gScale || 0.44)) + 'px', lineHeight: 1, color: cl } }, [g]),
+      artLayer(card)
     ]);
   }
   // 효과문 패널(sunken). richText 키워드 내장. flex 하한(§9).
@@ -1378,6 +1393,7 @@
       // 뷰포트 — 셀을 채우는 일러스트(글리프). ATK0 오버레이. 오너색 옅은 워시로 소유자 강조.
       el('div', { style: Object.assign({ flex: 1, minHeight: '12px', margin: '2px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(own, me ? 0.14 : 0.2) + ',' + hexa(own, me ? 0.14 : 0.2) + ')', overflow: 'hidden' }, sunkenBev()) }, [
         el('span', { style: { fontSize: 'clamp(12px,2.2vw,22px)', lineHeight: 1, color: cl } }, [GLY[card.cls]]),
+        artLayer(card),
         forBadge,
         u.atkZero ? el('span', { class: 'mono', style: { position: 'absolute', bottom: '0', right: '2px', fontSize: '7px', color: '#E24B4A', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,.6)' } }, ['ATK0']) : null
       ]),
@@ -1503,8 +1519,9 @@
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
     // 아트가 가운데 빈 공간을 채우도록 flex:1 (카드가 알차게 보이게)
-    var art = el('div', { style: Object.assign({ flex: '1 1 auto', minHeight: '22px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
-      el('span', { style: { fontSize: 'clamp(38px,15vw,60px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic])
+    var art = el('div', { style: Object.assign({ position: 'relative', flex: '1 1 auto', minHeight: '22px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
+      el('span', { style: { fontSize: 'clamp(38px,15vw,60px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic]),
+      artLayer(card)
     ]);
     return el('button', props, [
       // 상단(타이틀바)을 키우고 이름 줄바꿈 허용 → 전체 이름이 한번에 보이게
@@ -1991,7 +2008,23 @@
     clickHand: clickHand,
     clickCell: clickCell,
     isAiThinking: function () { return aiThinking; },
-    mullState: function () { return { phase: mullPhase, ready: mullReady, busy: mullBusy, pick: Object.keys(mullPick).filter(function (k) { return mullPick[k]; }).map(Number) }; }
+    mullState: function () { return { phase: mullPhase, ready: mullReady, busy: mullBusy, pick: Object.keys(mullPick).filter(function (k) { return mullPick[k]; }).map(Number) }; },
+    // dev.html(일러스트 개발자 페이지)용 — 실제 게임 카드 페이스를 그대로 렌더한 DOM 노드 반환.
+    // opts.compact=true → 모바일 미니카드, opts.mode('idle'|'preview') 선택. 게임 상태(G) 없이 안전 렌더.
+    cardFaceEl: function (id, opts) {
+      opts = opts || {};
+      if (!CARDS[id]) return null;
+      var sc = COMPACT, sg = G, ss = sel, sp = ptr;
+      if (opts.compact != null) COMPACT = !!opts.compact;
+      sel = null; ptr = null;
+      if (!G) G = { castConditionMet: function () { return true; }, canCast: function () { return false; }, canDeclare: function () { return false; } };
+      try { return handCardEl(id, 0, opts.mode || 'idle'); }
+      catch (e) { return null; }
+      finally { COMPACT = sc; G = sg; sel = ss; ptr = sp; }
+    },
+    // 테마 토큰(SKIN) 스왑 — dev.html 라이트/다크 미리보기용. 재렌더는 호출측 책임.
+    setTheme: function (mode) { applyTheme(mode === 'dark' ? 'dark' : 'light'); },
+    getTheme: function () { return themeMode; }
   };
 
   // =================================================================== 튜토리얼 (읽기형 가이드 + 실습)
@@ -2277,5 +2310,6 @@
     btn.addEventListener('click', function () { toggleTheme(); btn.textContent = themeMode === 'dark' ? '🌙 다크' : '☀ 라이트'; });
     if (document.body) document.body.appendChild(btn);
   })();
-  G = null; renderTitle();
+  // RT_NO_BOOT: dev.html 등에서 게임 메뉴를 띄우지 않고 렌더 헬퍼만 재사용할 때(카드 페이스 미리보기).
+  G = null; if (!window.RT_NO_BOOT) renderTitle();
 })();
