@@ -200,6 +200,7 @@
   // ---- 상태
   var pending = {};      // id → { file, ext } (아직 파일로 저장 안 된 드롭 이미지)
   var dirHandle = null;  // File System Access: deploy 루트
+  var bust = 0;          // 표시용 캐시버스터(같은 파일명 교체 시 브라우저 캐시 무력화)
   var sel = null;        // 선택된 카드 id
   var themeMode = (function(){ try { return localStorage.getItem('rt_theme')||'light'; } catch(e){ return 'light'; } })();
   var filter = { q:'', cls:'all', kind:'all', art:'all' };
@@ -233,6 +234,8 @@
     else if ((e.pos && e.pos !== '50% 50%') || (e.fit && e.fit !== 'cover')) ART[id] = { src:e.src, pos:e.pos, fit:e.fit };
     else ART[id] = e.src; // 간단형
   }
+  // 표시 전용: art/ 로컬 경로에만 캐시버스터를 붙인다(blob: 이나 외부 URL은 그대로). 매니페스트엔 저장 안 함.
+  function dispSrc(src) { return src && /^art\//.test(src) ? src + (src.indexOf('?') < 0 ? '?' : '&') + 'v=' + bust : src; }
 
   // ---- 매니페스트 텍스트 생성(실제 파일 경로 art/… 만 포함; 미저장 blob 제외)
   var HEADER = [
@@ -261,7 +264,7 @@
   async function saveOne(id){
     var e=entry(id), p=pending[id]; if(!dirHandle||(!e&&!p)) return false;
     try{
-      if(p){ var adir=await getArtDir(true), name=slug(id)+'.'+p.ext; await writeFile(adir,name,p.file); setEntry(id,{src:'art/'+name,pos:e?e.pos:'50% 50%',fit:e?e.fit:'cover'}); delete pending[id]; }
+      if(p){ var adir=await getArtDir(true), name=slug(id)+'.'+p.ext; await writeFile(adir,name,p.file); setEntry(id,{src:'art/'+name,pos:e?e.pos:'50% 50%',fit:e?e.fit:'cover'}); delete pending[id]; bust++; }
       await writeManifest(); return true;
     }catch(err){ msg('저장 실패: '+err.message,true); return false; }
   }
@@ -340,6 +343,7 @@
         await writeFile(adir, name, p.file);
         setEntry(sel, { src:'art/' + name, pos: e ? e.pos : '50% 50%', fit: e ? e.fit : 'cover' });
         delete pending[sel];
+        bust++;
         await writeManifest();
         msg('저장됨 → art/' + name);
       } catch (err) { msg('저장 실패: ' + err.message, true); }
@@ -367,6 +371,7 @@
         try { await writeFile(adir, name, p.file); setEntry(id, { src:'art/' + name, pos: e ? e.pos : '50% 50%', fit: e ? e.fit : 'cover' }); delete pending[id]; ok++; }
         catch (err) { fail++; }
       }
+      if (ok) bust++;
       await writeManifest();
       msg('전체 저장 완료 → ' + ok + '개 저장' + (fail ? ' · ' + fail + '개 실패' : '') + ' (art-map.js 갱신)', !!fail);
     } else {
@@ -449,7 +454,7 @@
       box.className = 'gcard' + (id === sel ? ' sel' : '');
       box.onclick = function () { select(id); };
       var thumb = '<div class="thumb">' +
-        (e ? '<img src="' + escAttr(e.src) + '" style="object-fit:' + e.fit + ';object-position:' + escAttr(e.pos) + '" onerror="this.style.display=&quot;none&quot;;this.parentNode.classList.add(&quot;broken&quot;)">' : '') +
+        (e ? '<img src="' + escAttr(dispSrc(e.src)) + '" style="object-fit:' + e.fit + ';object-position:' + escAttr(e.pos) + '" onerror="this.style.display=&quot;none&quot;;this.parentNode.classList.add(&quot;broken&quot;)">' : '') +
         '<span class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</span></div>';
       box.innerHTML =
         '<div class="clsbar" style="background:' + col + '"></div>' +
@@ -496,7 +501,7 @@
 
       // 인터랙티브 프레이밍 박스(데스크톱 뷰포트 비율) — 클릭=초점
       var fb = document.createElement('div'); fb.className = 'framebox';
-      var fimg = document.createElement('img'); fimg.src = e.src; fimg.style.objectFit = e.fit; fimg.style.objectPosition = e.pos;
+      var fimg = document.createElement('img'); fimg.src = dispSrc(e.src); fimg.style.objectFit = e.fit; fimg.style.objectPosition = e.pos;
       var focus = document.createElement('div'); focus.className = 'focus';
       var pm = /(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(e.pos) || [0,50,50];
       focus.style.left = pm[1] + '%'; focus.style.top = pm[2] + '%';
@@ -588,7 +593,7 @@
       var box = document.createElement('div'); box.className = 'crop';
       var b = document.createElement('div'); b.className = 'box'; b.style.width = spec[1] + 'px'; b.style.height = spec[2] + 'px';
       b.innerHTML = '<div class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</div>';
-      if (e) { var im = document.createElement('img'); im.src = e.src; im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); b.classList.add('broken'); }; b.appendChild(im); }
+      if (e) { var im = document.createElement('img'); im.src = dispSrc(e.src); im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); b.classList.add('broken'); }; b.appendChild(im); }
       box.appendChild(b);
       var cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = spec[0];
       box.appendChild(cap); wrap.appendChild(box);
