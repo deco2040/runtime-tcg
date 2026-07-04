@@ -14,8 +14,10 @@
 
   var active = false;
   var tab = 'signup'; // 'signup' | 'login'  (게스트일 때만 사용)
+  var view = null; // null(기본) | 'forgot'(재설정 메일 요청) | 'renew'(새 비번 설정)
   var email = '';
   var pass = '';
+  var pass2 = ''; // 새 비번 확인
   var msg = ''; // 상태/에러 메시지
   var busy = false;
   var returnTo = 'title'; // 'title' | 'lobby'
@@ -124,8 +126,11 @@
     if (UI.exitToGuide) UI.exitToGuide();
     email = '';
     pass = '';
+    pass2 = '';
     msg = '';
     busy = false;
+    // 재설정 링크로 진입한 상태면 곧장 새 비밀번호 설정 뷰
+    view = (UI.Net && UI.Net.isRecovery && UI.Net.isRecovery()) ? 'renew' : null;
     redraw();
     // 게스트 세션 확보(승격 대상이 있어야 함) — 백엔드 켜져 있을 때만
     if (UI.Net && UI.Net.enabled) {
@@ -175,7 +180,9 @@
         if (!r || !r.ok) {
           msg = '⚠ ' + ((r && r.error) || '실패');
         } else if (r.needConfirm) {
-          msg = '✔ 확인 메일을 보냈어요 — 메일의 링크를 눌러 정회원 전환을 완료하세요. (전적은 그대로 유지됩니다)';
+          // 이메일 인증 대기 — 전용 뷰로 전환(재전송 버튼 제공)
+          view = 'verify';
+          msg = '';
         } else {
           msg = '✔ 정회원이 되었어요!';
         }
@@ -249,8 +256,43 @@
       redraw();
       return;
     }
+    busy = true;
+    msg = '재설정 메일 전송 중…';
+    redraw();
     UI.Net.resetPassword(email.trim()).then(function (r) {
-      msg = r && r.ok ? '✔ 비밀번호 재설정 메일을 보냈어요' : '⚠ ' + ((r && r.error) || '실패');
+      busy = false;
+      msg = r && r.ok
+        ? '✔ 비밀번호 재설정 메일을 보냈어요 — 메일의 링크를 눌러 새 비밀번호를 설정하세요. (링크는 이 사이트로 돌아옵니다)'
+        : '⚠ ' + ((r && r.error) || '실패');
+      redraw();
+    });
+  }
+
+  // 재설정 링크로 복귀 → 새 비밀번호 확정
+  function doRenew() {
+    var a = document.getElementById('auth-newpass');
+    var b = document.getElementById('auth-newpass2');
+    if (a) pass = a.value;
+    if (b) pass2 = b.value;
+    if ((pass || '').length < 6) { msg = '비밀번호는 6자 이상이어야 해요'; redraw(); return; }
+    if (pass !== pass2) { msg = '두 비밀번호가 일치하지 않아요'; redraw(); return; }
+    busy = true;
+    msg = '새 비밀번호 저장 중…';
+    redraw();
+    UI.Net.updatePassword(pass).then(function (r) {
+      busy = false;
+      if (!r || !r.ok) {
+        msg = '⚠ ' + ((r && r.error) || '실패 — 링크가 만료되었을 수 있어요. 다시 요청해 주세요.');
+        redraw();
+        return;
+      }
+      // 성공 — 갱신된 세션으로 로그인 상태. 기본 계정 화면으로 복귀.
+      view = null; pass = ''; pass2 = '';
+      if (UI.Net.clearRecovery) UI.Net.clearRecovery();
+      // URL 의 recovery 해시 제거(새로고침 시 재진입 방지)
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      if (UI.Net.reloadProfile) UI.Net.reloadProfile().then(function () { redraw(); });
+      msg = '✔ 비밀번호를 변경했어요 — 새 비밀번호로 로그인되었습니다.';
       redraw();
     });
   }
@@ -305,6 +347,78 @@
     );
   }
 
+  // ── 정회원 전환: 이메일 인증 대기 뷰(재전송 · 확인 안내)
+  function doResend() {
+    var addr = (UI.Net.pendingEmail && UI.Net.pendingEmail()) || email.trim();
+    if (!addr) { msg = '재전송할 이메일이 없어요'; redraw(); return; }
+    busy = true; msg = '인증 메일 재전송 중…'; redraw();
+    UI.Net.resendConfirmation(addr).then(function (r) {
+      busy = false;
+      msg = r && r.ok ? '✔ 인증 메일을 다시 보냈어요' : '⚠ ' + ((r && r.error) || '재전송 실패');
+      redraw();
+    });
+  }
+  function verifyView(b, p) {
+    var addr = (UI.Net.pendingEmail && UI.Net.pendingEmail()) || email.trim() || '(이메일)';
+    b.appendChild(el('div', { style: { fontSize: '13px', color: p.hi, fontWeight: 700, marginBottom: '6px' } }, ['▸ 이메일 인증']));
+    b.appendChild(el('div', { style: { fontSize: '13px', color: p.amb, margin: '2px 0 4px' } }, [
+      el('b', { style: { color: p.hi } }, [addr]),
+    ]));
+    b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.7, marginBottom: '14px' } }, [
+      '위 주소로 인증 메일을 보냈어요. 메일의 링크를 누르면 이 사이트로 돌아와 ',
+      el('b', { style: { color: p.amb } }, ['정회원 전환이 완료']),
+      '됩니다. 전적·프로필은 그대로 유지돼요.',
+      el('br'), el('br'),
+      '메일이 안 보이면 스팸함을 확인하거나 아래에서 재전송하세요.',
+    ]));
+    b.appendChild(el('button', { class: 'crt-btn', onclick: doResend, disabled: busy, style: { fontSize: '13px', width: '100%', marginBottom: '8px' } }, ['인증 메일 재전송']));
+    b.appendChild(el('button', { class: 'crt-btn ghost', onclick: function () {
+      // 인증 완료했는지 세션 재확인 → 정회원이면 자동으로 member 화면
+      if (UI.Net.reloadProfile) UI.Net.reloadProfile().then(function () {
+        if (UI.Net.isMember && UI.Net.isMember()) { view = null; msg = '✔ 정회원 인증이 확인되었어요!'; }
+        else msg = '아직 인증 전이에요 — 메일의 링크를 눌러 주세요.';
+        redraw();
+      });
+    }, disabled: busy, style: { fontSize: '12px', width: '100%', marginBottom: '8px' } }, ['인증을 완료했어요 (새로고침)']));
+    b.appendChild(el('button', { class: 'crt-btn ghost', onclick: function () { view = null; msg = ''; if (UI.Net.clearPending) UI.Net.clearPending(); redraw(); }, disabled: busy, style: { fontSize: '11px', width: '100%' } }, ['◂ 뒤로']));
+  }
+
+  // ── 비밀번호 찾기: 재설정 메일 요청 뷰
+  function forgotView(b, p) {
+    b.appendChild(el('div', { style: { fontSize: '13px', color: p.hi, fontWeight: 700, marginBottom: '6px' } }, ['▸ 비밀번호 찾기']));
+    b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
+      '가입한 이메일을 입력하면 재설정 링크를 보내드려요. 링크를 누르면 이 사이트로 돌아와 새 비밀번호를 설정합니다.',
+    ]));
+    b.appendChild(el('input', {
+      id: 'auth-email', type: 'email', placeholder: '이메일', value: email, autocomplete: 'email',
+      oninput: function (e) { email = e.target.value; },
+      onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doReset(); } },
+      style: { width: '100%', background: 'transparent', border: '1px solid ' + p.line, color: p.amb, padding: '9px 11px', marginBottom: '8px', fontFamily: "'Space Mono',monospace", fontSize: '13px', outline: 'none' },
+    }));
+    b.appendChild(el('button', { class: 'crt-btn', onclick: doReset, disabled: busy, style: { fontSize: '13px', width: '100%', marginBottom: '8px' } }, ['재설정 메일 보내기']));
+    b.appendChild(el('button', { class: 'crt-btn ghost', onclick: function () { view = null; msg = ''; redraw(); }, disabled: busy, style: { fontSize: '12px', width: '100%' } }, ['◂ 로그인으로']));
+  }
+
+  // ── 비밀번호 찾기: 재설정 링크 복귀 후 새 비밀번호 설정 뷰
+  function renewView(b, p) {
+    b.appendChild(el('div', { style: { fontSize: '13px', color: p.hi, fontWeight: 700, marginBottom: '6px' } }, ['▸ 새 비밀번호 설정']));
+    b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
+      '재설정 링크로 인증되었어요. 새 비밀번호를 입력하세요 (6자 이상).',
+    ]));
+    b.appendChild(el('input', {
+      id: 'auth-newpass', type: 'password', placeholder: '새 비밀번호', autocomplete: 'new-password',
+      oninput: function (e) { pass = e.target.value; },
+      style: { width: '100%', background: 'transparent', border: '1px solid ' + p.line, color: p.amb, padding: '9px 11px', marginBottom: '8px', fontFamily: "'Space Mono',monospace", fontSize: '13px', outline: 'none' },
+    }));
+    b.appendChild(el('input', {
+      id: 'auth-newpass2', type: 'password', placeholder: '새 비밀번호 확인', autocomplete: 'new-password',
+      oninput: function (e) { pass2 = e.target.value; },
+      onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doRenew(); } },
+      style: { width: '100%', background: 'transparent', border: '1px solid ' + p.line, color: p.amb, padding: '9px 11px', marginBottom: '8px', fontFamily: "'Space Mono',monospace", fontSize: '13px', outline: 'none' },
+    }));
+    b.appendChild(el('button', { class: 'crt-btn', onclick: doRenew, disabled: busy, style: { fontSize: '13px', width: '100%' } }, ['비밀번호 변경']));
+  }
+
   function redraw() {
     if (!active) return;
     capture();
@@ -341,7 +455,14 @@
     var sess = UI.Net && UI.Net.session && UI.Net.session();
     var mailAddr = sess && sess.user ? sess.user.email : '';
 
-    if (!enabled) {
+    var special = view === 'forgot' || view === 'renew' || view === 'verify';
+    if (view === 'renew') {
+      renewView(b, p);
+    } else if (view === 'forgot') {
+      forgotView(b, p);
+    } else if (view === 'verify') {
+      verifyView(b, p);
+    } else if (!enabled) {
       b.appendChild(
         el(
           'div',
@@ -417,7 +538,7 @@
         b.appendChild(
           el(
             'button',
-            { class: 'crt-btn ghost', onclick: doReset, disabled: busy, style: { fontSize: '11px', width: '100%', marginBottom: '8px' } },
+            { class: 'crt-btn ghost', onclick: function () { view = 'forgot'; msg = ''; redraw(); }, disabled: busy, style: { fontSize: '11px', width: '100%', marginBottom: '8px' } },
             ['비밀번호를 잊으셨나요?']
           )
         );
@@ -437,16 +558,24 @@
             },
             disabled: busy,
             title: '배포된 https 사이트 + 대시보드 Google provider 설정 필요',
-            style: { fontSize: '13px', width: '100%' },
+            style: { fontSize: '13px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px' },
           },
-          ['Google 로 계속']
+          [
+            el('span', { style: { fontWeight: 700, fontFamily: "'Space Grotesk',sans-serif", fontSize: '15px', color: p.amb } }, ['G']),
+            el('span', {}, ['Google 계정으로 계속']),
+          ]
         )
+      );
+      b.appendChild(
+        el('div', { style: { fontSize: '10px', color: p.dim, textAlign: 'center', marginTop: '6px', lineHeight: 1.6 } }, [
+          '게스트 상태에서 연결하면 지금까지의 전적·프로필이 그대로 유지돼요.',
+        ])
       );
     }
 
-    // 닉네임 편집(세션/프로필 있을 때) + 통계(항상, 오프라인은 로컬 기록)
-    if (enabled && prof) b.appendChild(nickBlock(p));
-    b.appendChild(statsBlock(p));
+    // 닉네임 편집(세션/프로필 있을 때) + 통계(항상, 오프라인은 로컬 기록) — 특수 뷰에선 숨김
+    if (!special && enabled && prof) b.appendChild(nickBlock(p));
+    if (!special) b.appendChild(statsBlock(p));
 
     if (msg) {
       var isErr = msg.indexOf('⚠') === 0;
@@ -493,4 +622,14 @@
   UI.isAuthActive = function () {
     return active;
   };
+
+  // 비밀번호 재설정 링크 복귀 감지 → 계정 화면을 새 비밀번호 설정 뷰로 자동 진입.
+  // net.js 가 recovery URL 을 감지하면 SDK 를 즉시 로드하고 PASSWORD_RECOVERY 를 발화한다.
+  if (UI.Net && UI.Net.onEvent) {
+    UI.Net.onEvent(function (evt) {
+      if (evt !== 'PASSWORD_RECOVERY') return;
+      if (active) { view = 'renew'; msg = ''; redraw(); }
+      else enterAuth('title'); // enterAuth 가 isRecovery()로 renew 뷰 진입
+    });
+  }
 })();

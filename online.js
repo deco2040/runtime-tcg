@@ -26,6 +26,7 @@
   var bothReady = false;
   var matchStarted = false;
   var discTimer = null;
+  var oppProfile = null; // 상대 프로필(전적/승률) — 대국 전 카드용(기능 4)
 
   // 대국 중 상대 presence 가 사라지면(탭 닫힘/크래시) 유예 후 이탈 처리(끊김→승리)
   function armDisc() {
@@ -60,6 +61,7 @@
     room = null;
     status = '';
     bothReady = false;
+    oppProfile = null;
     if (UI.exitToGuide) UI.exitToGuide();
     redraw();
     if (!UI.Net || !UI.Net.enabled) {
@@ -75,10 +77,23 @@
     active = true;
     mode = 'custom';
     phase = 'custommenu';
-    room = null; status = ''; bothReady = false; roomCode = ''; codeInput = '';
+    room = null; status = ''; bothReady = false; roomCode = ''; codeInput = ''; oppProfile = null;
     if (UI.exitToGuide) UI.exitToGuide();
     redraw();
     if (!UI.Net || !UI.Net.enabled) { phase = 'offline'; redraw(); }
+  }
+
+  // 상대 프로필 1회 조회(방이 성사되면) — id 로 가드해 중복 조회 방지.
+  function ensureOppProfile() {
+    if (!room) return;
+    var oppId = myIdx === 0 ? room.guest : room.host;
+    if (!oppId) return;
+    if (oppProfile && oppProfile.id === oppId) return;
+    if (!UI.Net || !UI.Net.fetchProfile) return;
+    UI.Net.fetchProfile(oppId).then(function (pr) {
+      if (!active) return;
+      if (pr) { oppProfile = pr; redraw(); }
+    });
   }
   function genCode() {
     var cs = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', s = '';
@@ -257,6 +272,7 @@
     matchStarted = true;
     active = false; // 매치메이킹 화면 종료 → core 가 renderMatch 로 대국 보드 표시
     var oppNick = myIdx === 0 ? room.guest_nick : room.host_nick;
+    var myNick = (UI.Net && UI.Net.profile && (UI.Net.profile() || {}).nickname) || (myIdx === 0 ? room.host_nick : room.guest_nick) || 'guest';
     UI.startOnlineMatch({
       deck0: room.host_deck,
       deck1: room.guest_deck,
@@ -264,6 +280,9 @@
       first: room.first_player,
       myIdx: myIdx,
       oppNick: oppNick,
+      myNick: myNick,
+      oppProfile: oppProfile,
+      myProfile: (UI.Net && UI.Net.profile && UI.Net.profile()) || null,
       send: function (msg) {
         try {
           if (roomCh) roomCh.send({ type: 'broadcast', event: 'act', payload: msg });
@@ -375,14 +394,47 @@
     app.appendChild(monitor);
   }
 
+  // 프로필 미니 카드 — 닉네임 + 전적(승/패/무) + 승률 게이지(기능 4, 대국 전)
+  function profileCard(p, nick, prof, mine) {
+    var accent = mine ? p.hi : p.amb;
+    var kids = [
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' } }, [
+        el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: p.dim, letterSpacing: '.08em' } }, [mine ? '나' : '상대']),
+        (prof && prof.is_guest) ? el('span', { style: { fontSize: '9px', color: p.dim, border: '1px solid ' + p.line, padding: '1px 4px' } }, ['게스트']) : null,
+      ]),
+      el('div', { class: 'grot', style: { fontSize: '16px', fontWeight: 700, color: accent, marginBottom: '6px', wordBreak: 'break-all', lineHeight: 1.2 } }, [nick || '???']),
+    ];
+    if (!prof) {
+      kids.push(el('div', { style: { fontSize: '11px', color: p.dim } }, ['전적 불러오는 중…']));
+    } else {
+      var g = prof.games || 0, w = prof.wins || 0, l = prof.losses || 0, d = prof.draws || 0;
+      var rate = g ? Math.round((w / g) * 100) : 0;
+      kids.push(el('div', { style: { fontSize: '12px', color: p.amb, marginBottom: '5px' } }, [
+        g + '판 · ', el('b', { style: { color: accent } }, [w + '승']), ' ' + l + '패 ' + d + '무',
+      ]));
+      kids.push(el('div', { style: { fontSize: '11px', color: p.dim, marginBottom: '4px' } }, ['승률 ', el('b', { style: { color: accent } }, [rate + '%'])]));
+      kids.push(el('div', { style: { height: '6px', border: '1px solid ' + p.line, position: 'relative', overflow: 'hidden' } }, [
+        el('div', { style: { position: 'absolute', inset: '0', width: rate + '%', background: accent, opacity: '.7' } }),
+      ]));
+    }
+    return el('div', { style: { flex: 1, minWidth: '0', border: '1px solid ' + p.line, padding: '10px 12px', background: mine ? 'transparent' : 'rgba(127,127,127,.04)' } }, kids);
+  }
+
   function matchedView(p) {
+    ensureOppProfile();
     var oppNick = myIdx === 0 ? room.guest_nick : room.host_nick;
+    var myNick = (UI.Net && UI.Net.profile && (UI.Net.profile() || {}).nickname) || (myIdx === 0 ? room.host_nick : room.guest_nick) || 'guest';
     var myDeck = myIdx === 0 ? room.host_deck : room.guest_deck;
     var oppDeck = myIdx === 0 ? room.guest_deck : room.host_deck;
     var iFirst = room.first_player === myIdx;
     var wrap = el('div', {});
     wrap.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '22px', color: p.hi, margin: '6px 0 12px' } }, ['✔ 매치 성사!']));
-    wrap.appendChild(infoRow(p, '상대', (oppNick || '???')));
+    // 프로필 대결 카드(나 vs 상대)
+    wrap.appendChild(el('div', { style: { display: 'flex', alignItems: 'stretch', gap: '8px', margin: '0 0 14px' } }, [
+      profileCard(p, myNick, (UI.Net && UI.Net.profile && UI.Net.profile()) || null, true),
+      el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: p.dim, alignSelf: 'center', flex: 'none' } }, ['VS']),
+      profileCard(p, oppNick, oppProfile, false),
+    ]));
     wrap.appendChild(infoRow(p, '내 덱', myDeckKey() + ' (' + ((myDeck || []).length) + '장)'));
     wrap.appendChild(infoRow(p, '상대 덱', (oppDeck || []).length + '장'));
     wrap.appendChild(infoRow(p, '선공', iFirst ? '나' : '상대'));

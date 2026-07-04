@@ -52,7 +52,7 @@ window.RT_ART = {
   "Pivot": "art/Pivot.png",
   "Polymorph": "art/Polymorph.png",
   "Probe": "art/Probe.png",
-  "Profiler": "art/Profiler.png",
+  "Profiler": { src: "art/Profiler.png", pos: "51% 92%", fit: "cover" },
   "Race": "art/Race.png",
   "Raycast": "art/Raycast.png",
   "Recursion": "art/Recursion.png",

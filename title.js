@@ -98,6 +98,13 @@
       'READY', el('span', { class: 'crt-cursor' })
     ]));
 
+    // 푸터 — 개인정보처리방침 · 이용약관(새 탭). 상대경로라 라이브·로컬 어디서든 동작.
+    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', letterSpacing: '.03em' } }, [
+      footLink('개인정보처리방침', 'privacy/'),
+      el('span', { style: { opacity: '.5' } }, ['·']),
+      footLink('이용약관', 'terms/')
+    ]));
+
     screen.appendChild(b);
     monitor.appendChild(screen);
     // 모니터 하판 — 전원 LED + 브랜드 + 모델명
@@ -107,6 +114,9 @@
       el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9px', color: brandCol2, letterSpacing: '.1em' } }, ['MODEL RT-50'])
     ]));
     app.appendChild(monitor);
+  }
+  function footLink(label, href) {
+    return el('a', { href: href, target: '_blank', rel: 'noopener', style: { color: AMB_DIM, textDecoration: 'underline', textUnderlineOffset: '2px', cursor: 'pointer' } }, [label]);
   }
   function crtLabel(t) { return el('div', { style: { fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: '11px', letterSpacing: '.14em', color: AMB, margin: '2px 0 2px' } }, [t]); }
   function crtChip(label, on, cb) { return el('button', { onclick: cb, class: 'crt-opt' + (on ? ' on' : ''), style: { fontSize: '11px' } }, [label]); }

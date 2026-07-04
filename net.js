@@ -37,7 +37,10 @@
     _clientPromise = null,
     _session = null,
     _profile = null,
-    _authSubs = [];
+    _authSubs = [],
+    _evtSubs = [], // (evt, session) 원자 이벤트 구독 — 비번 복구/이메일 인증 라우팅용
+    _recovery = false, // 비밀번호 재설정 링크로 진입한 상태(PASSWORD_RECOVERY)
+    _pendingEmail = null; // 정회원 전환 이메일 인증 대기 중인 주소(확인 전)
 
   var SDK_URL = 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -54,11 +57,19 @@
             storageKey: 'rt_auth',
           },
         });
-        _client.auth.onAuthStateChange(function (_evt, sess) {
+        _client.auth.onAuthStateChange(function (evt, sess) {
           _session = sess || null;
+          if (evt === 'PASSWORD_RECOVERY') _recovery = true;
+          // 이메일 인증 링크 복귀(정회원 확정) → 게스트→정회원 승격
+          if (evt === 'SIGNED_IN' || evt === 'USER_UPDATED') maybeConfirmUpgrade();
           _authSubs.forEach(function (cb) {
             try {
               cb(_session);
+            } catch (e) {}
+          });
+          _evtSubs.forEach(function (cb) {
+            try {
+              cb(evt, _session);
             } catch (e) {}
           });
         });
@@ -133,6 +144,26 @@
       });
   }
 
+  // 다른 플레이어 프로필 조회(공개 닉네임·전적) — 상대 프로필 카드용(기능 4).
+  // profiles 는 인증 유저 전체 읽기 허용이라 상대 user id 로 조회 가능.
+  function fetchProfile(userId) {
+    if (!userId) return Promise.resolve(null);
+    return loadClient().then(function (c) {
+      if (!c) return null;
+      return c
+        .from('profiles')
+        .select('id,nickname,is_guest,wins,losses,draws,games')
+        .eq('id', userId)
+        .maybeSingle()
+        .then(function (r) {
+          return (r && r.data) || null;
+        })
+        .catch(function () {
+          return null;
+        });
+    });
+  }
+
   function updateNickname(nick) {
     nick = (nick || '').trim().slice(0, 24);
     if (!_client || !_session || !nick) return Promise.resolve(_profile);
@@ -189,20 +220,63 @@
       });
   }
 
-  // 정회원 전환 — 익명 계정에 이메일/비번을 연결(같은 user id 유지 → 프로필·전적 보존)
+  // 정회원 전환 — 익명 계정에 이메일/비번을 연결(같은 user id 유지 → 프로필·전적 보존).
+  // 이메일 인증이 켜져 있으면 확인 링크 클릭 전까지는 게스트(is_guest=true) 유지 →
+  // 링크 클릭 후 복귀 시 SIGNED_IN/USER_UPDATED 에서 정회원으로 승격(maybeConfirmUpgrade).
   function upgradeEmail(email, password) {
     return loadClient().then(function (c) {
       if (!c) return { ok: false, error: '백엔드 미설정' };
+      var redirectTo = appRedirect();
+      var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
       return c.auth
-        .updateUser({ email: email, password: password })
+        .updateUser({ email: email, password: password }, opts)
         .then(function (r) {
           if (r.error) return { ok: false, error: r.error.message };
-          return refreshSession()
-            .then(function () {
-              return flipMembership(false);
-            })
-            .then(function () {
-              return { ok: true, needConfirm: true };
+          return refreshSession().then(function () {
+            var u = _session && _session.user;
+            // 이메일이 즉시 확정됨(대시보드에서 이메일 확인 OFF) → 바로 정회원
+            if (u && u.email && u.email_confirmed_at) {
+              _pendingEmail = null;
+              return flipMembership(false).then(function () {
+                return { ok: true, needConfirm: false };
+              });
+            }
+            // 확인 대기 — 링크 클릭 전까지 게스트 유지
+            _pendingEmail = email;
+            return { ok: true, needConfirm: true, email: email };
+          });
+        });
+    });
+  }
+
+  // 이메일 인증 링크 복귀 후 정회원 승격 — email 이 확정(confirmed)되었고 아직 게스트면 플립.
+  function maybeConfirmUpgrade() {
+    var u = _session && _session.user;
+    if (!u || !u.email || !u.email_confirmed_at) return;
+    if (_profile && _profile.is_guest === false) { _pendingEmail = null; return; }
+    _pendingEmail = null;
+    flipMembership(false).then(function () {
+      loadProfile().then(function () {
+        _authSubs.forEach(function (cb) { try { cb(_session); } catch (e) {} });
+      });
+    });
+  }
+
+  // 인증 메일 재전송 — 전환(email_change) 먼저, 실패 시 신규가입(signup) 폴백.
+  function resendConfirmation(email) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!c.auth.resend) return { ok: false, error: '재전송 미지원 SDK' };
+      var redirectTo = appRedirect();
+      var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
+      return c.auth
+        .resend({ type: 'email_change', email: email, options: opts })
+        .then(function (r) {
+          if (!r.error) return { ok: true };
+          return c.auth
+            .resend({ type: 'signup', email: email, options: opts })
+            .then(function (r2) {
+              return r2.error ? { ok: false, error: r2.error.message } : { ok: true };
             });
         });
     });
@@ -215,8 +289,10 @@
     }
     return loadClient().then(function (c) {
       if (!c) return { ok: false, error: '백엔드 미설정' };
+      var redirectTo = appRedirect();
+      var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
       return c.auth
-        .signUp({ email: email, password: password })
+        .signUp({ email: email, password: password, options: opts })
         .then(function (r) {
           if (r.error) return { ok: false, error: r.error.message };
           if (r.data.session) {
@@ -225,7 +301,8 @@
               return { ok: true, needConfirm: false };
             });
           }
-          return { ok: true, needConfirm: true }; // 이메일 확인 대기
+          _pendingEmail = email;
+          return { ok: true, needConfirm: true, email: email }; // 이메일 확인 대기
         });
     });
   }
@@ -248,28 +325,68 @@
 
   // OAuth 로그인(전체 페이지 리다이렉트) — 대시보드 provider 설정 + Site URL 화이트리스트 필요.
   // file:// 개발에선 리다이렉트 복귀가 안 되므로 배포된 https 사이트 전용.
+  //
+  // 게스트(익명) 세션이면 linkIdentity 로 같은 계정에 Google 을 연결 → user id 유지(전적 보존).
+  // 수동 연결(Manual Linking) 미허용이면 일반 signInWithOAuth 로 폴백(새 계정 로그인).
+  // 복귀 시 email 이 confirmed 되므로 maybeConfirmUpgrade 가 정회원(is_guest=false)으로 승격.
   function signInOAuth(provider) {
     return loadClient().then(function (c) {
       if (!c) return { ok: false, error: '백엔드 미설정' };
-      var origin = location.origin && location.origin !== 'null';
-      var redirectTo = origin ? location.href.split('#')[0] : undefined;
-      return c.auth
-        .signInWithOAuth({
-          provider: provider,
-          options: redirectTo ? { redirectTo: redirectTo } : {},
-        })
-        .then(function (r) {
-          if (r.error) return { ok: false, error: r.error.message };
-          return { ok: true, redirecting: true };
-        });
+      var redirectTo = appRedirect();
+      var opts = redirectTo ? { redirectTo: redirectTo } : {};
+      var isGuest = _session && _session.user && !_session.user.email;
+
+      function plainOAuth() {
+        return c.auth
+          .signInWithOAuth({ provider: provider, options: opts })
+          .then(function (r) {
+            return r.error ? { ok: false, error: r.error.message } : { ok: true, redirecting: true };
+          });
+      }
+
+      if (isGuest && c.auth.linkIdentity) {
+        return c.auth
+          .linkIdentity({ provider: provider, options: opts })
+          .then(function (r) {
+            if (!r.error) return { ok: true, redirecting: true };
+            return plainOAuth(); // 수동 연결 미허용 등 → 폴백
+          })
+          .catch(function () {
+            return plainOAuth();
+          });
+      }
+      return plainOAuth();
     });
   }
 
+  // 앱으로 복귀하는 리다이렉트 URL(해시 제거) — file:// 개발에선 origin 이 'null' 이라 미지정.
+  function appRedirect() {
+    var origin = location.origin && location.origin !== 'null';
+    return origin ? location.href.split('#')[0].split('?')[0] : undefined;
+  }
+
+  // 비밀번호 재설정 메일 전송 — 링크 클릭 시 appRedirect 로 복귀 → SDK 가 PASSWORD_RECOVERY 발화.
   function resetPassword(email) {
     return loadClient().then(function (c) {
       if (!c) return { ok: false, error: '백엔드 미설정' };
-      return c.auth.resetPasswordForEmail(email).then(function (r) {
+      var redirectTo = appRedirect();
+      var opts = redirectTo ? { redirectTo: redirectTo } : undefined;
+      return c.auth.resetPasswordForEmail(email, opts).then(function (r) {
         return r.error ? { ok: false, error: r.error.message } : { ok: true };
+      });
+    });
+  }
+
+  // 새 비밀번호 확정(재설정 링크 복귀 후) — 현재 세션(복구 세션)의 비밀번호 갱신.
+  function updatePassword(newPass) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      return c.auth.updateUser({ password: newPass }).then(function (r) {
+        if (r.error) return { ok: false, error: r.error.message };
+        _recovery = false;
+        return refreshSession().then(function () {
+          return { ok: true };
+        });
       });
     });
   }
@@ -329,6 +446,20 @@
     signInEmail: signInEmail,
     signInOAuth: signInOAuth,
     resetPassword: resetPassword,
+    updatePassword: updatePassword,
+    resendConfirmation: resendConfirmation,
+    pendingEmail: function () {
+      return _pendingEmail;
+    },
+    clearPending: function () {
+      _pendingEmail = null;
+    },
+    isRecovery: function () {
+      return _recovery;
+    },
+    clearRecovery: function () {
+      _recovery = false;
+    },
     signOut: signOut,
     isMember: isMember,
     recordResult: recordResult,
@@ -345,6 +476,7 @@
       return _session && _session.user ? _session.user.id : null;
     },
     reloadProfile: loadProfile,
+    fetchProfile: fetchProfile,
     updateNickname: updateNickname,
     randomNick: randomNick,
     onAuth: function (cb) {
@@ -355,5 +487,26 @@
         });
       };
     },
+    // 원자 인증 이벤트 구독 — (evt, session). evt: 'PASSWORD_RECOVERY'|'USER_UPDATED'|'SIGNED_IN'|…
+    onEvent: function (cb) {
+      _evtSubs.push(cb);
+      return function () {
+        _evtSubs = _evtSubs.filter(function (f) {
+          return f !== cb;
+        });
+      };
+    },
   };
+
+  // 비밀번호 재설정/이메일 인증 링크로 진입한 경우(해시에 type=recovery 등) SDK 를 즉시 로드해
+  // detectSessionInUrl 이 토큰을 처리하고 PASSWORD_RECOVERY/SIGNED_IN 이벤트를 발화하도록 한다.
+  if (configured) {
+    try {
+      var _h = (location.hash || '') + '&' + (location.search || '');
+      if (/type=recovery|type=signup|type=email_change|access_token=/.test(_h)) {
+        if (/type=recovery/.test(_h)) _recovery = true;
+        loadClient();
+      }
+    } catch (e) {}
+  }
 })();

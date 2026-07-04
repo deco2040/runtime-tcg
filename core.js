@@ -976,8 +976,10 @@
     opts = opts || {};
     var me = owner === HUMAN, pl = G.players[owner], b = G.body(owner);
     var hp = b ? G.curHp(b) : 0, mx = b ? G.effMaxHp(b) : 1, accent = ownerColor(owner), low = mx && hp / mx <= 0.34;
+    var who = me ? '나' : '상대';
+    if (onlineMatch) { var k = me ? (G.myKey || '나') : (G.oppKey || '상대'); who = k.length > 10 ? k.slice(0, 9) + '…' : k; }
     var kids = [
-      el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: accent, flex: 'none' } }, [me ? '나' : '상대']),
+      el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: accent, flex: 'none', maxWidth: '92px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: who }, [who]),
       el('span', { style: { fontSize: '13px', color: low ? SKIN.heat : accent, flex: 'none' } }, ['♥']),
       el('b', { class: 'mono', style: { fontSize: '16px', fontWeight: 700, color: low ? SKIN.heat : accent, lineHeight: 1, flex: 'none' } }, [String(hp)]),
       el('span', { class: 'mono', style: { fontSize: '9px', color: SKIN.muted, flex: 'none' } }, ['/' + mx]),
@@ -1231,8 +1233,10 @@
       el('div', { style: { flex: 1, minWidth: '24px', display: 'flex', justifyContent: 'center' } }, [meter]),
       counter
     ]);
+    var who = me ? '나' : '상대';
+    if (onlineMatch) { var nk = me ? (G.myKey || '나') : (G.oppKey || '상대'); who = nk.length > 12 ? nk.slice(0, 11) + '…' : nk; }
     return el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '0 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
-      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none' } }, [me ? '나' : '상대']),
+      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: who }, [who]),
       el('span', { class: 'mono', title: d ? d.name : '', style: { fontSize: '9px', fontWeight: 700, color: '#fff', background: dc, padding: '2px 6px', whiteSpace: 'nowrap', flex: 'none' } }, [(d ? GLY[d.cls] + ' ' : '') + (dk || '?')]),
       device,
       el('span', { class: 'mono', title: '손패', style: { fontSize: '11px', color: SKIN.muted, flex: 'none' } }, ['패 ' + pl.hand.length]),
@@ -1790,6 +1794,33 @@
     var outcome = G.winner === 'draw' ? 'draw' : (G.winner === HUMAN ? 'win' : 'loss');
     try { if (UI.Net && UI.Net.recordResult) UI.Net.recordResult(outcome); } catch (e) {}
   }
+  // 온라인 대국 종료 카드 — 나 vs 상대 프로필/전적(기능 4, 대국 후).
+  // 내 전적은 이번 판이 반영된 최신값(recordResult 후), 상대는 대국 전 스냅샷.
+  function onlineResultProfiles() {
+    if (!onlineMatch) return null;
+    var myProf = (UI.Net && UI.Net.profile && UI.Net.profile()) || onlineMatch.myProfile || null;
+    var oppProf = onlineMatch.oppProfile || null;
+    function col(nick, prof, mine) {
+      var accent = mine ? SKIN.own : SKIN.enemy;
+      var kids = [
+        el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginBottom: '2px' } }, [mine ? '나' : '상대']),
+        el('div', { class: 'grot', style: { fontSize: '14px', fontWeight: 700, color: accent, wordBreak: 'break-all', lineHeight: 1.2, marginBottom: '3px' } }, [nick || '???']),
+      ];
+      if (prof) {
+        var g = prof.games || 0, w = prof.wins || 0, l = prof.losses || 0, d = prof.draws || 0;
+        var rate = g ? Math.round((w / g) * 100) : 0;
+        kids.push(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.txt } }, [w + '승 ' + l + '패 ' + d + '무']));
+        kids.push(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['승률 ' + rate + '%']));
+      }
+      return el('div', { style: { flex: 1, minWidth: '0' } }, kids);
+    }
+    return el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '12px', margin: '10px 0 4px', paddingTop: '10px', borderTop: '1px solid ' + SKIN.line, textAlign: 'center' } }, [
+      col(G.myKey, myProf, true),
+      el('div', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: SKIN.muted, alignSelf: 'center', flex: 'none' } }, ['VS']),
+      col(G.oppKey, oppProf, false),
+    ]);
+  }
+
   function resultOverlay() {
     var win = G.winner === HUMAN, draw = G.winner === 'draw';
     var color = draw ? '#6b6b75' : win ? '#3c8a66' : '#c23c70';
@@ -1828,6 +1859,7 @@
     } else if (onlineMatch) {
       kids = [
         el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '38px', letterSpacing: '.06em', color: color } }, [label]),
+        onlineResultProfiles(),
         stat,
         el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' } }, [
           el('button', { class: 'btn', disabled: rematchReq.mine ? 'disabled' : null, onclick: requestRematch }, [rematchReq.mine ? (rematchReq.opp ? '재시작 중…' : '재대결 대기 중…') : '🔁 재대결']),
@@ -2126,11 +2158,12 @@
 
   function startOnlineMatch(opts) {
     challenge = null; tutorial = null;
-    onlineMatch = { send: opts.send, myIdx: opts.myIdx, deck0: opts.deck0, deck1: opts.deck1, oppNick: opts.oppNick };
+    onlineMatch = { send: opts.send, myIdx: opts.myIdx, deck0: opts.deck0, deck1: opts.deck1, oppNick: opts.oppNick, myNick: opts.myNick, oppProfile: opts.oppProfile || null, myProfile: opts.myProfile || null };
     rematchReq = { mine: false, opp: false };
     HUMAN = opts.myIdx; AI = 1 - opts.myIdx;                 // 관점 전환(게스트=플레이어1이 아래로)
     G = RT.newGame(opts.deck0, opts.deck1, { seed: opts.seed, first: opts.first });
     G.oppKey = opts.oppNick || '상대';
+    G.myKey = opts.myNick || '나';
     sel = ptr = hover = pinned = null; mullPick = {};
     // 온라인 멀리건: 각자 자기 손패 교체를 고르고, 둘 다 확정되면 정준 순서로 일괄 적용(tryResolveOnlineMull).
     mullPhase = true; mullFirst = opts.first; mullBusy = true; mullReady = false; mullCoinDone = false;
