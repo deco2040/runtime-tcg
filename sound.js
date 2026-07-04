@@ -39,7 +39,11 @@
       move: guard(function () { tone({ f: 420, f2: 520, type: 'triangle', a: 0.004, d: 0.07, peak: 0.1 }); }),
       draw: guard(function () { tone({ f: 660, f2: 880, type: 'triangle', a: 0.003, d: 0.06, peak: 0.07 }); }),
       win: guard(function () { chord([523.25, 659.25, 783.99, 1046.5], 'triangle', 0.01, 0.5, 0.2, 0.1); tone({ f: 1567, type: 'sine', a: 0.01, d: 0.6, peak: 0.12, delay: 0.4 }); }),
-      lose: guard(function () { chord([392, 329.63, 261.63, 196], 'sawtooth', 0.01, 0.5, 0.16, 0.13); })
+      lose: guard(function () { chord([392, 329.63, 261.63, 196], 'sawtooth', 0.01, 0.5, 0.16, 0.13); }),
+      // UI 확인음 — 매치메이킹 버튼 등 짧은 상승 비프
+      ui: guard(function () { tone({ f: 520, f2: 720, type: 'square', a: 0.003, d: 0.07, peak: 0.15 }); tone({ f: 1040, type: 'triangle', a: 0.003, d: 0.05, peak: 0.06, delay: 0.05 }); }),
+      // 매칭 성사 — 상대 발견 상승 아르페지오 + 밝은 핑
+      match: guard(function () { chord([440, 587.33, 880], 'triangle', 0.01, 0.28, 0.18, 0.08); tone({ f: 1174.66, type: 'sine', a: 0.008, d: 0.36, peak: 0.1, delay: 0.24 }); tone({ f: 300, f2: 760, type: 'square', a: 0.005, d: 0.12, peak: 0.12 }); })
     };
   })();
   UI.Sound = Sound;

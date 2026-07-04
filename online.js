@@ -27,6 +27,14 @@
   var matchStarted = false;
   var discTimer = null;
   var oppProfile = null; // 상대 프로필(전적/승률) — 대국 전 카드용(기능 4)
+  var matchedSfx = false; // 매칭 성사 효과음 1회만 재생(redraw 중복 방지)
+
+  // phase 를 matched 로 전환하며 성사 효과음을 1회 재생(경로: 자동매칭/코드조인/호스트감지 공통)
+  function toMatched() {
+    phase = 'matched';
+    status = '';
+    if (!matchedSfx) { matchedSfx = true; if (UI.Sound) UI.Sound.match(); }
+  }
 
   // 대국 중 상대 presence 가 사라지면(탭 닫힘/크래시) 유예 후 이탈 처리(끊김→승리)
   function armDisc() {
@@ -62,6 +70,7 @@
     status = '';
     bothReady = false;
     oppProfile = null;
+    matchedSfx = false;
     if (UI.exitToGuide) UI.exitToGuide();
     redraw();
     if (!UI.Net || !UI.Net.enabled) {
@@ -77,7 +86,7 @@
     active = true;
     mode = 'custom';
     phase = 'custommenu';
-    room = null; status = ''; bothReady = false; roomCode = ''; codeInput = ''; oppProfile = null;
+    room = null; status = ''; bothReady = false; roomCode = ''; codeInput = ''; oppProfile = null; matchedSfx = false;
     if (UI.exitToGuide) UI.exitToGuide();
     redraw();
     if (!UI.Net || !UI.Net.enabled) { phase = 'offline'; redraw(); }
@@ -131,7 +140,7 @@
           if (r.error) { phase = 'joinform'; status = '방을 찾을 수 없어요 (코드를 확인하세요)'; redraw(); return; }
           room = r.data; myIdx = room.host === UI.Net.userId() ? 0 : 1;
           joinRoomChannel();
-          phase = room.status === 'full' ? 'matched' : 'search';
+          if (room.status === 'full') toMatched(); else phase = 'search';
           redraw();
         });
     }).catch(function (e) { if (active) { phase = 'joinform'; status = '오류: ' + (e && e.message ? e.message : e); redraw(); } });
@@ -201,8 +210,7 @@
             // 양쪽 모두 방 채널에 즉시 입장 — presence 로 페어링을 감지(postgres_changes 미의존).
             joinRoomChannel();
             if (room.status === 'full') {
-              phase = 'matched';
-              status = '';
+              toMatched();
             } else {
               status = '상대를 기다리는 중…';
             }
@@ -259,7 +267,7 @@
         if (!active) return;
         if (r.data) {
           room = r.data;
-          if (room.status === 'full') { phase = 'matched'; status = ''; }
+          if (room.status === 'full') toMatched();
         }
         redraw();
       })

@@ -487,7 +487,9 @@
       class: 'crt-btn',
       disabled: !on,
       onclick: function () {
-        if (on && UI.renderMatchmaking) goTo(UI.renderMatchmaking);
+        if (!on) return;
+        if (UI.Sound) UI.Sound.ui();
+        if (UI.renderMatchmaking) goTo(UI.renderMatchmaking);
       },
       style: { flex: '1 1 160px', fontSize: '14px', textAlign: 'center', opacity: on ? '1' : '.5', cursor: on ? 'pointer' : 'default' },
     }, ['⚔ 매치메이킹']);
