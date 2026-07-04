@@ -134,6 +134,12 @@
 <script src="decks.js?v=25"></script>
 <script src="engine.js?v=25"></script>
 <script src="art-map.js?v=25"></script>
-<script src="ui.js?v=25"></script>
+<!-- ui.js 를 화면별 모듈로 분리(2026-07): 독립(sound/theme) → core(상태+매치+보드+AI) → 화면(title/tutorial).
+     로드 순서 중요: sound/theme 가 core 보다 먼저(UI.Sound/UI.SKIN 준비), title/tutorial 은 core 뒤(공유 헬퍼 준비). -->
+<script src="sound.js?v=25"></script>
+<script src="theme.js?v=25"></script>
+<script src="core.js?v=25"></script>
+<script src="title.js?v=25"></script>
+<script src="tutorial.js?v=25"></script>
 </body>
 </html>
