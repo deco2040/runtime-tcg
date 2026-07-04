@@ -1464,6 +1464,10 @@
     // 모바일 손패는 작은 미니카드(칩) — 손가락을 대면 큰 미리보기가 떠서 내용 확인.
     if (COMPACT && (mode === 'play' || mode === 'idle')) return miniHandCard(id, i, mode);
     var card = CARDS[id], isP = card.kind === 'pointer';
+    // 실제 대국 중(손패가 있는 진짜 G)인지 — dev.html 미리보기(stub G)의 idle 과 구분.
+    var inGame = !!(G && G.players && G.players[HUMAN]);
+    // 상대 턴(idle)에도 데스크톱에서 손패를 클릭/호버해 상세 인스펙트할 수 있게 인터랙션 허용.
+    var interactive = mode === 'play' || (mode === 'idle' && inGame);
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
     var mullSel = mode === 'mull' && mullPick[i];
@@ -1487,7 +1491,7 @@
     else { W = 150; MINH = 150; VPH = 92; }
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
-    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
+    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: (mode === 'idle' && !inGame) ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
     // 터치: 손패 가로 스크롤은 브라우저(pan-x), 위(필드 방향) 드래그는 우리가 잡음. 데스크톱 hover 리프트엔 영향 없음.
     if (mode === 'play') st.touchAction = 'pan-x';
     if (playable && !seld && !mullSel) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
@@ -1495,7 +1499,7 @@
     if (mode === 'play' && !playable) st.opacity = .5;
     var props = { style: st };
     if (mode === 'mull') { props['data-mull-idx'] = i; props.onclick = function () { if (mullBusy) return; mullPick[i] = !mullPick[i]; renderMulligan(); }; }
-    else if (mode === 'play') {
+    else if (interactive) {
       props.onpointerdown = function (e) { startHandDrag(e, i); };
       props.onmouseenter = function (e) { var t = e.currentTarget; t.__z = t.style.zIndex; t.__tf = t.style.transform; t.__bs = t.style.boxShadow; t.style.zIndex = '30'; t.style.transform = 'translateY(-12px) scale(1.07) rotate(-1.5deg)'; t.style.boxShadow = '0 14px 26px rgba(0,0,0,.6)'; };
       props.onmouseleave = function (e) { var t = e.currentTarget; t.style.zIndex = t.__z || ''; t.style.transform = t.__tf || ''; t.style.boxShadow = t.__bs || ''; };
