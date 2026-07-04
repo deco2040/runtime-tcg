@@ -20,7 +20,7 @@
     var hdrLine = dark ? 'rgba(255,176,0,.25)' : 'rgba(29,29,36,.20)';
     var titleGlow = dark ? '0 0 10px rgba(255,176,0,.55), 0 0 2px rgba(255,176,0,.9)' : '0 0 1px rgba(0,0,0,.12)';
     var ledCol = dark ? '#ffb000' : '#3c8a66';
-    var brandCol = dark ? '#7a6b45' : '#8a857a', brandCol2 = dark ? '#5f5436' : '#9c968a';
+    var brandCol = dark ? '#7a6b45' : '#86868f', brandCol2 = dark ? '#5f5436' : '#9c9da6';
     var monitor = el('div', { class: 'crt-monitor' });
     var screen = el('div', { class: 'crt-screen' });
     var b = el('div', { class: 'crt-body' });

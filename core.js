@@ -265,13 +265,13 @@
       svgIco(SERIES_PATH.attack, opts.icoPx || 10, 'currentColor', 2),
       el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, color: opts.buffed ? SKIN.buff : 'inherit', lineHeight: 1 } }, [String(atk)])
     ]);
-    // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 기존 뉴트럴 미터.
-    var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: COMPACT ? 'center' : 'flex-start', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) }, [
-      el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']),
+    // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 뉴트럴 미터 + 숫자 병기.
+    var hpNum = el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none' } }, [String(hp)]);
+    var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: COMPACT ? 'center' : 'flex-start', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) },
       COMPACT
-        ? el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none' } }, [String(hp)])
-        : hpMeter(hp, maxHp, { h: opts.meterH || 8 })
-    ]);
+        ? [el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']), hpNum]
+        : [el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']), hpMeter(hp, maxHp, { h: opts.meterH || 8 }), hpNum]
+    );
     return el('div', { style: { display: 'flex', gap: '3px', margin: opts.margin || '3px 2px 2px' } }, [atkEl, hpEl]);
   }
 
@@ -856,23 +856,18 @@
     if (COMPACT) {
       renderMatchCompact(wrap, meTurn);
     } else {
-      wrap.appendChild(titlebar(tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app   ·   turn ' + G.turnNo + ' / ' + G.TURN_CAP));
-      // status strip
-      var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '2px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '10px', flexWrap: 'wrap', color: SKIN.txt } }, [
-        el('span', { style: { fontWeight: 700 } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대 차례…')]),
-        el('span', { style: { color: SKIN.muted } }, ['내덱 ' + (DECKS[myDeck] ? myDeck : '') ]),
-        el('span', { style: { color: SKIN.muted } }, ['상대 ' + (G.oppKey || '?')]),
-        el('span', { style: { flex: 1 } })
-      ]);
-      if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']));
-      wrap.appendChild(strip);
+      // 상단 상태 스트립 삭제(턴/덱/도전 정보는 titlebar·디스펜서·컨트롤과 중복) → 그만큼 보드에 세로를 양보.
+      // 도전 연승만 titlebar 우측에 합쳐 표기.
+      var tbText = tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app   ·   turn ' + G.turnNo + ' / ' + G.TURN_CAP;
+      if (challenge) tbText += '   ·   🏆 ' + challenge.stage + '단계 ' + challenge.wins + '연승';
+      wrap.appendChild(titlebar(tbText));
       if (tutorial) wrap.appendChild(tutBanner());
 
-      var main = el('div', { style: { display: 'flex', gap: '10px', padding: 'clamp(6px,1vw,10px)', alignItems: 'stretch', flexWrap: 'wrap' } });
-      var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '7px' } });
+      var main = el('div', { style: { display: 'flex', gap: '10px', padding: 'clamp(3px,0.5vw,6px)', alignItems: 'stretch', flexWrap: 'wrap' } });
+      var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '4px' } });
 
       left.appendChild(deckDispenser(AI));
-      left.appendChild(boardEl());
+      left.appendChild(boardEl(false, deskBoardMaxW()));
       left.appendChild(deckDispenser(HUMAN));
       left.appendChild(handBar(meTurn));
       left.appendChild(controls(meTurn));
@@ -1021,7 +1016,7 @@
     var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1180px' } });
     var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '7px' } });
     left.appendChild(deckDispenser(AI));
-    left.appendChild(boardEl());
+    left.appendChild(boardEl(false, deskBoardMaxW()));
     left.appendChild(deckDispenser(HUMAN));
     // 멀리건 중엔 아직 손패가 없음 — 빈 손패 자리만(완료 시 최종 카드가 여기로 날아 들어옴). handBar 데스크톱 빈 상태와 동일 스타일.
     left.appendChild(el('div', { style: { position: 'relative', display: 'flex', gap: '7px', flexWrap: 'nowrap', justifyContent: 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } }, [
@@ -1165,11 +1160,11 @@
     var digit = low ? SKIN.heat : SKIN.gold;
     // 덱 두께 미터 — 남은 카드 1장 = 골드 슬리버 1개(엣지 커넥터 언어 재사용), 상한 24
     var CAP = 24, shown = Math.min(count, CAP);
-    var meter = el('div', { style: { display: 'flex', gap: '1px', alignItems: 'stretch', height: '11px', padding: '2px', background: SKIN.padEmpty, borderRadius: '2px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } });
+    var meter = el('div', { style: { display: 'flex', gap: '1px', alignItems: 'stretch', height: '9px', padding: '1px', background: SKIN.padEmpty, borderRadius: '2px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } });
     for (var i = 0; i < CAP; i++) meter.appendChild(el('div', { style: { width: '2px', flex: 'none', background: i < shown ? SKIN.gold : 'transparent', boxShadow: i < shown ? 'inset 0 1px 0 rgba(255,255,255,.3)' : 'none' } }));
     // 배출구 슬롯 — 어두운 슬릿 + 튀어나온 다음 카드 모서리
     var slitPos = me ? { bottom: '3px' } : { top: '3px' }, cardPos = me ? { bottom: '5px' } : { top: '5px' };
-    var slot = el('div', { id: 'deckslot-' + owner, style: { position: 'relative', width: '30px', height: '17px', flex: 'none', background: 'linear-gradient(180deg,' + SKIN.chipTop + ',' + SKIN.dieGradEnd + ')', borderRadius: '3px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,.5), inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } }, [
+    var slot = el('div', { id: 'deckslot-' + owner, style: { position: 'relative', width: '28px', height: '13px', flex: 'none', background: 'linear-gradient(180deg,' + SKIN.chipTop + ',' + SKIN.dieGradEnd + ')', borderRadius: '3px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,.5), inset 0 0 0 1px ' + SKIN.edge, overflow: 'hidden' } }, [
       el('div', { style: Object.assign({ position: 'absolute', left: '4px', right: '4px', height: '3px', background: '#05060a', borderRadius: '2px', boxShadow: 'inset 0 1px 1px rgba(0,0,0,.9)' }, slitPos) }),
       count ? el('div', { style: Object.assign({ position: 'absolute', left: '6px', right: '6px', height: '7px', background: 'linear-gradient(180deg,' + SKIN.pcb + ',' + SKIN.pcb2 + ')', border: '1px solid ' + SKIN.edge, borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,.4)' }, cardPos) }, [
         el('div', { style: { position: 'absolute', left: '2px', top: '1px', width: '5px', height: '2px', background: accent, borderRadius: '1px' } })
@@ -1177,14 +1172,14 @@
     ]);
     var counter = el('div', { style: { display: 'flex', alignItems: 'center', gap: '3px', flex: 'none' } }, [
       el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: SKIN.silkDim, letterSpacing: '.12em' } }, ['DECK']),
-      el('div', { class: 'mono', style: { fontSize: '15px', fontWeight: 700, color: digit, background: '#05060a', padding: '0 6px', borderRadius: '2px', minWidth: '26px', textAlign: 'center', boxShadow: 'inset 0 1px 2px rgba(0,0,0,.7), 0 0 0 1px ' + SKIN.edge, textShadow: '0 0 6px ' + hexa(digit, .6) } }, [String(count)])
+      el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: digit, background: '#05060a', padding: '0 6px', borderRadius: '2px', minWidth: '24px', textAlign: 'center', boxShadow: 'inset 0 1px 2px rgba(0,0,0,.7), 0 0 0 1px ' + SKIN.edge, textShadow: '0 0 6px ' + hexa(digit, .6) } }, [String(count)])
     ]);
-    var device = el('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 8px', background: SKIN.pcb, borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge } }, [
+    var device = el('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '1px 8px', background: SKIN.pcb, borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.edge } }, [
       slot,
       el('div', { style: { flex: 1, minWidth: '24px', display: 'flex', justifyContent: 'center' } }, [meter]),
       counter
     ]);
-    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '2px 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
+    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '0 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none' } }, [me ? '나' : '상대']),
       el('span', { class: 'mono', title: d ? d.name : '', style: { fontSize: '9px', fontWeight: 700, color: '#fff', background: dc, padding: '2px 6px', whiteSpace: 'nowrap', flex: 'none' } }, [(d ? GLY[d.cls] + ' ' : '') + (dk || '?')]),
       device,
@@ -1240,14 +1235,26 @@
     }
     return H;
   }
-  function boardEl(fill) {
+  // 데스크톱 보드 폭 상한 — 대국 화면에서 보드 외 세로 UI(상단바·상태·디스펜서2·손패·컨트롤·여백)가 차지하는
+  // 고정 높이를 뷰포트 높이에서 빼, 남는 세로에 보드(5:4)를 맞춘다. → 랜드스케이프 모니터에서 스크롤 없이 한 화면.
+  // 세로가 넉넉하면 기존 디자인 크기(640px/512px)를 상한으로 유지, 좁으면 그만큼 축소.
+  function deskBoardMaxW() {
+    var vh = window.innerHeight || 800;
+    // 보드 외 세로 크롬 합(실측 최악치): 상단바 + 디스펜서2(슬림) + 손패(최대 ~251) + 컨트롤(슬림) + 갭/여백.
+    // 상태 스트립 삭제·디스펜서/여백 축소로 이전(478)보다 크게 줄임 → 남는 세로를 전부 보드에 준다.
+    // 손패는 카드 내용(포인터·2줄 효과문)에 따라 가변 → 최악치로 잡아 어떤 패에서도 스크롤이 안 나게 한다.
+    var chrome = 410 + (tutorial ? 48 : 0);
+    var boardH = Math.max(150, Math.min(600, vh - chrome)); // 세로가 남으면 최대 600px까지 보드로 채움(기존 512 상향), 좁으면 축소
+    return Math.round(Math.min(760, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 760)
+  }
+  function boardEl(fill, deskMaxW) {
     var H = highlights();
     // PCB 기판: 솔더마스크 면 + 미세 트레이스 그리드
     var traceImg = 'linear-gradient(' + SKIN.trace + ' 1px, transparent 1px), linear-gradient(90deg,' + SKIN.trace + ' 1px, transparent 1px)';
     // fill(모바일 세로 대국): 화면 폭을 꽉 채우고, 세로 공간을 쓰도록 셀을 카드형(세로로 긴)으로 → 필드가 큼.
     var sizeStyle = fill
       ? { width: '100%', aspectRatio: '4 / 5', maxHeight: '100%', maxWidth: '560px', margin: '0 auto' }
-      : { width: '100%', maxWidth: '640px', margin: '0 auto' };
+      : { width: '100%', maxWidth: (deskMaxW || 640) + 'px', margin: '0 auto' };
     var grid = el('div', { id: 'board', onmouseleave: function () { hideCardTip(); if (hoverCell !== null) { hoverCell = null; render(); } }, style: Object.assign({ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: COMPACT ? '2px' : '6px', aspectRatio: '5/4', background: SKIN.boardFace, backgroundImage: traceImg, backgroundSize: '16px 16px', border: '1px solid ' + SKIN.ink, padding: COMPACT ? '3px' : '8px', boxShadow: 'inset 2px 2px 0 ' + SKIN.bevelLo }, sizeStyle) });
     for (var r = 1; r <= 4; r++) for (var c = 1; c <= 5; c++) grid.appendChild(cellEl(K(c, r), H[K(c, r)]));
     return grid;
@@ -1580,7 +1587,7 @@
 
   // ---- controls
   function controls(meTurn) {
-    var row = el('div', { style: { display: 'flex', alignItems: 'center', gap: COMPACT ? '7px' : '12px', padding: COMPACT ? '4px 7px' : '5px 12px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo, flexWrap: 'wrap' } });
+    var row = el('div', { style: { display: 'flex', alignItems: 'center', gap: COMPACT ? '7px' : '12px', padding: COMPACT ? '4px 7px' : '3px 12px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo, flexWrap: 'wrap' } });
     var pips = el('div', { style: { display: 'flex', gap: '4px', alignItems: 'center' } });
     for (var i = 0; i < 2; i++) pips.appendChild(el('span', { style: { width: COMPACT ? '16px' : '22px', height: '12px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
     row.appendChild(pips);
