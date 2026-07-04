@@ -5,12 +5,14 @@
   var UI = window.RTUI = window.RTUI || {};
   var el = UI.el, clear = UI.clear, app = UI.app;
   var DECKS = UI.DECKS, RT = UI.RT;
-  var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', none: '▦' };
+  var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
   // 터미널 팔레트(테마별로 renderTitle 진입 시 갱신) — 헬퍼들이 참조하므로 모듈 스코프에 둔다.
   var AMB = '#ffb000', AMB_HI = '#ffd27a', AMB_DIM = '#b3791f';
 
   function renderTitle() {
     clear();
+    // 커스텀 덱 삭제 등으로 선택이 무효하면 복구
+    if (!DECKS[UI.getMyDeck()]) UI.setMyDeck((UI.presetKeys && UI.presetKeys()[0]) || 'T1');
     // 상태 스냅샷(읽기용) — 쓰기는 UI.setMyDeck/setOppDeck 로. render() 가 매번 title 을 다시 그린다.
     var myDeck = UI.getMyDeck(), oppDeck = UI.getOppDeck(), render = UI.render;
     // 테마별 팔레트 — 다크=앰버 인광, 라이트=먹색(페이퍼 화이트 화면). index.html .crt-monitor CSS 변수와 짝을 맞춤.
@@ -35,15 +37,22 @@
     b.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: 'clamp(30px,6.4vw,54px)', letterSpacing: '.16em', lineHeight: 1, color: AMB_HI, textShadow: titleGlow } }, ['RUNTIME']));
     b.appendChild(el('div', { style: { fontSize: '11px', color: AMB_DIM, marginTop: '7px', marginBottom: '20px', letterSpacing: '.04em' } }, ['turn-based memory-grid TCG  ·  seed cards v4']));
 
-    // ▸ MY DECK
-    b.appendChild(crtLabel('▸ MY DECK'));
-    b.appendChild(crtDeckGrid(function (k) { return k === myDeck; }, function (k) { UI.setMyDeck(k); render(); }));
+    var presets = (UI.presetKeys && UI.presetKeys()) || Object.keys(DECKS);
+    var customs = (UI.customKeys && UI.customKeys()) || [];
+
+    // ▸ 견본 덱 (SAMPLE)
+    b.appendChild(crtLabel('▸ 견본 덱 · SAMPLE'));
+    b.appendChild(crtDeckGrid(function (k) { return k === myDeck; }, function (k) { UI.setMyDeck(k); render(); }, presets));
+
+    // ▸ 커스텀 덱 (CUSTOM) — 저장된 자작 덱 선택/편집 + 새 덱 만들기
+    b.appendChild(crtLabel('▸ 커스텀 덱 · CUSTOM'));
+    b.appendChild(crtCustomGrid(myDeck, customs, render));
 
     // ▸ OPPONENT
     b.appendChild(crtLabel('▸ OPPONENT'));
     var oppRow = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px', margin: '8px 0 18px' } });
     oppRow.appendChild(crtChip('RANDOM', oppDeck === '__random', function () { UI.setOppDeck('__random'); render(); }));
-    Object.keys(DECKS).forEach(function (k) { oppRow.appendChild(crtChip(k, oppDeck === k, function () { UI.setOppDeck(k); render(); })); });
+    presets.forEach(function (k) { oppRow.appendChild(crtChip(k, oppDeck === k, function () { UI.setOppDeck(k); render(); })); });
     b.appendChild(oppRow);
 
     // ▸ SYSTEM — 덱 요약 + 규칙(터미널 정보 블록)
@@ -59,6 +68,8 @@
     var startRow = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '18px' } }, [
       el('button', { class: 'crt-btn', style: { fontSize: '15px' }, onclick: UI.startMatch }, ['▶ START']),
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderLobby) UI.renderLobby(); } }, ['🌐 LOBBY']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP'])
     ]);
     b.appendChild(startRow);
@@ -92,9 +103,9 @@
   function crtChip(label, on, cb) { return el('button', { onclick: cb, class: 'crt-opt' + (on ? ' on' : ''), style: { fontSize: '11px' } }, [label]); }
   function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
   // 덱 선택 — 터미널 옵션 타일. GLY(클래스 글리프)로 계열 표시, 선택 시 인버스(호박색 채움).
-  function crtDeckGrid(isSel, on) {
+  function crtDeckGrid(isSel, on, keys) {
     var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(152px,1fr))', gap: '7px', margin: '8px 0 18px' } });
-    Object.keys(DECKS).forEach(function (k) {
+    (keys || Object.keys(DECKS)).forEach(function (k) {
       var d = DECKS[k], on2 = isSel(k), gly = GLY[d.cls] || GLY.generic;
       grid.appendChild(el('button', {
         onclick: function () { on(k); }, class: 'crt-opt' + (on2 ? ' on' : ''),
@@ -104,6 +115,30 @@
         el('span', { style: { fontSize: '10px', opacity: '.72' } }, [d.name.replace(/^\w+ · /, '')])
       ]));
     });
+    return grid;
+  }
+  // 커스텀 덱 그리드 — 저장된 자작 덱 타일(선택 + [편집]) + '새 덱 만들기' 타일
+  function crtCustomGrid(myDeck, keys, render) {
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(152px,1fr))', gap: '7px', margin: '8px 0 18px' } });
+    keys.forEach(function (k) {
+      var d = DECKS[k], on2 = (k === myDeck), gly = GLY[d.cls] || GLY.generic;
+      grid.appendChild(el('div', {
+        onclick: function () { UI.setMyDeck(k); render(); }, class: 'crt-opt' + (on2 ? ' on' : ''),
+        style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', paddingRight: '26px', cursor: 'pointer' }
+      }, [
+        el('span', { style: { fontSize: '12px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
+        el('span', { style: { fontSize: '10px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장']),
+        el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k); }, style: { position: 'absolute', top: '3px', right: '4px', fontSize: '13px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
+      ]));
+    });
+    // 새 덱 만들기
+    grid.appendChild(el('button', {
+      onclick: function () { UI.openDeckBuilder(null); }, class: 'crt-opt',
+      style: { display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', justifyContent: 'center', minHeight: '46px', textAlign: 'center', borderStyle: 'dashed' }
+    }, [
+      el('span', { style: { fontSize: '18px', fontWeight: 700, lineHeight: 1 } }, ['＋']),
+      el('span', { style: { fontSize: '10px', letterSpacing: '.06em' } }, ['새 덱 만들기'])
+    ]));
     return grid;
   }
   // 정보 블록 — [라벨] 값 줄들. 라벨은 흐린 호박, 값은 밝은 호박.

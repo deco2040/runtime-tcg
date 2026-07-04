@@ -758,7 +758,7 @@
     : (typeof RT_DECKS !== 'undefined' ? RT_DECKS : {});
 
   // ---- deck legality (§11 + single-class for B-type/Polymorph)
-  function deckClasses(list) { var s = {}; list.forEach(function (id) { var c = CARDS[id].cls; if (c !== 'generic') s[c] = 1; }); return Object.keys(s); }
+  function deckClasses(list) { var s = {}; list.forEach(function (id) { var card = CARDS[id]; if (!card) return; var c = card.cls; if (c !== 'generic') s[c] = 1; }); return Object.keys(s); }
   function analyzeDeck(list) {
     var classes = deckClasses(list);
     var singleClass = classes.length <= 1; // generic-only or one class + generic

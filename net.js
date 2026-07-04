@@ -1,0 +1,359 @@
+/* RUNTIME TCG — 네트워크/인증 기반 모듈 (Supabase).
+ *
+ * 멀티플레이 기능(채팅 로비·매치메이킹·회원·통계)의 공통 토대. config.js 의
+ * window.RT_SUPABASE {url, anonKey} 를 읽어 @supabase/supabase-js 를 CDN(ESM)에서
+ * 지연 로드한다. 백엔드 미설정/로드 실패 시 Net.enabled=false 로 우아하게 비활성.
+ *
+ * 공개 API (window.RTUI.Net):
+ *   enabled            설정 완료 여부(boolean)
+ *   ready()            → Promise<client|null>  (SDK 지연 로드)
+ *   ensureGuest()      → Promise<session|null> 세션 없으면 익명 로그인 + 프로필 확보
+ *   client()/session()/profile()   현재 캐시 접근자
+ *   reloadProfile()    → Promise<profile|null>
+ *   updateNickname(s)  → Promise<profile|null>
+ *   randomNick()       재미있는 랜덤 닉네임 생성
+ *   onAuth(cb)         인증 상태 변화 구독
+ */
+(function () {
+  'use strict';
+  var UI = (window.RTUI = window.RTUI || {});
+  var CFG = window.RT_SUPABASE || {};
+
+  // placeholder/빈 값이면 미설정으로 간주
+  var configured = !!(
+    CFG.url &&
+    CFG.anonKey &&
+    CFG.url.indexOf('YOUR-') < 0 &&
+    CFG.anonKey.indexOf('YOUR-') < 0
+  );
+  // url 정규화(https:// 누락 허용)
+  var URL_ = configured
+    ? /^https?:\/\//.test(CFG.url)
+      ? CFG.url
+      : 'https://' + CFG.url
+    : null;
+
+  var _client = null,
+    _clientPromise = null,
+    _session = null,
+    _profile = null,
+    _authSubs = [];
+
+  var SDK_URL = 'https://esm.sh/@supabase/supabase-js@2';
+
+  function loadClient() {
+    if (!configured) return Promise.resolve(null);
+    if (_client) return Promise.resolve(_client);
+    if (_clientPromise) return _clientPromise;
+    _clientPromise = import(SDK_URL)
+      .then(function (mod) {
+        _client = mod.createClient(URL_, CFG.anonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            storageKey: 'rt_auth',
+          },
+        });
+        _client.auth.onAuthStateChange(function (_evt, sess) {
+          _session = sess || null;
+          _authSubs.forEach(function (cb) {
+            try {
+              cb(_session);
+            } catch (e) {}
+          });
+        });
+        return _client;
+      })
+      .catch(function (e) {
+        console.error('[net] Supabase SDK load failed', e);
+        _clientPromise = null;
+        return null;
+      });
+    return _clientPromise;
+  }
+
+  // 게스트(익명) 로그인 보장 — 세션 없으면 익명 로그인 후 프로필 확보
+  function ensureGuest() {
+    return loadClient().then(function (c) {
+      if (!c) return null;
+      return c.auth
+        .getSession()
+        .then(function (r) {
+          var s = r && r.data && r.data.session;
+          if (s) {
+            _session = s;
+            return s;
+          }
+          return c.auth.signInAnonymously().then(function (r2) {
+            if (r2.error) {
+              console.error('[net] anonymous sign-in failed', r2.error);
+              return null;
+            }
+            _session = r2.data.session;
+            return _session;
+          });
+        })
+        .then(function (s) {
+          if (!s) return null;
+          return loadProfile().then(function () {
+            return s;
+          });
+        });
+    });
+  }
+
+  function loadProfile() {
+    if (!_client || !_session) return Promise.resolve(null);
+    var uid = _session.user.id;
+    return _client
+      .from('profiles')
+      .select('*')
+      .eq('id', uid)
+      .maybeSingle()
+      .then(function (r) {
+        if (r.data) {
+          _profile = r.data;
+          return _profile;
+        }
+        // 트리거 미설정 등으로 프로필이 없으면 클라에서 생성 시도(RLS insert 정책 필요)
+        var nick = randomNick();
+        return _client
+          .from('profiles')
+          .insert({ id: uid, nickname: nick, is_guest: !_session.user.email })
+          .select()
+          .maybeSingle()
+          .then(function (r2) {
+            _profile = r2.data || { id: uid, nickname: nick, is_guest: true };
+            return _profile;
+          })
+          .catch(function () {
+            _profile = { id: uid, nickname: nick, is_guest: true };
+            return _profile;
+          });
+      });
+  }
+
+  function updateNickname(nick) {
+    nick = (nick || '').trim().slice(0, 24);
+    if (!_client || !_session || !nick) return Promise.resolve(_profile);
+    return _client
+      .from('profiles')
+      .update({ nickname: nick })
+      .eq('id', _session.user.id)
+      .select()
+      .maybeSingle()
+      .then(function (r) {
+        if (r.data) _profile = r.data;
+        return _profile;
+      });
+  }
+
+  var ADJ = [
+    'Async', 'Atomic', 'Idle', 'Lazy', 'Hot', 'Cold', 'Null', 'Prime',
+    'Quantum', 'Static', 'Nested', 'Forked', 'Cached', 'Signed', 'Raw', 'Deep',
+  ];
+  var NOUN = [
+    'Thread', 'Kernel', 'Packet', 'Cursor', 'Daemon', 'Stack', 'Buffer',
+    'Vector', 'Token', 'Cache', 'Socket', 'Node', 'Proc', 'Heap', 'Pointer', 'Byte',
+  ];
+  function randomNick() {
+    var a = ADJ[Math.floor(Math.random() * ADJ.length)];
+    var n = NOUN[Math.floor(Math.random() * NOUN.length)];
+    return a + n + Math.floor(Math.random() * 90 + 10);
+  }
+
+  // ─────────────────────────────────────────── 인증(기능 3: 회원/로그인)
+  function refreshSession() {
+    if (!_client) return Promise.resolve(null);
+    return _client.auth.getSession().then(function (r) {
+      _session = (r && r.data && r.data.session) || null;
+      return _session;
+    });
+  }
+
+  // profiles.is_guest 플립(승격/강등 반영)
+  function flipMembership(isGuest) {
+    if (!_client || !_session) return Promise.resolve(_profile);
+    return _client
+      .from('profiles')
+      .update({ is_guest: isGuest })
+      .eq('id', _session.user.id)
+      .select()
+      .maybeSingle()
+      .then(function (r) {
+        if (r.data) _profile = r.data;
+        return _profile;
+      })
+      .catch(function () {
+        return _profile;
+      });
+  }
+
+  // 정회원 전환 — 익명 계정에 이메일/비번을 연결(같은 user id 유지 → 프로필·전적 보존)
+  function upgradeEmail(email, password) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      return c.auth
+        .updateUser({ email: email, password: password })
+        .then(function (r) {
+          if (r.error) return { ok: false, error: r.error.message };
+          return refreshSession()
+            .then(function () {
+              return flipMembership(false);
+            })
+            .then(function () {
+              return { ok: true, needConfirm: true };
+            });
+        });
+    });
+  }
+
+  // 회원가입 — 현재 세션이 게스트(익명)면 승격, 아니면 순수 signUp
+  function signUpEmail(email, password) {
+    if (_session && _session.user && !_session.user.email) {
+      return upgradeEmail(email, password);
+    }
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      return c.auth
+        .signUp({ email: email, password: password })
+        .then(function (r) {
+          if (r.error) return { ok: false, error: r.error.message };
+          if (r.data.session) {
+            _session = r.data.session;
+            return loadProfile().then(function () {
+              return { ok: true, needConfirm: false };
+            });
+          }
+          return { ok: true, needConfirm: true }; // 이메일 확인 대기
+        });
+    });
+  }
+
+  // 기존 계정 로그인(현재 게스트 세션은 대체됨)
+  function signInEmail(email, password) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      return c.auth
+        .signInWithPassword({ email: email, password: password })
+        .then(function (r) {
+          if (r.error) return { ok: false, error: r.error.message };
+          _session = r.data.session;
+          return loadProfile().then(function () {
+            return { ok: true };
+          });
+        });
+    });
+  }
+
+  // OAuth 로그인(전체 페이지 리다이렉트) — 대시보드 provider 설정 + Site URL 화이트리스트 필요.
+  // file:// 개발에선 리다이렉트 복귀가 안 되므로 배포된 https 사이트 전용.
+  function signInOAuth(provider) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      var origin = location.origin && location.origin !== 'null';
+      var redirectTo = origin ? location.href.split('#')[0] : undefined;
+      return c.auth
+        .signInWithOAuth({
+          provider: provider,
+          options: redirectTo ? { redirectTo: redirectTo } : {},
+        })
+        .then(function (r) {
+          if (r.error) return { ok: false, error: r.error.message };
+          return { ok: true, redirecting: true };
+        });
+    });
+  }
+
+  function resetPassword(email) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      return c.auth.resetPasswordForEmail(email).then(function (r) {
+        return r.error ? { ok: false, error: r.error.message } : { ok: true };
+      });
+    });
+  }
+
+  // 로그아웃 → 항상 세션 유지되도록 새 게스트로 재로그인
+  function signOut() {
+    return loadClient().then(function (c) {
+      if (!c) return null;
+      return c.auth.signOut().then(function () {
+        _session = null;
+        _profile = null;
+        return ensureGuest();
+      });
+    });
+  }
+
+  function isMember() {
+    return !!(
+      (_profile && _profile.is_guest === false) ||
+      (_session && _session.user && _session.user.email)
+    );
+  }
+
+  // 대국 결과 기록(기능 4) — outcome: 'win'|'loss'|'draw'.
+  // 항상 localStorage 미러(오프라인/즉시), 세션 있으면 profiles 카운터도 증가(로그인 시 기기간 유지).
+  function recordResult(outcome) {
+    var col = outcome === 'win' ? 'wins' : outcome === 'loss' ? 'losses' : 'draws';
+    try {
+      var k = 'rt_ai_record';
+      var r = JSON.parse(window.localStorage.getItem(k) || '{}');
+      r.games = (r.games || 0) + 1;
+      r[col] = (r[col] || 0) + 1;
+      window.localStorage.setItem(k, JSON.stringify(r));
+    } catch (e) {}
+    if (_client && _session) {
+      var cur = _profile || {};
+      var patch = { games: (cur.games || 0) + 1 };
+      patch[col] = (cur[col] || 0) + 1;
+      _client
+        .from('profiles')
+        .update(patch)
+        .eq('id', _session.user.id)
+        .select()
+        .maybeSingle()
+        .then(function (r) {
+          if (r.data) _profile = r.data;
+        })
+        .catch(function () {});
+    }
+  }
+
+  UI.Net = {
+    enabled: configured,
+    ready: loadClient,
+    ensureGuest: ensureGuest,
+    signUpEmail: signUpEmail,
+    signInEmail: signInEmail,
+    signInOAuth: signInOAuth,
+    resetPassword: resetPassword,
+    signOut: signOut,
+    isMember: isMember,
+    recordResult: recordResult,
+    client: function () {
+      return _client;
+    },
+    session: function () {
+      return _session;
+    },
+    profile: function () {
+      return _profile;
+    },
+    userId: function () {
+      return _session && _session.user ? _session.user.id : null;
+    },
+    reloadProfile: loadProfile,
+    updateNickname: updateNickname,
+    randomNick: randomNick,
+    onAuth: function (cb) {
+      _authSubs.push(cb);
+      return function () {
+        _authSubs = _authSubs.filter(function (f) {
+          return f !== cb;
+        });
+      };
+    },
+  };
+})();

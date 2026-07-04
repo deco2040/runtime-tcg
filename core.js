@@ -10,8 +10,8 @@
   var RT = window.RT;
   var CARDS = RT.CARDS, DECKS = RT.DECKS, P = RT.P, K = RT.K, unitKey = RT.unitKey, cardCls = RT.cardCls;
   var bodyKey = RT.bodyKey;
-  var CLS = { thread: '#d8472b', memory: '#2456a6', process: '#c8951b', generic: '#6b6b75', none: '#1d1d24' };
-  var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', none: '▦' };
+  var CLS = { thread: '#d8472b', memory: '#2456a6', process: '#c8951b', generic: '#6b6b75', mixed: '#8a6fb0', none: '#1d1d24' };
+  var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
   var HUMAN = 0, AI = 1;
 
   function isBodyKey(k) { return k === bodyKey(0) || k === bodyKey(1); }
@@ -46,6 +46,30 @@
   function bestMap() { try { var v = window.localStorage.getItem('rt_challenge_bests'); var o = v ? JSON.parse(v) : null; return (o && typeof o === 'object') ? o : {}; } catch (e) { return _bestMem; } }
   function bestStreak(deck) { return bestMap()[deck] || 0; }
   function setBestStreak(deck, n) { var m = bestMap(); if (n > (m[deck] || 0)) { m[deck] = n; _bestMem = m; try { window.localStorage.setItem('rt_challenge_bests', JSON.stringify(m)); } catch (e) {} } }
+
+  // ---- 커스텀 덱: localStorage 영속 + 공유 DECKS 로 병합. 키 = 'U1','U2'… (프리셋 T/M/P/N/X/C 와 충돌 없음)
+  var CUSTOM_LS = 'rt_custom_decks';
+  function isCustomKey(k) { return /^U\d+$/.test(k); }
+  function presetKeys() { return Object.keys(DECKS).filter(function (k) { return !isCustomKey(k); }); }
+  function customKeys() { return Object.keys(DECKS).filter(isCustomKey); }
+  function loadCustomRaw() { try { var v = window.localStorage.getItem(CUSTOM_LS); var o = v ? JSON.parse(v) : null; return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; } }
+  var _customMem = loadCustomRaw();
+  function persistCustom() { try { window.localStorage.setItem(CUSTOM_LS, JSON.stringify(_customMem)); } catch (e) {} }
+  // 저장된 커스텀 덱을 DECKS 로 반영 → DECKS[myDeck].list 기반 코드(newGame·멀리건·보드)가 그대로 동작
+  function syncCustomDecks() {
+    customKeys().forEach(function (k) { delete DECKS[k]; });
+    Object.keys(_customMem).forEach(function (id) {
+      var d = _customMem[id];
+      // 현재 CARDS 에 없는 카드 id 는 제거 — 카드 개편/구버전 덱이 analyzeDeck 등에서 크래시하지 않게
+      var list = (d.list || []).filter(function (cid) { return !!CARDS[cid]; });
+      DECKS[id] = { name: d.name, cls: d.cls || deckDominantCls(list), list: list, custom: true };
+    });
+  }
+  function deckDominantCls(list) { var a = RT.analyzeDeck(list); return a.singleClass ? (a.classes[0] || 'generic') : 'mixed'; }
+  function nextCustomKey() { var n = 1; while (_customMem['U' + n]) n++; return 'U' + n; }
+  function saveCustomDeck(key, name, list) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice() }; persistCustom(); syncCustomDecks(); }
+  function deleteCustomDeck(key) { delete _customMem[key]; persistCustom(); syncCustomDecks(); if (myDeck === key) myDeck = presetKeys()[0] || 'T1'; }
+  syncCustomDecks();
 
   // ---- tiny element helper
   function el(tag, props, kids) {
@@ -597,8 +621,17 @@
   // =================================================================== TITLE / DECK SELECT
 
   // =================================================================== START + MULLIGAN
-  function startMatch() { challenge = null; beginMatch(oppDeck === '__random' ? randomDeck() : oppDeck); }
+  // 선택한 내 덱이 대국 가능한지(30장) — 커스텀 덱이 카드 개편으로 짧아졌거나 미완성이면 막고 안내
+  function myDeckStartable() {
+    var d = DECKS[myDeck];
+    if (d && d.list && d.list.length === 30) return true;
+    try { window.alert('선택한 덱이 30장이 아니어서 대국을 시작할 수 없습니다.\n커스텀 덱은 ✎ 편집에서 30장으로 맞춰 저장하세요. (현재 ' + ((d && d.list) ? d.list.length : 0) + '장)'); } catch (e) {}
+    return false;
+  }
+  function startMatch() { if (!myDeckStartable()) return; challenge = null; beginMatch(oppDeck === '__random' ? randomDeck() : oppDeck); }
   function beginMatch(opp) {
+    HUMAN = 0; AI = 1; onlineMatch = null;                  // 로컬전: 관점/온라인 상태 초기화
+    if (!DECKS[myDeck]) myDeck = presetKeys()[0] || 'T1';   // 커스텀 덱 삭제 등으로 선택이 무효하면 복구
     var first = Math.random() < 0.5 ? 0 : 1;
     G = RT.newGame(myDeck, opp, { seed: (Date.now() & 0x7fffffff) >>> 0, first: first });
     G.oppKey = opp;
@@ -610,9 +643,9 @@
     resetFx(); G.onfx = handleFx;
     renderMulligan();
   }
-  function randomDeck() { var ks = Object.keys(DECKS); return ks[Math.floor(Math.random() * ks.length)]; }
+  function randomDeck() { var ks = presetKeys(); return ks[Math.floor(Math.random() * ks.length)]; }
   // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡)
-  function startChallenge() { challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck) }; beginMatch(randomDeck()); }
+  function startChallenge() { if (!myDeckStartable()) return; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck) }; beginMatch(randomDeck()); }
   function nextChallenge() { challenge.wins++; challenge.stage++; beginMatch(randomDeck()); }
   function endChallenge() { challenge = null; G = null; UI.renderTitle(); }
   function applyChallengeHandicap(g, stage) {
@@ -642,6 +675,10 @@
         var all = G.players[HUMAN].hand.map(function (_, i) { return i; });
         runMulliganDeal(all, function () { mullHideIdx = []; mullReady = true; mullBusy = false; renderMulligan(); });
       });
+    }
+    // 온라인: 내 확정 후 상대 대기 표시
+    if (onlineMatch && mullIdxByPlayer && mullIdxByPlayer[HUMAN] != null && !mullResolved) {
+      app.appendChild(el('div', { class: 'grot', style: { position: 'fixed', left: '50%', bottom: '20px', transform: 'translateX(-50%)', zIndex: 97, background: SKIN.own, color: '#fff', padding: '8px 18px', fontWeight: 700, fontSize: '13px', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.3)' } }, ['⏳ 상대의 멀리건을 기다리는 중…']));
     }
   }
   // 선후공 코인플립 — 코인이 뒤집히며 결정된 선공에 착지.
@@ -757,8 +794,17 @@
     a.onfinish = function () { f.remove(); flashShoe(); if (onDone) onDone(); };
   }
   function confirmMulligan() {
-    if (mullBusy) return;
     var idx = Object.keys(mullPick).filter(function (k) { return mullPick[k]; }).map(Number);
+    if (onlineMatch) {
+      if (mullResolved || (mullIdxByPlayer && mullIdxByPlayer[HUMAN] != null)) return; // 중복 확정 방지
+      mullBusy = true;
+      mullIdxByPlayer[HUMAN] = idx;
+      netSend({ m: 'mullpick', a: [HUMAN, idx] });
+      tryResolveOnlineMull();
+      if (!mullResolved) renderMulligan();   // 상대 대기 표시
+      return;
+    }
+    if (mullBusy) return;
     mullBusy = true;
     if (!idx.length) { proceedFromMulligan(); return; }
     // 1) 선택 카드들을 슈로 반환
@@ -841,7 +887,12 @@
     // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
     // 스크롤이 왼쪽으로 튀지 않게 — 저장값에 의존하지 않고 매번 DOM 에서 직접 읽어 정확).
     var _hr = document.getElementById('handrow'); if (_hr) handScroll = _hr.scrollLeft;
-    if (!G) { UI.renderTitle(); return; }
+    if (!G) {
+      if (UI.isAuthActive && UI.isAuthActive()) { UI.redrawAuth(); return; }
+      if (UI.isMatchmakingActive && UI.isMatchmakingActive()) { UI.redrawMatchmaking(); return; }
+      if (UI.isLobbyActive && UI.isLobbyActive()) { UI.redrawLobby(); return; }
+      if (UI.isBuilderActive && UI.isBuilderActive()) UI.renderDeckBuilder(); else UI.renderTitle(); return;
+    }
     if (mullPhase) { renderMulligan(); return; } // 멀리건 단계에선 필드+멀리건 UI 유지
     if (app.querySelector('#board') || G) renderMatch();
   }
@@ -888,6 +939,7 @@
     }
     if (tutorial && tutorial.finished) app.appendChild(tutDoneOverlay());
     else if (G.winner !== undefined) {
+      recordMatchResult();                            // 매치당 1회 전적 기록(기능 4)
       if (reviewMode) app.appendChild(reviewBar());   // 오버레이 대신 결과 다시보기 버튼만
       else app.appendChild(resultOverlay());
     }
@@ -1122,7 +1174,7 @@
       var ready = G.forReady(u, idx);
       btns.push(el('button', { style: popBtn(ready ? '#3c8a66' : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab); } : function () { flash('이동/발동할 칸이 없음 — 발동 불가'); } }, ['⚡ 발동 ' + left + '/' + N]));
     });
-    if (G.canBasicAttack(u)) btns.push(el('button', { style: popBtn('#c23c70'), onclick: function () { var t = G.basicAttackTargets(u); if (t.length === 1) { G.basicAttack(u, t[0]); render(); } else flash('빨강 대상을 클릭'); } }, ['⚔ 공격']));
+    if (G.canBasicAttack(u)) btns.push(el('button', { style: popBtn('#c23c70'), onclick: function () { var t = G.basicAttackTargets(u); if (t.length === 1) { aAttack(u, t[0]); render(); } else flash('빨강 대상을 클릭'); } }, ['⚔ 공격']));
     if (!btns.length) return null; // nothing to do → no popover (move via blue cells still works)
     btns.push(el('button', { style: popBtn('#6b6b75'), onclick: function () { sel = null; render(); } }, ['✕'])); // 취소를 팝오버 안에 둬서 별도 상단 버튼이 대상 칸을 가리지 않게
     var pop = el('div', { id: 'fieldpop', style: { position: 'fixed', zIndex: 70, display: 'flex', gap: '4px', background: '#1d1d24', padding: '4px', boxShadow: '2px 2px 0 rgba(28,28,38,.4)', whiteSpace: 'nowrap' } }, btns);
@@ -1256,7 +1308,11 @@
       ? { width: '100%', aspectRatio: '4 / 5', maxHeight: '100%', maxWidth: '560px', margin: '0 auto' }
       : { width: '100%', maxWidth: (deskMaxW || 640) + 'px', margin: '0 auto' };
     var grid = el('div', { id: 'board', onmouseleave: function () { hideCardTip(); if (hoverCell !== null) { hoverCell = null; render(); } }, style: Object.assign({ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: COMPACT ? '2px' : '6px', aspectRatio: '5/4', background: SKIN.boardFace, backgroundImage: traceImg, backgroundSize: '16px 16px', border: '1px solid ' + SKIN.ink, padding: COMPACT ? '3px' : '8px', boxShadow: 'inset 2px 2px 0 ' + SKIN.bevelLo }, sizeStyle) });
-    for (var r = 1; r <= 4; r++) for (var c = 1; c <= 5; c++) grid.appendChild(cellEl(K(c, r), H[K(c, r)]));
+    // 관점: 플레이어1(온라인 게스트)은 보드를 180° 회전해 자기 홈이 화면 아래로 오게 렌더.
+    // 셀 data-key 는 그대로라 클릭/하이라이트/드롭은 절대 좌표로 정확히 매핑된다(시각 순서만 변경).
+    var rseq = HUMAN === 1 ? [4, 3, 2, 1] : [1, 2, 3, 4];
+    var cseq = HUMAN === 1 ? [5, 4, 3, 2, 1] : [1, 2, 3, 4, 5];
+    for (var ri = 0; ri < 4; ri++) for (var ci = 0; ci < 5; ci++) { var kk = K(cseq[ci], rseq[ri]); grid.appendChild(cellEl(kk, H[kk])); }
     return grid;
   }
   function cellEl(key, hi) {
@@ -1727,6 +1783,13 @@
   function bannerEl(text, color) {
     return el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '42%', transform: 'translate(-50%,-50%)', zIndex: 40, fontWeight: 700, fontSize: '26px', letterSpacing: '.05em', padding: '18px 40px', background: color, color: '#e9eaee', border: '2px solid ' + color, boxShadow: '6px 6px 0 rgba(28,28,38,.25)', animation: 'bannerIn .4s ease both', pointerEvents: 'none' } }, [text]);
   }
+  // 대국 종료 시 1회만 전적 기록(튜토리얼 제외). G 는 매치마다 새로 생성되므로 G._recorded 로 중복 방지.
+  function recordMatchResult() {
+    if (!G || G._recorded || tutorial || G.winner === undefined) return;
+    G._recorded = true;
+    var outcome = G.winner === 'draw' ? 'draw' : (G.winner === HUMAN ? 'win' : 'loss');
+    try { if (UI.Net && UI.Net.recordResult) UI.Net.recordResult(outcome); } catch (e) {}
+  }
   function resultOverlay() {
     var win = G.winner === HUMAN, draw = G.winner === 'draw';
     var color = draw ? '#6b6b75' : win ? '#3c8a66' : '#c23c70';
@@ -1762,6 +1825,15 @@
           btnRow(el('button', { class: 'btn', onclick: function () { endChallenge(); } }, ['타이틀로']))
         ];
       }
+    } else if (onlineMatch) {
+      kids = [
+        el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '38px', letterSpacing: '.06em', color: color } }, [label]),
+        stat,
+        el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' } }, [
+          el('button', { class: 'btn', disabled: rematchReq.mine ? 'disabled' : null, onclick: requestRematch }, [rematchReq.mine ? (rematchReq.opp ? '재시작 중…' : '재대결 대기 중…') : '🔁 재대결']),
+          el('button', { class: 'btn', style: { background: 'transparent', color: SKIN.txt, border: '1px solid ' + SKIN.ink }, onclick: leaveOnlineToLobby }, ['로비로'])
+        ])
+      ];
     } else {
       kids = [
         el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '38px', letterSpacing: '.06em', color: color } }, [label]),
@@ -1793,6 +1865,7 @@
       G.winner = AI;                                  // 상대 승리로 즉시 종료 → resultOverlay(패배/도전 종료)
       if (G.note) G.note('★ 항복 — 상대 승리');
       reviewMode = false; winSoundDone = false;
+      if (onlineMatch) netSend({ m: 'forfeit', a: [HUMAN] });   // 상대에게 항복 통지
     }
     render();
   }
@@ -1885,14 +1958,14 @@
         if (ptr.need === 'twoAlly') {
           ptr.picks.push(key);
           if (ptr.picks.length < 2) { render(); return; }
-          G.cast(HUMAN, ptr.i, ptr.picks[0], false, { second: ptr.picks[1] }); ptr = null; afterAction(); return;
+          aCast(HUMAN, ptr.i, ptr.picks[0], false, { second: ptr.picks[1] }); ptr = null; afterAction(); return;
         }
-        G.cast(HUMAN, ptr.i, key, false); ptr = null; afterAction(); return;
+        aCast(HUMAN, ptr.i, key, false); ptr = null; afterAction(); return;
       }
       ptr = null; render(); return;
     }
     if (sel && sel.type === 'hand') {
-      if (G.declareCells(HUMAN).indexOf(key) >= 0) { G.declare(HUMAN, sel.i, key); sel = null; afterAction(); return; }
+      if (G.declareCells(HUMAN).indexOf(key) >= 0) { aDeclare(HUMAN, sel.i, key); sel = null; afterAction(); return; }
       if (u && u.owner === HUMAN && u.type === 'object') { sel = { type: 'board', key: key }; render(); return; }
       sel = null; render(); return;
     }
@@ -1900,8 +1973,8 @@
       var su = G.board[sel.key];
       if (su) {
         // basic attack an adjacent enemy object or the enemy body (free, once/turn)
-        if (u && u.owner !== HUMAN && G.canBasicAttack(su) && G.basicAttackTargets(su).indexOf(key) >= 0) { G.basicAttack(su, key); render(); return; }
-        if (G.moveCells(su).indexOf(key) >= 0) { G.move(su, key, false); sel = { type: 'board', key: key }; afterAction(); return; }
+        if (u && u.owner !== HUMAN && G.canBasicAttack(su) && G.basicAttackTargets(su).indexOf(key) >= 0) { aAttack(su, key); render(); return; }
+        if (G.moveCells(su).indexOf(key) >= 0) { aMove(su, key); sel = { type: 'board', key: key }; afterAction(); return; }
       }
       if (u && u.owner === HUMAN && u.type === 'object') { sel = { type: 'board', key: key }; render(); return; }
       sel = null; render(); return;
@@ -1914,7 +1987,7 @@
     if (!G.forReady(u, idx)) { flash('이동/발동할 칸이 없음 — 발동 불가'); return; }
     var extra = {};
     if (ab.trigger === 'onActive') { var d = G.moveCells(u)[0]; if (d) extra.dest = d; }
-    G.fireFor(u, idx, extra); render();
+    aFire(u, idx, extra); render();
   }
   function pointerTargets(ptr) {
     var need = ptr.need, me = HUMAN, out = [];
@@ -2008,17 +2081,126 @@
     if (d.invalid || !card) { sel = ptr = null; render(); return; }
     if (card.kind === 'pointer') {
       // 무대상 포인터도 '필드 위'에 놓아야 시전(모바일). 필드 밖에 놓으면 취소.
-      if (card.need === 'none') { if (COMPACT && !key) { flash('필드에 놓아 시전하세요'); sel = ptr = null; render(); return; } G.cast(HUMAN, d.i, null, false); afterAction(); return; }
+      if (card.need === 'none') { if (COMPACT && !key) { flash('필드에 놓아 시전하세요'); sel = ptr = null; render(); return; } aCast(HUMAN, d.i, null, false); afterAction(); return; }
       var legal = ptr ? pointerTargets(ptr) : [];
       if (key && legal.indexOf(key) >= 0) {
-        if (card.need === 'twoAlly') G.cast(HUMAN, d.i, key, false, { second: legal.filter(function (k) { return k !== key; })[0] });
-        else G.cast(HUMAN, d.i, key, false);
+        if (card.need === 'twoAlly') aCast(HUMAN, d.i, key, false, { second: legal.filter(function (k) { return k !== key; })[0] });
+        else aCast(HUMAN, d.i, key, false);
         afterAction(); return;
       }
       flash('시전 범위 밖 — 파란 구역 안 빨강 대상에 놓으세요'); sel = ptr = null; render(); return;
     }
-    if (key && G.declareCells(HUMAN).indexOf(key) >= 0) { G.declare(HUMAN, d.i, key); afterAction(); return; }
+    if (key && G.declareCells(HUMAN).indexOf(key) >= 0) { aDeclare(HUMAN, d.i, key); afterAction(); return; }
     flash('내 본체 행 빈 칸에 놓으세요'); sel = ptr = null; render(); return;
+  }
+
+  // ===================================================================== ONLINE (기능 2b)
+  // 결정적 락스텝 + 호스트 릴레이: 양쪽이 같은 seed·덱으로 실엔진을 구동하고, 최상위 플레이어
+  // 행동만 브로드캐스트해 서로 적용한다. 관점은 HUMAN=내 인덱스로 뒤집어 렌더러/입력을 그대로
+  // 재사용(엔진은 절대 인덱스 0/1 사용). 카드 능력 내부의 G.move 등은 감싸지 않아(=최상위 래퍼만
+  // 브로드캐스트) 중복 적용/데싱크가 없다. runAI 는 온라인에서 호출하지 않는다.
+  var onlineMatch = null;
+  var mullIdxByPlayer = null, mullResolved = false;         // 온라인 멀리건: 각자 선택 → 둘 다 오면 정준 적용
+  var rematchReq = { mine: false, opp: false };             // 재대결 요청 상태(양쪽 요청 시 재시작)
+  function netSend(msg) { if (onlineMatch && onlineMatch.send) { try { onlineMatch.send(msg); } catch (e) {} } }
+  // 양쪽 멀리건 선택이 모이면 정준 순서(0→1)로 일괄 적용 → 공유 rng 소비 순서가 양 클라 동일(desync 방지).
+  function tryResolveOnlineMull() {
+    if (mullResolved || !mullIdxByPlayer) return;
+    if (mullIdxByPlayer[0] == null || mullIdxByPlayer[1] == null) return; // 둘 다 확정될 때까지 대기
+    mullResolved = true;
+    var savedFx = G.onfx; G.onfx = null;
+    if (mullIdxByPlayer[0].length) G.mulligan(0, mullIdxByPlayer[0]);
+    if (mullIdxByPlayer[1].length) G.mulligan(1, mullIdxByPlayer[1]);
+    G.onfx = savedFx;
+    mullPhase = false; mullBusy = false; mullReady = false; mullHideIdx = []; lastBannerTurn = -1;
+    G.beginTurn();
+    renderMatch();
+  }
+  function keyOf(u) { if (!u || typeof u !== 'object') return u; for (var k in G.board) if (G.board.hasOwnProperty(k) && G.board[k] === u) return k; return null; }
+  function aDeclare(p, i, k) { G.declare(p, i, k); netSend({ m: 'declare', a: [p, i, k] }); }
+  function aMove(u, k) { var f = keyOf(u); G.move(u, k, false); netSend({ m: 'move', a: [f, k] }); }
+  function aAttack(u, t) { var f = keyOf(u); G.basicAttack(u, t); netSend({ m: 'basicAttack', a: [f, t] }); }
+  function aCast(p, i, k, flag, opts) { G.cast(p, i, k, flag, opts); netSend({ m: 'cast', a: [p, i, k, flag, opts || null] }); }
+  function aFire(u, idx, extra) { var f = keyOf(u); G.fireFor(u, idx, extra); netSend({ m: 'fireFor', a: [f, idx, extra || null] }); }
+  function aEndTurn() { G.endTurn(); netSend({ m: 'endTurn', a: [] }); }
+
+  function startOnlineMatch(opts) {
+    challenge = null; tutorial = null;
+    onlineMatch = { send: opts.send, myIdx: opts.myIdx, deck0: opts.deck0, deck1: opts.deck1, oppNick: opts.oppNick };
+    rematchReq = { mine: false, opp: false };
+    HUMAN = opts.myIdx; AI = 1 - opts.myIdx;                 // 관점 전환(게스트=플레이어1이 아래로)
+    G = RT.newGame(opts.deck0, opts.deck1, { seed: opts.seed, first: opts.first });
+    G.oppKey = opts.oppNick || '상대';
+    sel = ptr = hover = pinned = null; mullPick = {};
+    // 온라인 멀리건: 각자 자기 손패 교체를 고르고, 둘 다 확정되면 정준 순서로 일괄 적용(tryResolveOnlineMull).
+    mullPhase = true; mullFirst = opts.first; mullBusy = true; mullReady = false; mullCoinDone = false;
+    mullHideIdx = G.players[HUMAN].hand.map(function (_, i) { return i; });
+    mullIdxByPlayer = { 0: null, 1: null }; mullResolved = false;
+    reviewMode = false; winSoundDone = false; aiThinking = false; lastBannerTurn = -1;
+    resetFx(); G.onfx = handleFx;
+    renderMulligan();
+  }
+
+  // 상대(원격) 행동 적용 — RAW G 메서드 호출(래퍼 아님)이라 재브로드캐스트 없음.
+  function applyRemoteAction(msg) {
+    if (!G || !onlineMatch || !msg) return;
+    var m = msg.m, a = (msg.a || []).slice();
+    if (m === 'mullpick') { if (mullIdxByPlayer) { mullIdxByPlayer[a[0]] = a[1]; tryResolveOnlineMull(); } return; }
+    if (m === 'forfeit') { if (G.winner === undefined) { G.winner = 1 - a[0]; winSoundDone = false; reviewMode = false; } render(); return; }
+    if (m === 'left') { onlineOpponentLeft('상대가 나갔습니다 — 승리'); return; }
+    if (m === 'rematch') { rematchReq.opp = true; tryStartRematch(); render(); return; }
+    if (m === 'rematchgo') { startRematch(a[0], a[1]); return; }
+    try {
+      if (m === 'move') G.move(G.board[a[0]], a[1], false);
+      else if (m === 'basicAttack') G.basicAttack(G.board[a[0]], a[1]);
+      else if (m === 'fireFor') G.fireFor(G.board[a[0]], a[1], a[2] || {});
+      else if (m === 'declare') G.declare(a[0], a[1], a[2]);
+      else if (m === 'cast') G.cast(a[0], a[1], a[2], a[3], a[4] || undefined);
+      else if (m === 'endTurn') G.endTurn();
+      else if (m === 'mulligan') G.mulligan(a[0], a[1]);
+    } catch (e) { console.error('[online] remote apply failed:', m, e); }
+    sel = null; ptr = null; aiThinking = false; render();
+  }
+
+  // 상대 이탈(끊김/나가기) → 진행 중이면 내 승리 처리
+  function onlineOpponentLeft(reason) {
+    if (!onlineMatch || !G) return;
+    if (G.winner === undefined) {
+      G.winner = HUMAN;
+      winSoundDone = false; reviewMode = false;
+      flash(reason || '상대 연결이 끊겼습니다 — 승리');
+    }
+    render();
+  }
+
+  // 재대결 — 양쪽 요청 시 호스트가 새 시드/선공을 정해 브로드캐스트, 둘 다 재시작
+  function requestRematch() {
+    if (!onlineMatch || rematchReq.mine) return;
+    rematchReq.mine = true;
+    netSend({ m: 'rematch', a: [onlineMatch.myIdx] });
+    tryStartRematch();
+    render();
+  }
+  function tryStartRematch() {
+    if (!onlineMatch || !rematchReq.mine || !rematchReq.opp) return;
+    if (onlineMatch.myIdx === 0) {
+      var seed = (Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+      var first = Math.random() < 0.5 ? 0 : 1;
+      netSend({ m: 'rematchgo', a: [seed, first] });
+      startRematch(seed, first);
+    }
+  }
+  function startRematch(seed, first) {
+    if (!onlineMatch) return;
+    startOnlineMatch({
+      deck0: onlineMatch.deck0, deck1: onlineMatch.deck1,
+      seed: seed, first: first, myIdx: onlineMatch.myIdx,
+      oppNick: onlineMatch.oppNick, send: onlineMatch.send,
+    });
+  }
+  function leaveOnlineToLobby() {
+    UI.exitToGuide();
+    if (UI.renderLobby) UI.renderLobby(); else UI.renderTitle();
   }
 
   function endTurn() {
@@ -2028,13 +2210,14 @@
       tutorial.finished = true; sel = ptr = null; renderMatch(); return;
     }
     sel = ptr = null;
-    G.endTurn();
-    if (G.active === AI && G.winner === undefined) runAI(); else render();
+    aEndTurn();
+    if (!onlineMatch && G.active === AI && G.winner === undefined) runAI(); else render();
   }
   // AI 페이싱: 일반 동작은 STEP 간격, 상대가 카드를 낸 직후(revealCard)엔 REVEAL 간격만큼 더 쉬어
   // 무슨 카드를 냈는지 확인할 시간을 준다. (기존 360ms 고정 setInterval → 가변 setTimeout)
   var AI_STEP_MS = 500, AI_REVEAL_MS = 1400;
   function runAI() {
+    if (onlineMatch) return;                                 // 온라인은 상대가 사람 — AI 미구동
     aiThinking = true; render();
     clearTimeout(aiTimer);
     var tick = function () {
@@ -2154,9 +2337,25 @@
   UI.bestStreak = bestStreak; UI.bestMap = bestMap;
   UI.getMyDeck = function () { return myDeck; }; UI.setMyDeck = function (k) { myDeck = k; };
   UI.getOppDeck = function () { return oppDeck; }; UI.setOppDeck = function (k) { oppDeck = k; };
-  UI.exitToGuide = function () { G = null; tutorial = null; };
+  // 커스텀 덱: title.js(견본/커스텀 구분) · deckbuilder.js(저장/삭제) 가 소비
+  UI.GLY = GLY;
+  UI.isCustomKey = isCustomKey; UI.presetKeys = presetKeys; UI.customKeys = customKeys;
+  UI.saveCustomDeck = saveCustomDeck; UI.deleteCustomDeck = deleteCustomDeck; UI.nextCustomKey = nextCustomKey;
+  UI.exitToGuide = function () {
+    if (onlineMatch) {
+      try { netSend({ m: 'left', a: [HUMAN] }); } catch (e) {}          // 상대에게 이탈 통지(teardown 전에)
+      try { if (UI.Online && UI.Online.teardown) UI.Online.teardown(); } catch (e) {}
+    }
+    G = null; tutorial = null;
+    onlineMatch = null; HUMAN = 0; AI = 1;                   // 온라인 정리 + 관점 원복
+    mullIdxByPlayer = null; mullResolved = false; rematchReq = { mine: false, opp: false };
+  };
+  UI.startOnlineMatch = startOnlineMatch;
+  UI.applyRemoteAction = applyRemoteAction;
+  UI.onlineOpponentLeft = onlineOpponentLeft;
+  UI.isOnlineMatch = function () { return !!onlineMatch; };
   // theme.js 훅: 테마 전환 후 재렌더 / 캐시된 툴팁 노드 폐기(테마 색이 생성 시점에 굳으므로 재생성 유도)
-  UI.rerenderForTheme = function () { if (G) render(); else if (UI.renderTitle) UI.renderTitle(); };
+  UI.rerenderForTheme = function () { render(); };   // render() 가 게임/빌더/타이틀을 알아서 분기
   UI.afterThemeApply = function () {
     try { if (cardTip && cardTip.remove) cardTip.remove(); } catch (e) {}
     try { if (kwtip && kwtip.remove) kwtip.remove(); } catch (e) {}
