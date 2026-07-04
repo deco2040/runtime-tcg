@@ -1019,7 +1019,7 @@
       pips,
       challenge ? el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆' + challenge.wins]) : null,
       el('span', { style: { flex: 1, minWidth: '6px' } }),
-      // ☰ 메뉴 — 항복·규칙 요약 바텀시트를 여는 작은 버튼(튜토리얼 중엔 숨김). 턴 종료 옆에 붙여 둔다.
+      // ☰ 메뉴 — 항복·기본 룰 설명 바텀시트를 여는 작은 버튼(튜토리얼 중엔 숨김). 턴 종료 옆에 붙여 둔다.
       tutorial ? null : el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '15px', fontWeight: 700, padding: '9px 12px', flex: 'none', lineHeight: 1, textAlign: 'center' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰']),
       el('button', { class: 'btn', style: { fontSize: '14px', fontWeight: 700, padding: '9px 22px', flex: 'none', whiteSpace: 'nowrap', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료'])
     ]));
@@ -1730,7 +1730,7 @@
     } else if (!COMPACT) row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['손패 카드를 드래그 또는 클릭 · 내 유닛 클릭 → 행동']));
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
-    // ☰ 메뉴 — 항복·규칙 요약(모바일과 동일한 바텀시트). 턴 종료 옆에. 튜토리얼 중엔 숨김.
+    // ☰ 메뉴 — 항복·기본 룰 설명(모바일과 동일한 바텀시트). 턴 종료 옆에. 튜토리얼 중엔 숨김.
     if (!tutorial) row.appendChild(el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '12px', padding: '9px 12px' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰ 메뉴']));
     row.appendChild(el('button', { class: 'btn', disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료']));
     return row;
@@ -1926,16 +1926,71 @@
     return ov;
   }
 
-  // ── 모바일 메뉴 바텀시트(항복 · 규칙 요약) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
-  //   규칙 설명은 GLOSS(키워드 사전)를 그대로 재사용해 간략히 보여준다.
+  // ── 모바일 메뉴 바텀시트(항복 · 기본 룰 설명) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
+  //   규칙 설명은 기본 룰(BASICS) + GLOSS(키워드 사전)를 재사용해 보여준다.
   var RULE_ABILITY = ['If', 'When', 'Once', 'While', 'For'];        // 특수능력 발동 방식
   var RULE_RANGE = ['옆칸', '주위', '앞 직선', '대각선', '테두리', '관통']; // 사거리 키워드
+  // 완전 기본룰 — 처음 보는 사람이 한 판을 굴릴 수 있는 최소 규칙.
+  var BASICS = [
+    { t: '승리 조건', d: '상대 본체(HP 40)를 0 이하로 만들면 승리. 내 본체가 0 이하면 패배. 본체도 보드 칸이라 인접·사거리에 포함된다.' },
+    { t: '턴 진행', d: '두 플레이어가 번갈아 턴을 가진다. 내 턴에 손패에서 카드를 내거나(선언) 유닛을 움직이고 공격한 뒤, [턴 종료]로 넘긴다. 턴 시작 때 카드 1장을 뽑는다.' },
+    { t: '액션 2개 / 턴', d: '내 턴마다 액션 2개(상단 「액션」 핍). 선언(카드 배치)·이동·포인터 시전은 각각 액션 1을 소비한다. 액션이 0이면 더 이상 소비 행동을 할 수 없다.' },
+    { t: '무료 행동 (액션 소비 X)', d: '기본 공격, For(N) 능동 능력, When·If·Once 트리거는 액션을 쓰지 않는다. 그래서 액션이 0이어도 기본 공격은 가능하다.' },
+    { t: '기본 공격', d: '모든 유닛은 옆칸(상하좌우 1칸)의 적을 공격할 수 있다. 무료이며 유닛당 턴 1회. 자신의 공격력(ATK)만큼 피해를 준다. 보드의 빨강 ⚔ 칸이 닿는 범위다.' },
+    { t: '인스턴스 vs 포인터', d: '인스턴스(유닛)는 필드에 남아 ATK/HP를 가지고 매 턴 싸운다. 포인터는 1회성 주문 — 시전에 액션 1을 쓰고 즉시 효과만 내고 사라진다.' },
+    { t: '함수(능력) 사거리', d: '유닛의 함수/능력이 닿는 칸은 카드마다 다르다(보드의 노랑 칸). 아래 「사거리 키워드」의 모양을 참고. 필드 카드에 커서를 올리면 보드에 범위가 표시된다.' },
+    { t: '피해 · 파괴', d: 'HP가 0 이하가 되면 파괴된다. 피해는 턴을 넘겨 누적되며, 회복 효과로만 줄어든다.' }
+  ];
   function ruleRows(keys) {
     return keys.map(function (k) {
       var g = GLOSS[k]; if (!g) return null;
       return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line } }, [
         el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [g.t]),
         el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [g.d])
+      ]);
+    }).filter(Boolean);
+  }
+  // 기본 룰 카드 목록 렌더.
+  function basicRows(list) {
+    return list.map(function (b) {
+      return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line } }, [
+        el('div', { class: 'grot', style: { fontSize: '11.5px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [b.t]),
+        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [b.d])
+      ]);
+    });
+  }
+  // 사거리 키워드용 5×5 예시 격자. ◆ = 시전 유닛, 색칸 = 효과가 닿는 칸.
+  //   pred(dx,dy) → 닿으면 true. 옆칸은 기본 공격과 동색(빨강), 나머지는 함수 범위색(노랑).
+  var RANGE_GRID = {
+    '옆칸':   { c: SKIN.enemy,     f: function (dx, dy) { return Math.abs(dx) + Math.abs(dy) === 1; } },
+    '주위':   { c: SKIN.rangeGold, f: function (dx, dy) { return Math.max(Math.abs(dx), Math.abs(dy)) === 1; } },
+    '앞 직선': { c: SKIN.rangeGold, f: function (dx, dy) { return dx === 0 && dy < 0; } },
+    '대각선': { c: SKIN.rangeGold, f: function (dx, dy) { return Math.abs(dx) === Math.abs(dy) && dx !== 0; } },
+    '테두리': { c: SKIN.rangeGold, f: function (dx, dy) { return Math.max(Math.abs(dx), Math.abs(dy)) === 2; } },
+    '관통':   { c: SKIN.rangeGold, f: function (dx, dy) { return dx === 0 && dy < 0; }, wall: [0, -1] }
+  };
+  function miniGrid(spec) {
+    var CELL = 14;
+    var g = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,' + CELL + 'px)', gap: '2px', flex: 'none' } });
+    for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) {
+      var center = dx === 0 && dy === 0;
+      var wall = spec.wall && dx === spec.wall[0] && dy === spec.wall[1];
+      var on = !center && !wall && spec.f(dx, dy);
+      var bg = center ? SKIN.own : wall ? SKIN.ink : on ? spec.c : SKIN.chassisSunk;
+      g.appendChild(el('div', { style: { width: CELL + 'px', height: CELL + 'px', background: bg, border: '1px solid ' + SKIN.line, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', lineHeight: 1 } }, [center ? '◆' : wall ? '▦' : '']));
+    }
+    return g;
+  }
+  // 사거리 키워드 행 = 격자(왼쪽) + 설명(오른쪽).
+  function rangeRows(keys) {
+    return keys.map(function (k) {
+      var g = GLOSS[k], spec = RANGE_GRID[k]; if (!g) return null;
+      return el('div', { style: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '7px 0', borderTop: '1px solid ' + SKIN.line } }, [
+        spec ? miniGrid(spec) : null,
+        el('div', { style: { flex: 1, minWidth: 0 } }, [
+          el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [g.t]),
+          el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [g.d])
+        ])
       ]);
     }).filter(Boolean);
   }
@@ -1962,13 +2017,17 @@
     }
     var kids;
     if (menuView === 'rules') {
+      var sectionLabel = function (t) { return el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, [t]); };
       kids = [
-        header('규칙 요약', 'menu'),
-        el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['특수능력 · 발동 방식']),
+        header('기본 룰 설명', 'menu'),
+        el('div', { style: { overflowY: 'auto', maxHeight: '62vh', WebkitOverflowScrolling: 'touch' } }, [
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['완전 기본 룰']),
+          el('div', {}, basicRows(BASICS)),
+          sectionLabel('특수능력 · 발동 방식'),
           el('div', {}, ruleRows(RULE_ABILITY)),
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['사거리 키워드']),
-          el('div', {}, ruleRows(RULE_RANGE))
+          sectionLabel('사거리 키워드'),
+          el('div', { style: { fontSize: '10px', color: SKIN.faint, lineHeight: 1.5, margin: '2px 0 2px' } }, ['◆ = 시전 유닛 · 색칸 = 효과가 닿는 칸 · ▦ = 벽(관통은 무시)']),
+          el('div', {}, rangeRows(RULE_RANGE))
         ])
       ];
     } else if (menuView === 'confirm') {
@@ -1983,7 +2042,7 @@
     } else {
       kids = [
         header('메뉴', null),
-        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (특수능력·사거리)']),
+        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 기본 룰 설명 (기본룰·특수능력·사거리)']),
         el('button', { class: 'btn', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px', background: SKIN.enemy, color: '#fff' }, onclick: function () { menuView = 'confirm'; render(); } }, ['🏳 항복'])
       ];
     }
