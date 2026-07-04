@@ -1932,10 +1932,10 @@
       if (!G.canCast(HUMAN, id)) { flash(castWhy(card)); return; }
       // 모바일: 포인터는 탭이 아니라 필드로 드래그해서 놓을 때만 시전(오발동 방지).
       if (COMPACT) { flash('포인터는 필드로 드래그해서 시전하세요'); return; }
-      if (card.need === 'none') { G.cast(HUMAN, i, null, false); afterAction(); return; }
+      if (card.need === 'none') { aCast(HUMAN, i, null, false); afterAction(); return; }
       ptr = { i: i, card: card, need: card.need, picks: [] };
       // if no legal targets, just resolve with null (e.g., area pointers)
-      if (pointerTargets(ptr).length === 0) { if (/ally|enemy|twoAlly|cell/.test(card.need)) { flash('대상 없음'); ptr = null; return; } G.cast(HUMAN, i, null, false); ptr = null; afterAction(); return; }
+      if (pointerTargets(ptr).length === 0) { if (/ally|enemy|twoAlly|cell/.test(card.need)) { flash('대상 없음'); ptr = null; return; } aCast(HUMAN, i, null, false); ptr = null; afterAction(); return; }
       render();
     } else {
       if (!G.canDeclare(HUMAN, id)) { flash(card.require ? 'require 미충족' : '선언 불가'); return; }
