@@ -1,7 +1,12 @@
-/* RUNTIME TCG — playable UI (vs AI). Binds the rule engine (engine.js) to an
- * interactive board. Loaded via <script src> so game.html runs by double-click. */
+/* RUNTIME TCG — core game screen (상태 + 매치 + 멀리건 + 보드 + AI + 공유 헬퍼).
+ * 화면 모듈(title/tutorial)과 독립 모듈(sound/theme)은 window.RTUI 네임스페이스로 연결된다.
+ * 로드 순서: cards → decks → engine → art-map → sound → theme → core → title → tutorial. */
 (function () {
   'use strict';
+  // 공유 네임스페이스. sound.js/theme.js 가 먼저 로드되어 UI.Sound / UI.SKIN 을 채워둔다.
+  var UI = window.RTUI = window.RTUI || {};
+  var Sound = UI.Sound;   // sound.js
+  var SKIN = UI.SKIN;     // theme.js (in-place 로 갱신되는 공유 객체 참조)
   var RT = window.RT;
   var CARDS = RT.CARDS, DECKS = RT.DECKS, P = RT.P, K = RT.K, unitKey = RT.unitKey, cardCls = RT.cardCls;
   var bodyKey = RT.bodyKey;
@@ -9,46 +14,6 @@
   var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', none: '▦' };
   var HUMAN = 0, AI = 1;
 
-  /* ===== SOUND — WebAudio 합성 효과음 (외부 파일 불필요) ===== */
-  var Sound = (function () {
-    var ctx = null, master = null, enabled = true;
-    function init() { if (ctx) return; var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; try { ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.34; master.connect(ctx.destination); } catch (e) { ctx = null; } }
-    function resume() { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
-    function now() { return ctx ? ctx.currentTime : 0; }
-    function tone(o) { if (!ctx) return; var t = (o.when || now()) + (o.delay || 0); var osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(o.f, t);
-      if (o.f2) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.f2), t + (o.a || 0.005) + (o.d || 0.1));
-      var pk = o.peak != null ? o.peak : 0.3;
-      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(pk, t + (o.a || 0.005)); g.gain.exponentialRampToValueAtTime(0.0001, t + (o.a || 0.005) + (o.d || 0.12));
-      if (o.detune) osc.detune.value = o.detune;
-      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + (o.a || 0.005) + (o.d || 0.12) + 0.03);
-    }
-    function noise(o) { if (!ctx) return; var t = (o.when || now()) + (o.delay || 0); var dur = o.d || 0.12; var n = Math.floor(ctx.sampleRate * dur); var buf = ctx.createBuffer(1, n, ctx.sampleRate); var dt = buf.getChannelData(0);
-      for (var i = 0; i < n; i++) dt[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, o.curve || 2);
-      var s = ctx.createBufferSource(); s.buffer = buf; var f = ctx.createBiquadFilter(); f.type = o.filter || 'bandpass'; f.frequency.value = o.freq || 1200; f.Q.value = o.q || 1;
-      var g = ctx.createGain(); g.gain.value = o.peak != null ? o.peak : 0.2; s.connect(f); f.connect(g); g.connect(master); s.start(t);
-    }
-    function chord(freqs, type, a, d, peak, gap) { freqs.forEach(function (f, i) { tone({ f: f, type: type || 'triangle', a: a || 0.01, d: d || 0.3, peak: peak || 0.18, delay: i * (gap || 0.07) }); }); }
-    function guard(fn) { return function () { if (!enabled) return; resume(); if (!ctx) return; try { fn.apply(null, arguments); } catch (e) {} }; }
-    return {
-      resume: resume, init: init,
-      isOn: function () { return enabled; },
-      toggle: function () { enabled = !enabled; if (enabled) resume(); return enabled; },
-      hit: guard(function () { tone({ f: 210, f2: 70, type: 'sawtooth', a: 0.004, d: 0.14, peak: 0.32 }); noise({ d: 0.1, freq: 900, peak: 0.22, filter: 'lowpass', q: 0.7 }); }),
-      bodyhit: guard(function () { tone({ f: 130, f2: 42, type: 'sawtooth', a: 0.004, d: 0.26, peak: 0.4 }); tone({ f: 62, f2: 38, type: 'sine', a: 0.005, d: 0.3, peak: 0.34 }); noise({ d: 0.18, freq: 600, peak: 0.3, filter: 'lowpass', q: 0.6 }); }),
-      cast: guard(function () { tone({ f: 480, f2: 1180, type: 'sawtooth', a: 0.01, d: 0.2, peak: 0.16, detune: 6 }); tone({ f: 484, f2: 1190, type: 'sawtooth', a: 0.01, d: 0.2, peak: 0.16, detune: -6 }); tone({ f: 1600, f2: 2600, type: 'triangle', a: 0.005, d: 0.16, peak: 0.1, delay: 0.04 }); }),
-      attack: guard(function () { tone({ f: 760, f2: 180, type: 'square', a: 0.004, d: 0.12, peak: 0.2 }); noise({ d: 0.08, freq: 1700, peak: 0.14 }); }),
-      whoosh: guard(function () { noise({ d: 0.16, freq: 1500, peak: 0.16, filter: 'highpass', q: 0.4, curve: 1.2 }); tone({ f: 280, f2: 620, type: 'sine', a: 0.01, d: 0.12, peak: 0.05 }); }),
-      crit: guard(function () { tone({ f: 160, f2: 50, type: 'sawtooth', a: 0.004, d: 0.3, peak: 0.42 }); tone({ f: 70, f2: 40, type: 'sine', a: 0.005, d: 0.34, peak: 0.36 }); noise({ d: 0.22, freq: 700, peak: 0.34, filter: 'lowpass', q: 0.6 }); tone({ f: 2200, type: 'triangle', a: 0.003, d: 0.08, peak: 0.12 }); }),
-      heal: guard(function () { chord([523.25, 659.25, 783.99], 'triangle', 0.01, 0.32, 0.16, 0.06); tone({ f: 1046, type: 'sine', a: 0.01, d: 0.4, peak: 0.08, delay: 0.16 }); }),
-      spawn: guard(function () { tone({ f: 300, f2: 720, type: 'square', a: 0.005, d: 0.13, peak: 0.2 }); tone({ f: 900, type: 'triangle', a: 0.005, d: 0.1, peak: 0.1, delay: 0.06 }); }),
-      death: guard(function () { tone({ f: 320, f2: 48, type: 'sawtooth', a: 0.005, d: 0.34, peak: 0.3 }); noise({ d: 0.26, freq: 500, peak: 0.26, filter: 'lowpass', curve: 1.4 }); }),
-      move: guard(function () { tone({ f: 420, f2: 520, type: 'triangle', a: 0.004, d: 0.07, peak: 0.1 }); }),
-      draw: guard(function () { tone({ f: 660, f2: 880, type: 'triangle', a: 0.003, d: 0.06, peak: 0.07 }); }),
-      win: guard(function () { chord([523.25, 659.25, 783.99, 1046.5], 'triangle', 0.01, 0.5, 0.2, 0.1); tone({ f: 1567, type: 'sine', a: 0.01, d: 0.6, peak: 0.12, delay: 0.4 }); }),
-      lose: guard(function () { chord([392, 329.63, 261.63, 196], 'sawtooth', 0.01, 0.5, 0.16, 0.13); })
-    };
-  })();
   function isBodyKey(k) { return k === bodyKey(0) || k === bodyKey(1); }
   // 음소거 토글 버튼 + 첫 제스처에 오디오 활성화(브라우저 정책)
   (function () {
@@ -153,65 +118,6 @@
   // ===== 칩(PCB) 스킨 + 테마 — 카드_디자인_사양서_v1 =====
   // 기본(light) = 레트로 PC + PCB 융합(기존 셸 팔레트). dark = 칩 다크 PCB(토글 선택 시).
   // SKIN 은 활성 테마 토큰을 담는 단일 객체(in-place 스왑) — 기존 SKIN.* 참조 유지.
-  var THEMES = {
-    light: {
-      // 카드(라이트 기판 위 PCB 부품)
-      bg: '#b7b8c0', pcb: '#e9eaee', pcb2: '#d9dae0', edge: '#1d1d24',
-      gold: '#c8951b', goldEmpty: '#c4c5cc', heat: '#e0592b',
-      silk: '#34343c', silkDim: '#6b6b75', die: '#c4c5cc', dieHi: '#eceef2',
-      txt: '#1d1d24', txtDim: '#6b6b75', statIcon: '#34343c', selfPad: '#9c9da6', buff: '#2f7d3f',
-      padEmpty: '#c9cad0', dieGradEnd: '#b6b7bf', chipTop: '#f6f7fa', chipBot: '#cccdd4', scrim: 'rgba(233,234,238,.82)',
-      // v2 창(window) 토큰 — 카드_디자인_사양서_v2 §6.5/§6.4/§6.1
-      face: '#d6d3c6', faceHi: '#f0eee6', faceLo: '#6b6a62',
-      viewportBg: '#aeb2bd', effBg: '#e6e4da', effTxt: '#3a3a34',
-      atkField: '#e6e4da', hpTrack: '#c9c6ba', hpFill: '#6b6a62',
-      // 셸 / 크롬
-      shell: '#b7b8c0', chassis: '#e9eaee', chassisAlt: '#ffffff', chassisSunk: '#d4d5db',
-      ink: '#1d1d24', muted: '#6b6b75', faint: '#9c9da6', line: '#9c9da6',
-      bevelHi: '#ffffff', bevelLo: '#c4c5cc', bevelLo2: '#aeafb6',
-      boardFace: '#bcb9ac', cellFace: '#cfccc1', trace: 'rgba(29,29,36,.09)',
-      own: '#147a76', enemy: '#b23a72', ally: '#3c8a66', rangeGold: '#c8951b',
-      panelText: '#34343c'
-    },
-    dark: {
-      bg: '#0e0e14', pcb: '#15161e', pcb2: '#1b1d27', edge: '#33343f',
-      gold: '#C7A24A', goldEmpty: '#26261b', heat: '#E88A3A',
-      silk: '#aeb8a6', silkDim: '#6f776a', die: '#3a3b46', dieHi: '#4a4b57',
-      txt: '#e6e6ee', txtDim: '#6a6a7e', statIcon: '#c2c3cf', selfPad: '#8a8a9c', buff: '#8fd6a0',
-      padEmpty: '#101018', dieGradEnd: '#2c2d38', chipTop: '#2a2b36', chipBot: '#191a22', scrim: 'rgba(10,10,16,.72)',
-      // v2 창(window) 토큰 — 다크 PCB
-      face: '#33333b', faceHi: '#55555f', faceLo: '#16161b',
-      viewportBg: '#3c414d', effBg: '#2a2a30', effTxt: '#d8d6cc',
-      atkField: '#2a2a30', hpTrack: '#22222a', hpFill: '#b8bcc8',
-      shell: '#0b0b11', chassis: '#15161e', chassisAlt: '#1b1d27', chassisSunk: '#101018',
-      ink: '#33343f', muted: '#8b90a0', faint: '#5a5c68', line: '#2a2b36',
-      bevelHi: 'rgba(255,255,255,.05)', bevelLo: 'rgba(0,0,0,.45)', bevelLo2: 'rgba(0,0,0,.55)',
-      boardFace: '#0b0b11', cellFace: '#131420', trace: 'rgba(199,162,74,.10)',
-      own: '#2ec9c4', enemy: '#e0699a', ally: '#7BB528', rangeGold: '#C7A24A',
-      panelText: '#c9cad6'
-    }
-  };
-  var SKIN = {};
-  var themeMode = 'light';
-  // 셸 정적 CSS(.btn/.bevel/.titlebar/body)는 game.html 의 :root[data-theme] 가 담당.
-  // 인라인 JS 스타일은 SKIN 토큰을 사용 — 두 팔레트 값은 game.html CSS 와 일치시킬 것.
-  function applyTheme(mode) {
-    themeMode = (mode === 'dark') ? 'dark' : 'light';
-    Object.keys(SKIN).forEach(function (k) { delete SKIN[k]; });
-    Object.assign(SKIN, THEMES[themeMode]);
-    try { document.documentElement.setAttribute('data-theme', themeMode); } catch (e) {}
-    try { window.localStorage.setItem('rt_theme', themeMode); } catch (e) {}
-    // 캐시된 툴팁 노드는 테마 색을 생성 시점에 굳히므로 재생성 유도
-    try { if (cardTip && cardTip.remove) cardTip.remove(); } catch (e) {}
-    try { if (kwtip && kwtip.remove) kwtip.remove(); } catch (e) {}
-    cardTip = null; kwtip = null;
-  }
-  function initTheme() {
-    var m = 'light';
-    try { m = window.localStorage.getItem('rt_theme') || 'light'; } catch (e) {}
-    applyTheme(m);
-  }
-  function toggleTheme() { applyTheme(themeMode === 'dark' ? 'light' : 'dark'); if (G) render(); else if (typeof renderTitle === 'function') renderTitle(); }
   var SERIES_COLOR = { attack: '#E24B4A', control: '#378ADD', support: '#7BB528' };
   var SERIES_LABEL = { attack: '공격', control: '통제', support: '지원' };
   var CLASS_TAG = { thread: 'thr', memory: 'mem', process: 'prc', generic: 'gen', none: 'sys' };
@@ -688,66 +594,6 @@
   }
 
   // =================================================================== TITLE / DECK SELECT
-  function renderTitle() {
-    clear();
-    var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt } });
-    wrap.appendChild(titlebar('RUNTIME — NEW MATCH'));
-    var body = el('div', { style: { padding: '22px clamp(14px,2.4vw,30px) 26px' } });
-    body.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '30px', letterSpacing: '.05em' } }, ['▦ RUNTIME']));
-    body.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, marginBottom: '20px' } }, ['turn-based memory-grid TCG · ruleset v1 · seed cards v4']));
-
-    body.appendChild(sectionLabel('내 덱'));
-    body.appendChild(deckGrid(function (k) { return k === myDeck; }, function (k) { myDeck = k; render(); }));
-    body.appendChild(sectionLabel('상대 덱'));
-    var oppRow = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '18px' } });
-    oppRow.appendChild(chip('랜덤 (random)', oppDeck === '__random', function () { oppDeck = '__random'; render(); }));
-    Object.keys(DECKS).forEach(function (k) { oppRow.appendChild(chip(k, oppDeck === k, function () { oppDeck = k; render(); })); });
-    body.appendChild(oppRow);
-
-    var meta = RT.analyzeDeck(DECKS[myDeck].list);
-    body.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, lineHeight: 1.7, marginBottom: '16px' } }, [
-      DECKS[myDeck].name + ' · 30장 · ' + (meta.singleClass ? '단일 클래스(' + (meta.classes[0] || 'generic') + ')' : '혼합덱'),
-      el('br'), '규칙: 본체 HP 50 · 한 턴 2액션(선언/이동/포인터) · 기본 공격(인접·무료·턴1회) · 함수·트리거는 무료 · ' + G_capText()
-    ]));
-    var startRow = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' } }, [
-      el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 22px' }, onclick: startMatch }, ['▶ 대국 시작']),
-      el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 22px', background: SKIN.rangeGold, color: '#1d1d24', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.5), inset -2px -2px 0 rgba(0,0,0,.25), 2px 2px 0 rgba(0,0,0,.25)' }, onclick: startChallenge }, ['🏆 도전 모드']),
-      el('button', { class: 'btn ghost', style: { fontSize: '15px', padding: '12px 22px' }, onclick: function () { renderTutorial(0); } }, ['📖 게임 방법'])
-    ]);
-    body.appendChild(startRow);
-    body.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginTop: '8px' } }, [
-      '도전 모드: 선택한 내 덱으로, 이길수록 강해지는 AI와 연속 대결 — ',
-      el('b', { style: { color: SKIN.rangeGold } }, [myDeck + ' 덱 최고 ' + bestStreak(myDeck) + '연승'])
-    ]));
-    var recs = bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });
-    if (recKeys.length) {
-      body.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginTop: '4px' } }, [
-        '덱별 기록 — ' + recKeys.map(function (k) { return k + ' ' + recs[k] + '연승'; }).join('  ·  ')
-      ]));
-    }
-    wrap.appendChild(body);
-    app.appendChild(wrap);
-  }
-  function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
-  function sectionLabel(t) { return el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '4px 0 8px' } }, [t]); }
-  function deckGrid(isSel, on) {
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(168px,1fr))', gap: '9px', marginBottom: '18px' } });
-    Object.keys(DECKS).forEach(function (k) {
-      var d = DECKS[k], c = CLS[d.cls] || CLS.generic, on2 = isSel(k);
-      grid.appendChild(el('button', {
-        onclick: function () { on(k); },
-        style: { display: 'flex', flexDirection: 'column', gap: '3px', padding: '10px 11px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, borderTop: '4px solid ' + c, boxShadow: on2 ? ('0 0 0 2px ' + SKIN.chassis + ', 0 0 0 4px ' + SKIN.silk) : 'inset 1px 1px 0 ' + SKIN.bevelHi + ', 2px 2px 0 rgba(0,0,0,.18)', cursor: 'pointer' }
-      }, [
-        el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px' } }, [k + (on2 ? '  ✓' : '')]),
-        el('span', { style: { fontSize: '11px', color: SKIN.panelText } }, [d.name.replace(/^\w+ · /, '')]),
-        el('span', { class: 'mono', style: { fontSize: '9px', color: c } }, [d.cls.toUpperCase()])
-      ]));
-    });
-    return grid;
-  }
-  function chip(label, on, cb) {
-    return el('button', { onclick: cb, class: 'mono', style: { fontSize: '11px', fontWeight: 700, padding: '5px 11px', border: '1px solid ' + SKIN.ink, background: on ? SKIN.silk : SKIN.chassis, color: on ? SKIN.chassis : SKIN.txt, boxShadow: on ? 'inset 1px 1px 0 rgba(255,255,255,.15)' : 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -1px -1px 0 ' + SKIN.bevelLo2 } }, [label]);
-  }
 
   // =================================================================== START + MULLIGAN
   function startMatch() { challenge = null; beginMatch(oppDeck === '__random' ? randomDeck() : oppDeck); }
@@ -767,7 +613,7 @@
   // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡)
   function startChallenge() { challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck) }; beginMatch(randomDeck()); }
   function nextChallenge() { challenge.wins++; challenge.stage++; beginMatch(randomDeck()); }
-  function endChallenge() { challenge = null; G = null; renderTitle(); }
+  function endChallenge() { challenge = null; G = null; UI.renderTitle(); }
   function applyChallengeHandicap(g, stage) {
     if (stage <= 1) return;                                  // 1스테이지는 기본 난이도
     var b = g.body(AI); if (b) b.hpMod += (stage - 1) * 8;   // 점점 단단해지는 본체
@@ -974,7 +820,7 @@
     // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
     // 스크롤이 왼쪽으로 튀지 않게 — 저장값에 의존하지 않고 매번 DOM 에서 직접 읽어 정확).
     var _hr = document.getElementById('handrow'); if (_hr) handScroll = _hr.scrollLeft;
-    if (!G) { renderTitle(); return; }
+    if (!G) { UI.renderTitle(); return; }
     if (mullPhase) { renderMulligan(); return; } // 멀리건 단계에선 필드+멀리건 UI 유지
     if (app.querySelector('#board') || G) renderMatch();
   }
@@ -1780,7 +1626,7 @@
       kids = [
         el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '38px', letterSpacing: '.06em', color: color } }, [label]),
         stat,
-        btnRow(el('button', { class: 'btn', onclick: function () { G = null; renderTitle(); } }, ['다시 하기']))
+        btnRow(el('button', { class: 'btn', onclick: function () { G = null; UI.renderTitle(); } }, ['다시 하기']))
       ];
     }
     ov.appendChild(el('div', { style: { background: SKIN.chassis, color: SKIN.txt, border: '2px solid ' + SKIN.ink, boxShadow: '6px 6px 0 rgba(0,0,0,.4)', padding: '26px 34px', textAlign: 'center', animation: 'pop .35s ease both' } }, kids));
@@ -2023,218 +1869,10 @@
       finally { COMPACT = sc; G = sg; sel = ss; ptr = sp; }
     },
     // 테마 토큰(SKIN) 스왑 — dev.html 라이트/다크 미리보기용. 재렌더는 호출측 책임.
-    setTheme: function (mode) { applyTheme(mode === 'dark' ? 'dark' : 'light'); },
-    getTheme: function () { return themeMode; }
+    setTheme: function (mode) { UI.applyTheme(mode === 'dark' ? 'dark' : 'light'); },
+    getTheme: function () { return UI.getTheme(); }
   };
 
-  // =================================================================== 튜토리얼 (읽기형 가이드 + 실습)
-  // 미니 보드 다이어그램 — 5×4 그리드(보드 스킨 재사용). cells: {"c,r":{label,bg,border,fg,fs}}.
-  function tutMini(cells, opts) {
-    opts = opts || {};
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gridTemplateRows: 'repeat(4,1fr)', gap: '4px', aspectRatio: '5/4', width: '100%', maxWidth: (opts.max || 340) + 'px', margin: '4px auto', background: SKIN.boardFace, border: '1px solid ' + SKIN.ink, padding: '6px', boxShadow: 'inset 2px 2px 0 ' + SKIN.bevelLo } });
-    for (var r = 1; r <= 4; r++) for (var c = 1; c <= 5; c++) {
-      var cell = cells && cells[c + ',' + r];
-      var cs = { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + SKIN.line, background: SKIN.cellFace, minHeight: 0, minWidth: 0, textAlign: 'center', lineHeight: 1.05 };
-      if (!cell && opts.home !== false) {
-        if (r === 4) { cs.background = hexa(SKIN.own, .14); cs.borderColor = hexa(SKIN.own, .5); }
-        else if (r === 1) { cs.background = hexa(SKIN.enemy, .14); cs.borderColor = hexa(SKIN.enemy, .5); }
-      }
-      var kids = [];
-      if (cell) {
-        if (cell.bg) cs.background = cell.bg;
-        if (cell.border) cs.borderColor = cell.border;
-        if (cell.label) kids.push(el('span', { class: cell.mono ? 'mono' : 'grot', style: { color: cell.fg || SKIN.txt, fontSize: (cell.fs || 12) + 'px', fontWeight: 700 } }, [cell.label]));
-      }
-      grid.appendChild(el('div', { style: cs }, kids));
-    }
-    return grid;
-  }
-  function tutTile(label, fg, bg) { return { label: label, fg: fg || '#fff', bg: bg || '#1d1d24', border: bg || '#1d1d24' }; }
-  // **볼드** 는 강조 스팬으로, 나머지 텍스트는 richText(키워드 툴팁 유지)로 렌더.
-  function tutRich(text) {
-    if (!text) return [];
-    var out = [], re = /\*\*([^*]+)\*\*/g, last = 0, m;
-    while ((m = re.exec(text))) {
-      if (m.index > last) out = out.concat(richText(text.slice(last, m.index)));
-      out.push(el('b', { style: { fontWeight: 700, color: SKIN.txt } }, [m[1]]));
-      last = re.lastIndex;
-    }
-    if (last < text.length) out = out.concat(richText(text.slice(last)));
-    return out;
-  }
-  function tutP(txt) { return el('div', { style: { fontSize: '13px', lineHeight: 1.65, color: SKIN.txt, marginBottom: '9px' } }, tutRich(txt)); }
-  function tutLi(txt) { return el('div', { style: { fontSize: '12.5px', lineHeight: 1.55, color: SKIN.panelText, margin: '0 0 5px 4px', paddingLeft: '14px', position: 'relative' } }, [el('span', { style: { position: 'absolute', left: 0, color: SKIN.own, fontWeight: 700 } }, ['▸']), el('span', {}, tutRich(txt))]);
-  }
-  // 심화용 정의 리스트 — 왼쪽 키워드 칩 + 오른쪽 설명. left 가 문자열이면 다크 칩으로 감싼다.
-  function tutChip(label, bg) { return el('span', { class: 'mono', style: { fontSize: '9.5px', fontWeight: 700, color: '#fff', background: bg || '#1d1d24', padding: '1px 6px', borderRadius: '2px', whiteSpace: 'nowrap' } }, [label]); }
-  function tutDefList(rows) {
-    var box = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' } });
-    rows.forEach(function (r) {
-      var left = typeof r[0] === 'string' ? tutChip(r[0], r[2]) : r[0];
-      box.appendChild(el('div', { style: { display: 'flex', gap: '9px', alignItems: 'flex-start' } }, [
-        el('div', { style: { flex: 'none', width: '84px', display: 'flex', justifyContent: 'flex-start', paddingTop: '1px' } }, [left]),
-        el('div', { style: { flex: 1, fontSize: '12px', lineHeight: 1.5, color: SKIN.panelText } }, tutRich(r[1]))
-      ]));
-    });
-    return box;
-  }
-  // 각 페이지 = { t: 제목, build: ()=>node }
-  function tutPages() {
-    return [
-      { t: '게임의 목표', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('**RUNTIME**은 2인 턴제 카드 대전입니다. 두 플레이어가 하나의 **5열 × 4행 보드**를 위·아래로 나눠 씁니다.'));
-        box.appendChild(tutP('각자 **본체(HP 50)** 가 있고, **상대 본체의 HP를 0으로 만들면 승리**합니다. 유닛을 필드에 깔고, 앞으로 밀고 나가 상대 본체를 두들기는 것이 큰 그림입니다.'));
-        box.appendChild(tutMini({ '3,1': tutTile('적 본체', '#e6a3bd', '#3a2630'), '3,4': tutTile('내 본체', '#9db8e6', '#1d1d24') }));
-        box.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, textAlign: 'center' } }, ['위=상대 진영(마젠타) · 아래=내 진영(틸) · 본체는 3열에서 마주본다']));
-        return box;
-      } },
-      { t: '보드와 진영', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('맨 아랫줄(4행)이 **내 홈**, 맨 윗줄(1행)이 **상대 홈**입니다. 가운데 두 줄(2·3행)은 **중립 통로** — 여기서 전투가 벌어집니다.'));
-        box.appendChild(tutLi('새 유닛은 항상 **내 홈칸(빈 칸)** 에만 놓을 수 있어요.'));
-        box.appendChild(tutLi('유닛은 **상하좌우로 1칸씩** 움직여 앞으로 전진합니다(대각선 X).'));
-        box.appendChild(tutLi('**본체도 보드의 한 칸** — 옆에 붙으면 기본 공격으로 때릴 수 있습니다.'));
-        box.appendChild(tutMini({ '1,4': tutTile('홈', '#fff', hexa(SKIN.own, .8)), '2,4': tutTile('홈', '#fff', hexa(SKIN.own, .8)), '4,4': tutTile('홈', '#fff', hexa(SKIN.own, .8)), '5,4': tutTile('홈', '#fff', hexa(SKIN.own, .8)), '3,4': tutTile('내 본체', '#9db8e6', '#1d1d24'), '3,1': tutTile('적 본체', '#e6a3bd', '#3a2630'), '2,2': tutTile('통로', SKIN.muted, SKIN.cellFace), '3,3': tutTile('통로', SKIN.muted, SKIN.cellFace), '4,2': tutTile('통로', SKIN.muted, SKIN.cellFace) }));
-        return box;
-      } },
-      { t: '한 턴에 할 수 있는 것', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('마나·코스트가 없습니다. 대신 **매 턴 액션 2개**를 씁니다. 아래 셋 중 아무거나 조합하세요.'));
-        box.appendChild(tutLi('**① 선언** — 손패의 유닛 카드를 홈칸에 놓기 (액션 1)'));
-        box.appendChild(tutLi('**② 이동** — 내 유닛을 옆 빈 칸으로 1칸 옮기기 (액션 1)'));
-        box.appendChild(tutLi('**③ 포인터 시전** — 1회성 주문 카드 사용 (액션 1)'));
-        box.appendChild(el('div', { style: { height: '6px' } }));
-        box.appendChild(tutP('그리고 **액션을 쓰지 않는 무료 행동**도 있습니다:'));
-        box.appendChild(tutLi('**기본 공격** — 유닛마다 턴에 1번, 공짜 (다음 장에서 자세히)'));
-        box.appendChild(tutLi('**함수(능력) 발동** — 카드에 적힌 특수 능력'));
-        box.appendChild(tutP('턴이 시작되면 카드를 **1장 뽑습니다**(맨 첫 턴 선공만 예외). 손패는 최대 10장.'));
-        return box;
-      } },
-      { t: '전투 — 기본 공격', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('모든 유닛은 자기 턴에 **「옆칸」(상하좌우 4칸)의 적** 하나를 **무료로, 턴당 1회** 때립니다. 대각선은 닿지 않아요.'));
-        box.appendChild(tutMini({ '3,2': tutTile('내 유닛', '#fff', SKIN.own), '2,2': tutTile('⚔', '#fff', hexa(SKIN.enemy, .85)), '4,2': tutTile('⚔', '#fff', hexa(SKIN.enemy, .85)), '3,1': tutTile('⚔ 적본체', '#fff', hexa(SKIN.enemy, .85)), '3,3': tutTile('⚔', '#fff', hexa(SKIN.enemy, .85)) }, { home: false }));
-        box.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, textAlign: 'center', marginBottom: '8px' } }, ['빨강 ⚔ = 내 유닛이 때릴 수 있는 옆칸 4개']));
-        box.appendChild(tutLi('피해는 **공격력(ATK)** 만큼. 대상 **체력(HP)** 이 0이 되면 파괴됩니다.'));
-        box.appendChild(tutLi('받은 피해는 **턴을 넘겨도 누적**됩니다(자동 회복 없음).'));
-        box.appendChild(tutLi('**반격은 없습니다** — 때린 쪽만 피해를 줍니다. 방어는 memory 유닛의 벽·피해감소로.'));
-        return box;
-      } },
-      { t: '클래스 상성', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('유닛은 세 클래스로 나뉘고 **가위바위보** 관계입니다:'));
-        box.appendChild(el('div', { class: 'grot', style: { textAlign: 'center', fontWeight: 700, fontSize: '13px', margin: '4px 0 10px', color: SKIN.txt } }, [
-          el('span', { style: { color: CLS.thread } }, ['thread']), ' → ',
-          el('span', { style: { color: CLS.process } }, ['process']), ' → ',
-          el('span', { style: { color: CLS.memory } }, ['memory']), ' → ',
-          el('span', { style: { color: CLS.thread } }, ['thread'])
-        ]));
-        box.appendChild(tutLi('**thread(공격형)** — 공격 높고 체력 낮은 유리대포. 뭉쳐서 근접 압박.'));
-        box.appendChild(tutLi('**memory(방어형)** — 체력 높고 벽·봉쇄·반사로 통제. 느림.'));
-        box.appendChild(tutLi('**process(유틸형)** — 변칙 사거리·강제 이동·주문 콤보로 진형을 흔든다.'));
-        box.appendChild(tutLi('**generic(무클래스)** — 어느 덱에나 들어가는 독립형.'));
-        box.appendChild(tutP('카드의 능력 키워드: **When**(자동) · **If**(원하면 발동) · **While**(상시) · **For**(내 턴마다 수동, 무료).'));
-        return box;
-      } },
-      { t: '승리 · 무승부 · 팁', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutLi('**승리** — 상대 본체 HP 0 이하로.'));
-        box.appendChild(tutLi('**턴 상한 ' + RT.DEFAULT_TURN_CAP + '** — 그때까지 안 끝나면 남은 본체 HP가 높은 쪽 승리(동률이면 무승부).'));
-        box.appendChild(tutLi('덱을 다 뽑아도 지지 않아요(대신 드로우 못 함).'));
-        box.appendChild(el('div', { style: { height: '6px' } }));
-        box.appendChild(tutP('**요령:** 홈에 유닛을 깔고 → 통로로 전진시켜 → 옆칸에서 기본 공격. 방어 유닛을 앞세워 상대 진격을 막으면서 본체를 노리세요.'));
-        box.appendChild(tutP('여기까지가 **기초**! 아래 버튼으로 바로 실습하거나, **다음 ▶** 으로 심화 내용(피로 · 능력 키워드 · 특수 상태)을 볼 수 있어요.'));
-        box.appendChild(el('div', { style: { textAlign: 'center', marginTop: '10px' } }, [
-          el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 26px', background: SKIN.own, color: '#fff', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.25)' }, onclick: startTutorialPractice }, ['▶ 직접 해보기 (실습)'])
-        ]));
-        return box;
-      } },
-      // ===== 심화 과정 =====
-      { t: '피로 · 자원 관리', tier: '심화', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('마나·코스트가 없는 대신 **손패와 덱이 곧 자원**입니다. 관리 포인트를 정리해요.'));
-        box.appendChild(tutDefList([
-          ['드로우', '내 턴 시작마다 카드 **1장**을 뽑습니다(맨 첫 선공 턴만 예외). 능력·포인터로 더 뽑을 수도 있어요.'],
-          ['손패 상한', '손패는 **최대 10장**. 넘치게 뽑으면 초과분은 그대로 버려집니다(오버드로우).'],
-          ['피로', '덱이 비어 **뽑을 카드가 없으면**, 뽑는 대신 **내 본체가 카드 1장당 3 피해**를 받습니다.', '#b23a72']
-        ]));
-        box.appendChild(tutP('덱 소진 자체는 패배가 아니지만 **피로 피해는 매 턴 쌓입니다.** 장기전에서 덱이 먼저 마르는 쪽이 스스로 무너질 수 있으니 카드를 너무 헤프게 쓰지 마세요.'));
-        box.appendChild(tutP('반대로, 오래 버텨 상대를 먼저 피로로 몰아가는 것도 하나의 승리 플랜입니다.'));
-        return box;
-      } },
-      { t: '능력 키워드 (함수)', tier: '심화', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('카드의 능력은 **발동 방식**을 나타내는 키워드로 시작합니다. 대부분 **무료**(액션 소비 없음)예요.'));
-        box.appendChild(tutDefList([
-          ['When', '조건이 충족되면 **자동으로 강제 발동**. 예) 소환될 때, 피해를 받고 살아남을 때.'],
-          ['If', '조건이 충족되면 **원할 때 골라서 발동**(하스스톤의 선택 효과처럼).'],
-          ['Once', '게임 중 **딱 한 번**만 터지는 일회성. 주로 선언·파괴 순간에.'],
-          ['While', '조건이 유지되는 **동안 상시** 적용되는 지속 효과(=오라). 다음 장 참고.'],
-          ['For(N)', '**내 턴마다 직접** 발동하는 능동 능력. 턴당 1회, 게임 전체에서 총 **N번**. 무료.']
-        ]));
-        box.appendChild(tutP('능력이 **언제** 터지는지(트리거)도 다양합니다:'));
-        box.appendChild(tutLi('**선언 시** · **파괴 시** · **피해받고 생존 시**'));
-        box.appendChild(tutLi('**턴 시작·종료** · **이동 후** · **적이 옆칸으로 들어올 때** · **포인터 시전 시**'));
-        box.appendChild(tutP('필드 유닛에 커서를 올리면 **함수 범위**(🟡)가 보드에 표시됩니다. For 능력은 유닛을 클릭하면 나오는 **⚡ 발동** 버튼으로 씁니다.'));
-        return box;
-      } },
-      { t: '특수 상태 · 오라', tier: '심화', build: function () {
-        var box = el('div', {});
-        box.appendChild(tutP('전투 중 유닛·본체에 붙는 **주요 상태**입니다.'));
-        box.appendChild(tutDefList([
-          ['🔒 봉쇄', '**이동만** 막힘. 기본 공격과 함수는 그대로 씁니다. (memory의 Cache/Const 등이 옆칸 적을 묶어요.)'],
-          ['ATK0', '**공격력 0** — 기본 공격 불가. 영구이거나 몇 턴 한시입니다.'],
-          ['본체 보호막', '본체가 받을 다음 피해를 **먼저 흡수**. barrier() +10, catch() +6. 단 **피로 피해는 못 막습니다.**'],
-          ['피해 누적', 'HP는 **회복 전까지 깎인 채 유지**(자동 회복 없음). 회복은 누적된 피해를 되돌립니다.']
-        ]));
-        box.appendChild(tutP('**지속 오라(While)** 는 조건이 유지되는 동안 주변에 상시 영향을 줍니다. 대표 예:'));
-        box.appendChild(tutDefList([
-          ['강화', '옆칸 아군 공격력 **+1~**(Flag·Race·Overflow). thread는 뭉칠수록 세집니다.', '#3c8a66'],
-          ['약화', '옆칸 적 공격력 **−1~−2**(Stub·Stack). memory의 통제 수단.', '#2456a6'],
-          ['피해감소', '옆칸 아군이 받는 피해 **−1**(Heap), 본체 옆이면 본체 피해 **−2**(Barrier).', '#2456a6']
-        ]));
-        box.appendChild(tutP('적 유닛에 커서를 올려 어떤 오라·상태를 가졌는지 확인하고, **오라 유닛부터 걷어내는 것**이 공략의 기본입니다.'));
-        box.appendChild(el('div', { style: { textAlign: 'center', marginTop: '12px' } }, [
-          el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 26px', background: SKIN.own, color: '#fff', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.25)' }, onclick: startTutorialPractice }, ['▶ 직접 해보기 (실습)'])
-        ]));
-        return box;
-      } }
-    ];
-  }
-  function renderTutorial(page) {
-    G = null; tutorial = null;
-    clear();
-    var pages = tutPages();
-    page = Math.max(0, Math.min(page, pages.length - 1));
-    var pg = pages[page];
-    var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt, maxWidth: '760px', margin: '0 auto', display: 'flex', flexDirection: 'column' } });
-    wrap.appendChild(titlebar('RUNTIME — 게임 방법   ·   ' + (page + 1) + ' / ' + pages.length));
-    var body = el('div', { style: { padding: 'clamp(14px,2.4vw,26px)' } });
-    var tier = pg.tier || '기초';
-    body.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '4px', flexWrap: 'wrap' } }, [
-      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '22px', letterSpacing: '.02em' } }, ['📖 ' + pg.t]),
-      el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', padding: '2px 8px', color: '#fff', background: tier === '심화' ? SKIN.rangeGold : SKIN.own, border: '1px solid ' + SKIN.ink } }, [tier === '심화' ? '심화 과정' : '기초'])
-    ]));
-    body.appendChild(el('div', { style: { height: '1px', background: SKIN.line, margin: '8px 0 14px' } }));
-    body.appendChild(pg.build());
-    // 페이지 점(진행 표시)
-    var dots = el('div', { style: { display: 'flex', gap: '6px', justifyContent: 'center', margin: '16px 0 12px' } });
-    pages.forEach(function (_, i) { dots.appendChild(el('span', { style: { width: i === page ? '20px' : '8px', height: '8px', borderRadius: '4px', background: i === page ? SKIN.own : SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, transition: 'width .15s', cursor: 'pointer' }, onclick: (function (n) { return function () { renderTutorial(n); }; })(i) })); });
-    body.appendChild(dots);
-    var nav = el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } }, [
-      el('button', { class: 'btn ghost', disabled: page === 0 ? 'disabled' : null, onclick: page === 0 ? null : function () { renderTutorial(page - 1); } }, ['◀ 이전']),
-      el('button', { class: 'btn ghost', style: { fontSize: '12px' }, onclick: function () { renderTitle(); } }, ['✕ 닫기']),
-      el('span', { style: { flex: 1 } }),
-      page < pages.length - 1
-        ? el('button', { class: 'btn', onclick: function () { renderTutorial(page + 1); } }, ['다음 ▶'])
-        : el('button', { class: 'btn', style: { background: SKIN.own, color: '#fff' }, onclick: startTutorialPractice }, ['▶ 직접 해보기'])
-    ]);
-    body.appendChild(nav);
-    wrap.appendChild(body);
-    app.appendChild(wrap);
-    try { window.scrollTo(0, 0); } catch (e) {}
-  }
 
   // ---- 실습: AI를 끄고 스크립트대로 선언 → 이동 → 공격 → 턴종료를 따라 하게 한다.
   function tutSteps() {
@@ -2281,9 +1919,9 @@
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px 2px' } }, [
         el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: SKIN.own } }, ['📖 튜토리얼 · ' + s.title]),
         el('span', { style: { flex: 1 } }),
-        el('button', { class: 'btn ghost', style: { fontSize: '10px', padding: '3px 8px' }, onclick: function () { renderTutorial(0); } }, ['✕ 가이드로'])
+        el('button', { class: 'btn ghost', style: { fontSize: '10px', padding: '3px 8px' }, onclick: function () { UI.renderTutorial(0); } }, ['✕ 가이드로'])
       ]),
-      el('div', { style: { fontSize: '12px', lineHeight: 1.55, padding: '0 12px 6px', color: SKIN.panelText } }, tutRich(s.tip)),
+      el('div', { style: { fontSize: '12px', lineHeight: 1.55, padding: '0 12px 6px', color: SKIN.panelText } }, UI.tutRich(s.tip)),
       chips
     ]);
   }
@@ -2295,21 +1933,45 @@
         el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '20px', marginBottom: '8px' } }, ['기본기 완성!']),
         el('div', { style: { fontSize: '13px', lineHeight: 1.6, color: SKIN.panelText, marginBottom: '18px' } }, ['선언 · 이동 · 기본 공격 · 턴 종료까지 모두 해냈어요. 이제 실전에서 덱을 골라 AI와 겨뤄보세요!']),
         el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' } }, [
-          el('button', { class: 'btn', style: { background: SKIN.own, color: '#fff' }, onclick: function () { tutorial = null; G = null; renderTitle(); } }, ['▶ 실전 시작']),
-          el('button', { class: 'btn ghost', onclick: function () { tutorial = null; renderTutorial(0); } }, ['📖 가이드 다시'])
+          el('button', { class: 'btn', style: { background: SKIN.own, color: '#fff' }, onclick: function () { tutorial = null; G = null; UI.renderTitle(); } }, ['▶ 실전 시작']),
+          el('button', { class: 'btn ghost', onclick: function () { tutorial = null; UI.renderTutorial(0); } }, ['📖 가이드 다시'])
         ])
       ])
     ]);
     return el('div', { style: { position: 'fixed', inset: '0', zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,10,16,.55)', animation: 'bannerIn .3s ease' } }, [card]);
   }
 
+  // =================================================================== 모듈 연결(exports)
+  // title.js / tutorial.js 가 소비하는 공유 헬퍼·상태 접근자. theme.js 가 호출하는 훅도 여기서 등록.
+  UI.el = el; UI.clear = clear; UI.titlebar = titlebar; UI.hexa = hexa; UI.richText = richText; UI.app = app;
+  UI.RT = RT; UI.CARDS = CARDS; UI.DECKS = DECKS; UI.CLS = CLS; UI.HUMAN = HUMAN; UI.AI = AI;
+  UI.render = render;
+  UI.startMatch = startMatch; UI.startChallenge = startChallenge; UI.startTutorialPractice = startTutorialPractice;
+  UI.bestStreak = bestStreak; UI.bestMap = bestMap;
+  UI.getMyDeck = function () { return myDeck; }; UI.setMyDeck = function (k) { myDeck = k; };
+  UI.getOppDeck = function () { return oppDeck; }; UI.setOppDeck = function (k) { oppDeck = k; };
+  UI.exitToGuide = function () { G = null; tutorial = null; };
+  // theme.js 훅: 테마 전환 후 재렌더 / 캐시된 툴팁 노드 폐기(테마 색이 생성 시점에 굳으므로 재생성 유도)
+  UI.rerenderForTheme = function () { if (G) render(); else if (UI.renderTitle) UI.renderTitle(); };
+  UI.afterThemeApply = function () {
+    try { if (cardTip && cardTip.remove) cardTip.remove(); } catch (e) {}
+    try { if (kwtip && kwtip.remove) kwtip.remove(); } catch (e) {}
+    cardTip = null; kwtip = null;
+  };
+
   // boot
-  initTheme();
+  UI.initTheme();
   (function () {
-    var btn = el('button', { class: 'btn ghost', title: '라이트/다크 테마 전환', style: { position: 'fixed', top: '8px', right: '108px', zIndex: 200, padding: '4px 9px', fontSize: '12px' } }, [themeMode === 'dark' ? '🌙 다크' : '☀ 라이트']);
-    btn.addEventListener('click', function () { toggleTheme(); btn.textContent = themeMode === 'dark' ? '🌙 다크' : '☀ 라이트'; });
+    var btn = el('button', { class: 'btn ghost', title: '라이트/다크 테마 전환', style: { position: 'fixed', top: '8px', right: '108px', zIndex: 200, padding: '4px 9px', fontSize: '12px' } }, [UI.getTheme() === 'dark' ? '🌙 다크' : '☀ 라이트']);
+    btn.addEventListener('click', function () { UI.toggleTheme(); btn.textContent = UI.getTheme() === 'dark' ? '🌙 다크' : '☀ 라이트'; });
     if (document.body) document.body.appendChild(btn);
   })();
   // RT_NO_BOOT: dev.html 등에서 게임 메뉴를 띄우지 않고 렌더 헬퍼만 재사용할 때(카드 페이스 미리보기).
-  G = null; if (!window.RT_NO_BOOT) renderTitle();
+  // renderTitle 은 title.js(core 뒤에 로드)에 있으므로, 현재 스크립트 체인이 끝난 뒤 부트한다.
+  G = null;
+  if (!window.RT_NO_BOOT) {
+    var _boot = function () { if (UI.renderTitle) UI.renderTitle(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot);
+    else setTimeout(_boot, 0);
+  }
 })();
