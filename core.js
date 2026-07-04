@@ -356,6 +356,7 @@
   var prevPct = {}, fxHit = {}, fxSpawn = {}, drawPulse = false, fxTimer = null, feed = [], winSoundDone = false;
   var impactDelay = 0, idTimer = null, stopping = false, pendingPlay = null, lungingKeys = {}, lastBannerTurn = -1;
   var reviewMode = false; // 게임 종료 후 결과 오버레이를 닫고 최종 보드를 살펴보는 중
+  var menuView = null;    // 모바일 메뉴 바텀시트: null | 'menu' | 'confirm' | 'rules'
   var RAF = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : function (f) { return setTimeout(f, 16); };
   function resetFx() { prevPct = {}; fxHit = {}; fxSpawn = {}; drawPulse = false; feed = []; actionToast = null; winSoundDone = false; reviewMode = false; }
   // hover card detail tooltip (board units + feed entries)
@@ -876,6 +877,8 @@
       else app.appendChild(resultOverlay());
     }
     else if (aiThinking) app.appendChild(bannerEl('상대 차례', '#c23c70'));
+    // 모바일 메뉴(항복·규칙) 바텀시트 — 대국이 진행 중일 때만. 게임 종료/실습완료 오버레이 위에는 띄우지 않는다.
+    if (menuView && G.winner === undefined && !(tutorial && tutorial.finished)) app.appendChild(menuOverlay());
   }
 
   // ── 모바일 대국 화면 ── 필드(중앙) + 손패(아래) + 미니 상단바(턴/액션/카운트/[턴 종료]).
@@ -947,6 +950,8 @@
       pips,
       challenge ? el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆' + challenge.wins]) : null,
       el('span', { style: { flex: 1, minWidth: '6px' } }),
+      // ☰ 메뉴 — 항복·규칙 요약 바텀시트를 여는 작은 버튼(튜토리얼 중엔 숨김). 턴 종료 옆에 붙여 둔다.
+      tutorial ? null : el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '15px', fontWeight: 700, padding: '9px 12px', flex: 'none', lineHeight: 1, textAlign: 'center' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰']),
       el('button', { class: 'btn', style: { fontSize: '14px', fontWeight: 700, padding: '9px 22px', flex: 'none', whiteSpace: 'nowrap', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료'])
     ]));
 
@@ -1483,6 +1488,8 @@
     } else if (!COMPACT) row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['손패 카드를 드래그 또는 클릭 · 내 유닛 클릭 → 행동']));
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
+    // ☰ 메뉴 — 항복·규칙 요약(모바일과 동일한 바텀시트). 턴 종료 옆에. 튜토리얼 중엔 숨김.
+    if (!tutorial) row.appendChild(el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '12px', padding: '9px 12px' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰ 메뉴']));
     row.appendChild(el('button', { class: 'btn', disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료']));
     return row;
   }
@@ -1631,6 +1638,70 @@
     }
     ov.appendChild(el('div', { style: { background: SKIN.chassis, color: SKIN.txt, border: '2px solid ' + SKIN.ink, boxShadow: '6px 6px 0 rgba(0,0,0,.4)', padding: '26px 34px', textAlign: 'center', animation: 'pop .35s ease both' } }, kids));
     return ov;
+  }
+
+  // ── 모바일 메뉴 바텀시트(항복 · 규칙 요약) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
+  //   규칙 설명은 GLOSS(키워드 사전)를 그대로 재사용해 간략히 보여준다.
+  var RULE_ABILITY = ['If', 'When', 'Once', 'While', 'For'];        // 특수능력 발동 방식
+  var RULE_RANGE = ['옆칸', '주위', '앞 직선', '대각선', '테두리', '관통']; // 사거리 키워드
+  function ruleRows(keys) {
+    return keys.map(function (k) {
+      var g = GLOSS[k]; if (!g) return null;
+      return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line } }, [
+        el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [g.t]),
+        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [g.d])
+      ]);
+    }).filter(Boolean);
+  }
+  function closeMenu() { menuView = null; render(); }
+  function doSurrender() {
+    menuView = null;
+    if (G && G.winner === undefined) {
+      G.winner = AI;                                  // 상대 승리로 즉시 종료 → resultOverlay(패배/도전 종료)
+      if (G.note) G.note('★ 항복 — 상대 승리');
+      reviewMode = false; winSoundDone = false;
+    }
+    render();
+  }
+  function menuOverlay() {
+    var SAB = 'env(safe-area-inset-bottom,0px)';
+    var back = el('div', { style: { position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(28,28,38,.5)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }, onclick: function (e) { if (e.target === back) closeMenu(); } });
+    function header(title, backTo) {
+      return el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' } }, [
+        backTo ? el('button', { class: 'btn ghost', style: { fontSize: '12px', padding: '5px 10px' }, onclick: function () { menuView = backTo; render(); } }, ['‹ 뒤로']) : null,
+        el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '15px', letterSpacing: '.03em', flex: 1 } }, [title]),
+        el('button', { class: 'btn ghost', style: { fontSize: '13px', padding: '5px 11px', textAlign: 'center' }, onclick: closeMenu }, ['✕'])
+      ]);
+    }
+    var kids;
+    if (menuView === 'rules') {
+      kids = [
+        header('규칙 요약', 'menu'),
+        el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['특수능력 · 발동 방식']),
+          el('div', {}, ruleRows(RULE_ABILITY)),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['사거리 키워드']),
+          el('div', {}, ruleRows(RULE_RANGE))
+        ])
+      ];
+    } else if (menuView === 'confirm') {
+      kids = [
+        header('항복', 'menu'),
+        el('div', { style: { fontSize: '13px', lineHeight: 1.55, color: SKIN.txt, marginBottom: '14px' } }, ['정말 항복할까요? 이 대국은 패배로 기록됩니다.']),
+        el('div', { style: { display: 'flex', gap: '10px' } }, [
+          el('button', { class: 'btn', style: { flex: 1, textAlign: 'center', background: SKIN.enemy, color: '#fff' }, onclick: doSurrender }, ['항복하기']),
+          el('button', { class: 'btn ghost', style: { flex: 1, textAlign: 'center' }, onclick: function () { menuView = 'menu'; render(); } }, ['취소'])
+        ])
+      ];
+    } else {
+      kids = [
+        header('메뉴', null),
+        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (특수능력·사거리)']),
+        el('button', { class: 'btn', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px', background: SKIN.enemy, color: '#fff' }, onclick: function () { menuView = 'confirm'; render(); } }, ['🏳 항복'])
+      ];
+    }
+    back.appendChild(el('div', { style: { width: '100%', maxWidth: '480px', margin: '0 auto', background: SKIN.chassis, color: SKIN.txt, borderTop: '2px solid ' + SKIN.ink, boxShadow: '0 -4px 18px rgba(0,0,0,.35)', padding: '14px 16px calc(16px + ' + SAB + ')', display: 'flex', flexDirection: 'column', gap: '10px', animation: 'drawIn .22s ease both' } }, kids));
+    return back;
   }
 
   // 리뷰(게임 보기) 모드: 최종 보드를 그대로 두고 상단에 결과 오버레이를 다시 열 수 있는 바만 띄운다.
