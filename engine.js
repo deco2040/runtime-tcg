@@ -79,7 +79,7 @@
   function manh(k1, k2) { var a = P(k1), b = P(k2); return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]); }
 
   // ============================================================== GAME
-  var DEFAULT_TURN_CAP = 50;
+  var DEFAULT_TURN_CAP = 40; // 50 → 40: HP 40에서도 76% 판이 상한까지 늘어져(루즈) 상한도 하향
   function Game(opts) {
     opts = opts || {};
     this.rng = makeRng(opts.seed || 12345);
