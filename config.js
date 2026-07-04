@@ -18,3 +18,11 @@ window.RT_SUPABASE = {
   anonKey:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnY3pnbXZ0Z3p4eGpjbHhkZWliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjQxNTQsImV4cCI6MjA5ODc0MDE1NH0.AN6UrTXj23-nSyusrjw4otjbKej_idFTUPNWrCIoWWc",
 };
+
+/* 디스코드 커뮤니티 초대 링크.
+ * 디스코드 서버를 만든 뒤 [서버 이름 ▾ → 초대하기 → 초대 링크 편집 → '만료 기한 없음' + '최대 사용 횟수 무제한']
+ * 으로 영구 초대 링크를 만들어 아래 invite 값에 붙여넣으세요.
+ * 값이 비어있거나 'YOUR-...' placeholder 이면 타이틀 화면의 DISCORD 버튼이 자동으로 숨겨집니다. */
+window.RT_DISCORD = {
+  invite: "https://discord.gg/BRx9VkGMB",
+};

@@ -72,6 +72,14 @@
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP'])
     ]);
+    // 💬 DISCORD — 커뮤니티 서버 초대. config.js 의 RT_DISCORD.invite 가 실제 링크일 때만 노출(미설정 시 숨김).
+    var dc = window.RT_DISCORD && window.RT_DISCORD.invite;
+    if (dc && dc.indexOf('YOUR-') === -1) {
+      startRow.appendChild(el('button', {
+        class: 'crt-btn ghost', style: { fontSize: '15px' },
+        onclick: function () { window.open(dc, '_blank', 'noopener'); }
+      }, ['💬 DISCORD']));
+    }
     b.appendChild(startRow);
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
       'CHALLENGE — 선택한 내 덱으로 점점 강해지는 AI와 연속 대결. ',
