@@ -61,7 +61,7 @@
       { t: '게임의 목표', build: function () {
         var box = el('div', {});
         box.appendChild(tutP('**RUNTIME**은 2인 턴제 카드 대전입니다. 두 플레이어가 하나의 **5열 × 4행 보드**를 위·아래로 나눠 씁니다.'));
-        box.appendChild(tutP('각자 **본체(HP 50)** 가 있고, **상대 본체의 HP를 0으로 만들면 승리**합니다. 유닛을 필드에 깔고, 앞으로 밀고 나가 상대 본체를 두들기는 것이 큰 그림입니다.'));
+        box.appendChild(tutP('각자 **본체(HP 40)** 가 있고, **상대 본체의 HP를 0으로 만들면 승리**합니다. 유닛을 필드에 깔고, 앞으로 밀고 나가 상대 본체를 두들기는 것이 큰 그림입니다.'));
         box.appendChild(tutMini({ '3,1': tutTile('적 본체', '#e6a3bd', '#3a2630'), '3,4': tutTile('내 본체', '#9db8e6', '#1d1d24') }));
         box.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, textAlign: 'center' } }, ['위=상대 진영(마젠타) · 아래=내 진영(틸) · 본체는 3열에서 마주본다']));
         return box;

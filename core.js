@@ -289,7 +289,7 @@
     'memory': { t: 'memory · 방어형', d: '공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함.' },
     'process': { t: 'process · 유틸형', d: '변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함.' },
     'generic': { t: 'generic · 무클래스', d: '어느 덱에나 넣는 독립형. 단일 클래스 판정을 깨지 않는다.' },
-    '본체': { t: '본체', d: '플레이어 거점(HP 50). 0 이하면 패배. 보드 칸이라 인접·사거리에 포함된다.' },
+    '본체': { t: '본체', d: '플레이어 거점(HP 40). 0 이하면 패배. 보드 칸이라 인접·사거리에 포함된다.' },
     '봉쇄': { t: '봉쇄(묶음)', d: '이동 불가 상태. 기본 공격·함수는 가능, 이동만 막힌다.' },
     '관통': { t: '관통(벽 너머)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 타격.' },
     '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 타격.' },
@@ -372,7 +372,7 @@
   }
   function cardTipContent(id, unit) {
     var card = CARDS[id], cl = CLS[card.cls] || CLS.generic, isP = card.kind === 'pointer';
-    if (card.kind === 'body') { var bh = unit ? G.curHp(unit) : 0, bm = unit ? G.effMaxHp(unit) : 50; return el('div', { style: { padding: '9px 10px' } }, [el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '15px' } }, [(unit && unit.owner === HUMAN ? '내' : '상대') + ' 본체']), el('div', { class: 'mono', style: { fontSize: '12px', marginTop: '3px' } }, ['HP ' + bh + ' / ' + bm])]); }
+    if (card.kind === 'body') { var bh = unit ? G.curHp(unit) : 0, bm = unit ? G.effMaxHp(unit) : 40; return el('div', { style: { padding: '9px 10px' } }, [el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '15px' } }, [(unit && unit.owner === HUMAN ? '내' : '상대') + ' 본체']), el('div', { class: 'mono', style: { fontSize: '12px', marginTop: '3px' } }, ['HP ' + bh + ' / ' + bm])]); }
     var atk = unit ? G.effAtk(unit) : card.atk, hp = unit ? G.curHp(unit) : card.hp;
     return el('div', {}, [
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: isP ? '#1d1d24' : cl, borderBottom: isP ? '2px solid ' + cl : 'none' } }, [

@@ -20,7 +20,7 @@
 
   // ----------------------------------------------------------------- board helpers
   var COLS = 5, ROWS = 4;
-  var BODY_HP = 50; // lowered from 100 alongside basic-attack rule (see §5 amendment)
+  var BODY_HP = 40; // 100 → 50 (basic-attack rule, §5) → 40 (pacing: games felt loose at 50)
   function inB(c, r) { return c >= 1 && c <= COLS && r >= 1 && r <= ROWS; }
   function K(c, r) { return c + ',' + r; }
   function P(k) { var a = k.split(','); return [+a[0], +a[1]]; }

@@ -51,7 +51,7 @@
     b.appendChild(crtLabel('▸ SYSTEM'));
     b.appendChild(crtInfo([
       ['DECK', DECKS[myDeck].name.replace(/^\w+ · /, '') + '  ·  30 cards  ·  ' + (meta.singleClass ? 'single-class(' + (meta.classes[0] || 'generic') + ')' : 'mixed')],
-      ['RULES', 'HP50 · 2 actions/turn · basic atk(adj·free·1x) · fn/trigger free'],
+      ['RULES', 'HP40 · 2 actions/turn · basic atk(adj·free·1x) · fn/trigger free'],
       ['LIMIT', G_capText()]
     ]));
 

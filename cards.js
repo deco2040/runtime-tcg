@@ -201,8 +201,8 @@
   def({ id: 'Singularity', cls: 'process', kind: 'object', atk: 5, hp: 6, deckLimit: 1, require: { type: 'pointersCast', n: 6 },
     text: 'require 포인터 6회+ 시전 · Once 선언 시 이번 턴 포인터 1장 무소모 추가 시전 + 사거리 +3',
     abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { G.turnFlags.extraPointer = (G.turnFlags.extraPointer || 0) + 1; G.turnFlags.extraPointerRange = 3; } }] });
-  def({ id: 'Overlord', cls: 'generic', kind: 'object', atk: 8, hp: 8, deckLimit: 1, require: { type: 'and', a: { type: 'turnCount', n: 8 }, b: { type: 'selfBodyHP', cmp: '>=', n: 35 } },
-    text: 'require 내 턴 8회+ 진행 + 본체 HP 35+ · Once 선언 시 적 본체 10 피해 · For(3) 적 1명 공격력만큼',
+  def({ id: 'Overlord', cls: 'generic', kind: 'object', atk: 8, hp: 8, deckLimit: 1, require: { type: 'and', a: { type: 'turnCount', n: 8 }, b: { type: 'selfBodyHP', cmp: '>=', n: 28 } },
+    text: 'require 내 턴 8회+ 진행 + 본체 HP 28+ · Once 선언 시 적 본체 10 피해 · For(3) 적 1명 공격력만큼',
     abilities: [
       { kw: 'Once', trigger: 'onSummon', fn: function (G, u) { G.deal(G.enemyBody(u.owner), 10, { attacker: u }); } },
       { kw: 'For', forCount: 3, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }
