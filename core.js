@@ -1956,10 +1956,12 @@
 
   // =================================================================== interaction
   function clickHand(i) {
-    if (G.active !== HUMAN || G.winner !== undefined || aiThinking) return;
     var id = G.players[HUMAN].hand[i], card = CARDS[id];
-    pinned = { id: id }; // pin detail to the right panel
+    if (!card) return;
+    pinned = { id: id }; // pin detail to the right panel — 상대 턴/AI 사고 중에도 상세 확인은 허용
     sel = null;
+    // 액션(시전/선언)은 내 턴에만. 상대 턴에는 상세만 인스펙터에 고정하고 종료.
+    if (G.active !== HUMAN || G.winner !== undefined || aiThinking) { ptr = null; render(); return; }
     if (card.kind === 'pointer') {
       if (!G.canCast(HUMAN, id)) { flash(castWhy(card)); return; }
       // 모바일: 포인터는 탭이 아니라 필드로 드래그해서 놓을 때만 시전(오발동 방지).
@@ -1981,9 +1983,11 @@
     return '시전 불가';
   }
   function clickCell(key) {
-    if (mullPhase || G.winner !== undefined || aiThinking || G.active !== HUMAN) return;
+    if (mullPhase) return;
     var u = G.board[key];
-    if (u && u.type === 'object') pinned = { id: u.cardId, key: key }; // pin detail of any clicked unit
+    if (u && u.type === 'object') pinned = { id: u.cardId, key: key }; // pin detail of any clicked unit (내/적 무관)
+    // 액션(선택/이동/공격/시전)은 내 턴에만. 상대 턴에는 상세만 고정하고 종료.
+    if (G.winner !== undefined || aiThinking || G.active !== HUMAN) { render(); return; }
     if (ptr) {
       var tg = pointerTargets(ptr);
       if (tg.indexOf(key) >= 0) {
@@ -2045,11 +2049,13 @@
     document.removeEventListener('pointercancel', onDragCancel);
   }
   function startHandDrag(e, i) {
-    if (G.active !== HUMAN || G.winner !== undefined || aiThinking) return;
+    if (G.winner !== undefined) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // 상대 턴/AI 사고 중: 드래그-플레이는 잠그되(locked) 탭 상세보기·모바일 peek 은 계속 허용.
+    var locked = (G.active !== HUMAN || aiThinking);
     if (e.pointerType === 'mouse') e.preventDefault(); // 마우스: 텍스트 선택/네이티브 드래그 방지. 터치: 스크롤 허용 위해 보류.
-    try { var hc = e.currentTarget; pendingPlay = { rect: hc.getBoundingClientRect(), id: G.players[HUMAN].hand[i] }; } catch (er) { pendingPlay = null; }
-    drag = { i: i, moved: false, sx: e.clientX, sy: e.clientY, invalid: false, ghost: null, pid: e.pointerId };
+    try { var hc = e.currentTarget; pendingPlay = locked ? null : { rect: hc.getBoundingClientRect(), id: G.players[HUMAN].hand[i] }; } catch (er) { pendingPlay = null; }
+    drag = { i: i, moved: false, sx: e.clientX, sy: e.clientY, invalid: false, ghost: null, pid: e.pointerId, locked: locked };
     if (COMPACT) schedulePeek(i); // 꾹 누르면 큰 미리보기
     document.addEventListener('pointermove', onDragMove);
     document.addEventListener('pointerup', onDragUp);
@@ -2057,6 +2063,7 @@
   }
   function onDragMove(e) {
     if (!drag || (drag.pid != null && e.pointerId !== drag.pid)) return;
+    if (drag.locked) return; // 상대 턴: 드래그-플레이 비활성, 뗄 때 탭(상세)만 처리
     if (!drag.moved) {
       if (peek) return; // 이미 상세보기(peek) 중이면 손가락이 흔들려도 드래그(시전)로 전환하지 않음 — 인스펙트 유지(토스트/재렌더 방지)
       var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
