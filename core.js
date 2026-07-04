@@ -628,37 +628,7 @@
     clear(); // NOTE: do NOT reset mullPick here — that would wipe the selection on every click
     var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt, display: 'flex', flexDirection: 'column' } });
     if (COMPACT) { renderMulliganCompact(wrap); }
-    else {
-    wrap.appendChild(titlebar('RUNTIME — MATCH.app   ·   멀리건 · 시작 패 교체'));
-    var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '11px', flexWrap: 'wrap', color: SKIN.txt } }, [
-      el('span', { style: { fontWeight: 700 } }, ['◈ 멀리건']),
-      el('span', { style: { color: SKIN.muted } }, ['내덱 ' + (DECKS[myDeck] ? myDeck : '')]),
-      el('span', { style: { color: SKIN.muted } }, ['상대 ' + (G.oppKey || '?')]),
-      el('span', { style: { flex: 1 } })
-    ]);
-    if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']));
-    wrap.appendChild(strip);
-
-    var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap' } });
-    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '11px' } });
-    left.appendChild(deckDispenser(AI));
-    left.appendChild(boardEl());
-    left.appendChild(deckDispenser(HUMAN));
-    left.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, textAlign: 'center', minHeight: '15px' } }, [mullReady ? '바꿀 카드를 클릭 → 덱으로 반환하고 새로 뽑습니다. 선택 안 하면 그대로 유지 (1회).' : '']));
-    var row = el('div', { id: 'mullrow', style: { display: 'flex', gap: '13px', flexWrap: 'wrap', justifyContent: 'center', minHeight: '252px' } });
-    G.players[HUMAN].hand.forEach(function (id, i) { row.appendChild(handCardEl(id, i, 'mull')); });
-    left.appendChild(row);
-    var ctr = el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '2px', minHeight: '40px' } });
-    if (mullReady) {
-      ctr.appendChild(el('button', { class: 'btn', onclick: confirmMulligan }, ['✔ 확정 · 게임 시작']));
-      ctr.appendChild(el('button', { class: 'btn ghost', onclick: function () { if (mullBusy) return; mullPick = {}; renderMulligan(); } }, ['↺ 선택 해제']));
-    }
-    left.appendChild(ctr);
-    main.appendChild(left);
-    main.appendChild(sidePanel());
-    wrap.appendChild(main);
-    app.appendChild(wrap);
-    }
+    else { renderMulliganDesktop(wrap); }
 
     // 배분 전/재배분 대상 카드는 숨겨 두고 애니메이션으로 등장시킨다.
     mullHideIdx.forEach(function (i) { var n = document.querySelector('[data-mull-idx="' + i + '"]'); if (n) n.style.opacity = '0'; });
@@ -970,6 +940,68 @@
     // 동기 적용(플리커 없음) + iOS 관성 스크롤 레이어 대비 다음 프레임에 한 번 더 보정.
     var hr = document.getElementById('handrow');
     if (hr) { hr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
+  }
+
+  // ── 데스크톱 멀리건 ── 실제 게임 필드(디스펜서·보드·사이드패널)를 블러 배경으로 깔고,
+  //   그 위 정중앙에 멀리건 오버레이를 호버링. 카드는 위 3장·아래 2장 그리드. 코인/딜 애니는 fxLayer/덱 슬롯 사용.
+  function renderMulliganDesktop(wrap) {
+    wrap.style.position = 'relative';
+    wrap.appendChild(titlebar('RUNTIME — MATCH.app   ·   멀리건 · 시작 패 교체'));
+    var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '11px', flexWrap: 'wrap', color: SKIN.txt } }, [
+      el('span', { style: { fontWeight: 700 } }, ['◈ 멀리건']),
+      el('span', { style: { color: SKIN.muted } }, ['내덱 ' + (DECKS[myDeck] ? myDeck : '')]),
+      el('span', { style: { color: SKIN.muted } }, ['상대 ' + (G.oppKey || '?')]),
+      el('span', { style: { flex: 1 } })
+    ]);
+    if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']));
+    wrap.appendChild(strip);
+
+    // stage: 블러된 게임 필드 배경 + 정중앙 멀리건 오버레이
+    var stage = el('div', { style: { position: 'relative' } });
+
+    // 배경(블러 · 상호작용 차단) — 실제 대국 레이아웃(디스펜서·보드·사이드패널). 딜 배출점(덱 슬롯)/코인 기준 보드가 여기 존재.
+    var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap', filter: 'blur(3px)', transform: 'scale(1.01)', pointerEvents: 'none' } });
+    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '11px' } });
+    left.appendChild(deckDispenser(AI));
+    left.appendChild(boardEl());
+    left.appendChild(deckDispenser(HUMAN));
+    main.appendChild(left);
+    main.appendChild(sidePanel());
+    stage.appendChild(main);
+
+    // 어둡게 덮는 스크림(블러 배경 대비 오버레이 가독성)
+    stage.appendChild(el('div', { style: { position: 'absolute', inset: '0', background: 'rgba(12,12,18,.5)', pointerEvents: 'none' } }));
+
+    // 멀리건 오버레이(정중앙 호버링): 헤더 · 안내 · 3+2 카드 그리드 · 컨트롤
+    var ov = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px' } });
+    ov.appendChild(el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
+      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '19px', color: SKIN.own, textShadow: '0 1px 4px rgba(0,0,0,.6)' } }, ['◈ 멀리건']),
+      el('span', { class: 'mono', style: { fontSize: '12px', color: '#e9eaee', opacity: .85 } }, [(DECKS[myDeck] ? myDeck : '') + ' vs ' + (G.oppKey || '?')]),
+      challenge ? el('span', { class: 'mono', style: { fontSize: '12px', fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']) : null
+    ]));
+    ov.appendChild(el('div', { class: 'mono', style: { fontSize: '12px', color: '#e9eaee', opacity: .8, textAlign: 'center', minHeight: '15px', maxWidth: '92%', textShadow: '0 1px 3px rgba(0,0,0,.6)' } }, [mullReady ? '바꿀 카드를 클릭 → 덱으로 반환하고 새로 뽑습니다. 선택 안 하면 그대로 유지 (1회).' : '패를 나눠주는 중…']));
+
+    // 3+2 그리드 (위 3장 · 아래 2장)
+    var grid = el('div', { id: 'mullrow', style: { display: 'flex', flexDirection: 'column', gap: '13px', alignItems: 'center' } });
+    var top = el('div', { style: { display: 'flex', gap: '13px', justifyContent: 'center', flexWrap: 'nowrap' } });
+    var bot = el('div', { style: { display: 'flex', gap: '13px', justifyContent: 'center', flexWrap: 'nowrap' } });
+    G.players[HUMAN].hand.forEach(function (id, i) { (i < 3 ? top : bot).appendChild(handCardEl(id, i, 'mull')); });
+    grid.appendChild(top); grid.appendChild(bot);
+    ov.appendChild(grid);
+
+    // 딜 애니메이션 배출점(폴백 앵커) — 데스크톱은 덱 슬롯(deckslot-HUMAN)에서 배출되므로 미사용, 슬롯 부재 시만 사용.
+    ov.appendChild(el('div', { id: 'mullshoe', style: { position: 'absolute', left: '50%', bottom: '8px', width: '2px', height: '2px', transform: 'translateX(-50%)', pointerEvents: 'none', opacity: 0 } }));
+
+    var ctr = el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', minHeight: '40px' } });
+    if (mullReady) {
+      ctr.appendChild(el('button', { class: 'btn', onclick: confirmMulligan }, ['✔ 확정 · 게임 시작']));
+      ctr.appendChild(el('button', { class: 'btn ghost', onclick: function () { if (mullBusy) return; mullPick = {}; renderMulligan(); } }, ['↺ 선택 해제']));
+    }
+    ov.appendChild(ctr);
+    stage.appendChild(ov);
+
+    wrap.appendChild(stage);
+    app.appendChild(wrap);
   }
 
   // ── 모바일 멀리건 ── 실제 게임 화면(상대바·필드·나바)을 블러 배경으로 깔고, 그 위에 멀리건 오버레이.

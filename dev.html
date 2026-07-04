@@ -31,7 +31,7 @@
     background-image:radial-gradient(rgba(255,255,255,.35) 1px,transparent 1px),radial-gradient(rgba(28,28,38,.08) 1px,transparent 1px);
     background-size:6px 6px,6px 6px;background-position:0 0,3px 3px;}
   :root[data-theme="dark"] body{background-image:radial-gradient(rgba(255,255,255,.03) 1px,transparent 1px),radial-gradient(rgba(0,0,0,.3) 1px,transparent 1px);}
-  /* 게임 ui.js 가 body 에 붙이는 고정 버튼(효과음/테마) 숨김 */
+  /* 게임 모듈(sound/theme.js)이 body 에 붙이는 고정 버튼(효과음/테마) 숨김 */
   body>button{display:none!important}
   .mono{font-family:'Space Mono',monospace}
   .grot{font-family:'Space Grotesk',sans-serif}
@@ -547,7 +547,7 @@
       frow.appendChild(fbcol); frow.appendChild(ctl);
       d.appendChild(frow);
 
-      // 실제 게임 카드 페이스 미리보기(ui.js 재사용)
+      // 실제 게임 카드 페이스 미리보기(core.js 재사용)
       var pvLabel = document.createElement('div'); pvLabel.className = 'flabel'; pvLabel.style.marginTop = '16px';
       pvLabel.textContent = '실제 게임 화면 미리보기 (' + (themeMode === 'dark' ? '다크' : '라이트') + ')';
       d.appendChild(pvLabel);
