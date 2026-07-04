@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script>
   // 첫 페인트 전 테마 확정(플래시 방지) — ui.js 의 rt_theme 와 동일 키
-  (function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('rt_theme')||'light');}catch(e){}})();
+  (function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('rt_theme')||'dark');}catch(e){}})();
 </script>
 <style>
   /* 라이트(기본) = 레트로 PC + PCB 융합 팔레트 */
@@ -24,13 +24,13 @@
     --btn-bg:#1d1d24; --btn-fg:#e9eaee; --dot-hi:rgba(255,255,255,.55); --dot-lo:rgba(28,28,38,.10);
     --sel-bg:#1d1d24; --sel-fg:#e9eaee; --tb-dot:#86868f;
   }
-  /* 다크 = 칩 다크 PCB(토글 선택 시) */
+  /* 다크 = 앰버 CRT 인광(기본 테마). 따뜻한 흑갈색 새시 + 호박색 강조 — 게임 보드가 이 팔레트를 씀. */
   :root[data-theme="dark"]{
-    --shell:#0b0b11; --chassis:#15161e; --chassis-alt:#1b1d27; --chassis-sunk:#101018;
-    --ink:#33343f; --txt:#e6e6ee; --muted:#8b90a0;
-    --bevel-hi:rgba(255,255,255,.06); --bevel-lo:rgba(0,0,0,.55); --bevel-lo2:rgba(0,0,0,.4);
-    --btn-bg:#C7A24A; --btn-fg:#15161e; --dot-hi:rgba(255,255,255,.035); --dot-lo:rgba(0,0,0,.30);
-    --sel-bg:#C7A24A; --sel-fg:#0e0e14; --tb-dot:#0b0b11;
+    --shell:#0a0805; --chassis:#17110a; --chassis-alt:#1f180d; --chassis-sunk:#0d0a04;
+    --ink:#3d3220; --txt:#f2e2c2; --muted:#b7a074;
+    --bevel-hi:rgba(255,210,120,.06); --bevel-lo:rgba(0,0,0,.55); --bevel-lo2:rgba(0,0,0,.42);
+    --btn-bg:#ffb000; --btn-fg:#17110a; --dot-hi:rgba(255,200,120,.04); --dot-lo:rgba(0,0,0,.32);
+    --sel-bg:#ffb000; --sel-fg:#0c0a05; --tb-dot:#0a0805;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--shell);color:var(--txt);font-family:'IBM Plex Sans KR',sans-serif}
@@ -71,6 +71,60 @@
     #app{max-width:none!important;margin:0!important;padding:0!important}
     body>button{display:none!important} /* 상단 고정 음소거/테마 버튼 숨김 — 화면 정리 */
   }
+  /* =====================================================================
+     레트로 컴퓨터 스킨 — 타이틀 모니터(.crt-monitor) + 전역 CRT 오버레이.
+     다크 = 앰버 인광 CRT(어두운 방), 라이트 = 베이지 컴퓨터 + 페이퍼 화이트 화면(주광).
+     색은 테마별 CSS 변수로 flip — 두 테마 모두 '켜진 브라운관' 컨셉으로 일관. */
+  /* 전역 CRT 강도(라이트=옅게, 다크=진하게) */
+  :root{ --scan:rgba(0,0,0,.05); --vig:rgba(0,0,0,.12); --crt-inset:inset 0 0 90px rgba(0,0,0,.06); }
+  :root[data-theme="dark"]{ --scan:rgba(0,0,0,.22); --vig:rgba(0,0,0,.44); --crt-inset:inset 0 0 130px rgba(0,0,0,.6), inset 0 0 46px rgba(255,150,0,.05); }
+  /* 타이틀 모니터 — 라이트(베이지 하우징 + 페이퍼 화면) 기본, 다크에서 앰버로 오버라이드 */
+  .crt-monitor{
+    --amb:#1d1d24; --amb-hi:#111319; --amb-dim:#6b6b75; --amb-soft:rgba(29,29,36,.32); --amb-faint:rgba(29,29,36,.06);
+    --scr1:#f6f5ee; --scr2:#eeece2; --scr3:#e6e4d8; --scr4:#d6d4c6; --scr-fg:#1d1d24;
+    --scr-inset:inset 0 0 40px rgba(0,0,0,.10); --scr-glowin:transparent; --scr-tsh:none;
+    --housing1:#e6e4da; --housing2:#c9c7bb; --housing-hi:rgba(255,255,255,.5);
+    --cursor-glow:transparent; --inv:#f6f5ee;
+    background:linear-gradient(var(--housing1),var(--housing2));border:1px solid #000;border-radius:16px;
+    padding:clamp(11px,1.8vw,20px);
+    box-shadow:inset 2px 2px 0 var(--housing-hi), inset -3px -3px 0 rgba(0,0,0,.28), 6px 6px 0 rgba(0,0,0,.22)}
+  :root[data-theme="dark"] .crt-monitor{
+    --amb:#ffb000; --amb-hi:#ffd27a; --amb-dim:#b3791f; --amb-soft:rgba(255,176,0,.42); --amb-faint:rgba(255,176,0,.10);
+    --scr1:#17110700; --scr2:#120d04; --scr3:#0b0803; --scr4:#060400; --scr-fg:#ffb000;
+    --scr-inset:inset 0 0 70px rgba(0,0,0,.92); --scr-glowin:rgba(255,176,0,.07);
+    --scr-tsh:0 0 1px rgba(255,176,0,.55), 0 0 7px rgba(255,132,0,.22);
+    --housing1:#221d14; --housing2:#151109; --housing-hi:rgba(255,255,255,.05);
+    --cursor-glow:rgba(255,176,0,.8); --inv:#0b0803}
+  .crt-screen{position:relative;overflow:hidden;border-radius:12px;border:1px solid #000;
+    background:radial-gradient(125% 105% at 50% 38%,var(--scr1) 0%,var(--scr2) 40%,var(--scr3) 72%,var(--scr4) 100%);
+    box-shadow:var(--scr-inset), inset 0 0 14px var(--scr-glowin);
+    padding:clamp(16px,2.6vw,32px);color:var(--scr-fg);font-family:'Space Mono',monospace;text-shadow:var(--scr-tsh)}
+  /* 화면 로컬 비네트(양 테마 공통, 다크에서 진함) + 미세 깜빡임 */
+  .crt-screen::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:4;
+    background:radial-gradient(135% 125% at 50% 44%, transparent 54%, var(--vig) 100%);
+    animation:crtFlick 4.5s steps(48) infinite}
+  @keyframes crtFlick{0%,100%{opacity:.5}50%{opacity:.62}}
+  .crt-body{position:relative;z-index:2}
+  .crt-cursor{display:inline-block;width:.6em;height:1.05em;vertical-align:-2px;background:var(--amb);margin-left:4px;
+    box-shadow:0 0 7px var(--cursor-glow);animation:crtBlink 1.05s steps(1) infinite}
+  @keyframes crtBlink{0%,49.9%{opacity:1}50%,100%{opacity:0}}
+  .crt-opt{font-family:'Space Mono',monospace;font-weight:700;color:var(--amb);background:transparent;
+    border:1px solid var(--amb-soft);padding:7px 11px;cursor:pointer;text-shadow:inherit}
+  .crt-opt:hover{border-color:var(--amb);background:var(--amb-faint)}
+  .crt-opt.on{background:var(--amb);color:var(--inv);text-shadow:none;border-color:var(--amb);
+    box-shadow:0 0 9px var(--amb-faint), inset 0 0 0 1px rgba(0,0,0,.12)}
+  .crt-btn{font-family:'Space Mono',monospace;font-weight:700;letter-spacing:.05em;color:var(--inv);background:var(--amb);
+    border:1px solid var(--amb);padding:11px 20px;cursor:pointer;text-shadow:none;
+    box-shadow:0 0 11px var(--amb-faint), 2px 2px 0 rgba(0,0,0,.3)}
+  .crt-btn.ghost{background:transparent;color:var(--amb);text-shadow:none;
+    box-shadow:inset 0 0 0 1px var(--amb-soft), 2px 2px 0 rgba(0,0,0,.22)}
+  .crt-btn:not(:disabled):hover{filter:brightness(1.06)}
+  @media (prefers-reduced-motion: reduce){.crt-screen::after{animation:none}.crt-cursor{animation:none}}
+  /* 전역 CRT 오버레이 — 두 테마 모두 화면 전체를 '켜진 브라운관 유리' 아래로. fixed·pointer-events:none 로 무간섭. */
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:2147483000;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px, var(--scan) 2px 3px);mix-blend-mode:multiply}
+  body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:2147482999;
+    background:radial-gradient(130% 118% at 50% 44%, transparent 60%, var(--vig) 100%);box-shadow:var(--crt-inset)}
 </style>
 </head>
 <body>

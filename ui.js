@@ -173,22 +173,24 @@
       own: '#147a76', enemy: '#b23a72', ally: '#3c8a66', rangeGold: '#c8951b',
       panelText: '#34343c'
     },
+    // 다크 = 앰버 CRT 인광(기본). 따뜻한 흑갈색 새시 + 호박색 강조. own/enemy/ally·계열색은
+    // 게임 정보 전달을 위해 유지(색 CRT 모니터 느낌) — index.html :root[data-theme="dark"] 와 값 일치.
     dark: {
-      bg: '#0e0e14', pcb: '#15161e', pcb2: '#1b1d27', edge: '#33343f',
-      gold: '#C7A24A', goldEmpty: '#26261b', heat: '#E88A3A',
-      silk: '#aeb8a6', silkDim: '#6f776a', die: '#3a3b46', dieHi: '#4a4b57',
-      txt: '#e6e6ee', txtDim: '#6a6a7e', statIcon: '#c2c3cf', selfPad: '#8a8a9c', buff: '#8fd6a0',
-      padEmpty: '#101018', dieGradEnd: '#2c2d38', chipTop: '#2a2b36', chipBot: '#191a22', scrim: 'rgba(10,10,16,.72)',
-      // v2 창(window) 토큰 — 다크 PCB
-      face: '#33333b', faceHi: '#55555f', faceLo: '#16161b',
-      viewportBg: '#3c414d', effBg: '#2a2a30', effTxt: '#d8d6cc',
-      atkField: '#2a2a30', hpTrack: '#22222a', hpFill: '#b8bcc8',
-      shell: '#0b0b11', chassis: '#15161e', chassisAlt: '#1b1d27', chassisSunk: '#101018',
-      ink: '#33343f', muted: '#8b90a0', faint: '#5a5c68', line: '#2a2b36',
-      bevelHi: 'rgba(255,255,255,.05)', bevelLo: 'rgba(0,0,0,.45)', bevelLo2: 'rgba(0,0,0,.55)',
-      boardFace: '#0b0b11', cellFace: '#131420', trace: 'rgba(199,162,74,.10)',
-      own: '#2ec9c4', enemy: '#e0699a', ally: '#7BB528', rangeGold: '#C7A24A',
-      panelText: '#c9cad6'
+      bg: '#0c0a05', pcb: '#17110a', pcb2: '#1f180d', edge: '#3d3220',
+      gold: '#ffb000', goldEmpty: '#2a2010', heat: '#ff8a3a',
+      silk: '#d8c49a', silkDim: '#8a7a55', die: '#2f2617', dieHi: '#3e3320',
+      txt: '#f2e2c2', txtDim: '#b7a074', statIcon: '#e8cf9a', selfPad: '#8a7a55', buff: '#8fd6a0',
+      padEmpty: '#0d0a04', dieGradEnd: '#241c10', chipTop: '#241c10', chipBot: '#140f07', scrim: 'rgba(8,6,2,.74)',
+      // v2 창(window) 토큰 — 앰버 CRT
+      face: '#2a2013', faceHi: '#453619', faceLo: '#120d05',
+      viewportBg: '#2a2417', effBg: '#221a0d', effTxt: '#e6d3ac',
+      atkField: '#221a0d', hpTrack: '#1c1509', hpFill: '#c8a24a',
+      shell: '#0a0805', chassis: '#17110a', chassisAlt: '#1f180d', chassisSunk: '#0d0a04',
+      ink: '#3d3220', muted: '#b7a074', faint: '#6b5c3c', line: '#2a2214',
+      bevelHi: 'rgba(255,210,120,.06)', bevelLo: 'rgba(0,0,0,.5)', bevelLo2: 'rgba(0,0,0,.6)',
+      boardFace: '#0a0805', cellFace: '#17110a', trace: 'rgba(255,176,0,.10)',
+      own: '#2ec9c4', enemy: '#e0699a', ally: '#7BB528', rangeGold: '#ffb000',
+      panelText: '#d8c49a'
     }
   };
   var SKIN = {};
@@ -207,8 +209,8 @@
     cardTip = null; kwtip = null;
   }
   function initTheme() {
-    var m = 'light';
-    try { m = window.localStorage.getItem('rt_theme') || 'light'; } catch (e) {}
+    var m = 'dark';   // 기본 = 앰버 CRT(다크). 사용자가 명시적으로 라이트를 고른 경우만 라이트.
+    try { m = window.localStorage.getItem('rt_theme') || 'dark'; } catch (e) {}
     applyTheme(m);
   }
   function toggleTheme() { applyTheme(themeMode === 'dark' ? 'light' : 'dark'); if (G) render(); else if (typeof renderTitle === 'function') renderTitle(); }
@@ -359,13 +361,13 @@
       svgIco(SERIES_PATH.attack, opts.icoPx || 10, 'currentColor', 2),
       el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, color: opts.buffed ? SKIN.buff : 'inherit', lineHeight: 1 } }, [String(atk)])
     ]);
-    // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 기존 뉴트럴 미터.
-    var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: COMPACT ? 'center' : 'flex-start', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) }, [
-      el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']),
+    // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 뉴트럴 미터 + 숫자 병기.
+    var hpNum = el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none' } }, [String(hp)]);
+    var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: COMPACT ? 'center' : 'flex-start', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) },
       COMPACT
-        ? el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none' } }, [String(hp)])
-        : hpMeter(hp, maxHp, { h: opts.meterH || 8 })
-    ]);
+        ? [el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']), hpNum]
+        : [el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']), hpMeter(hp, maxHp, { h: opts.meterH || 8 }), hpNum]
+    );
     return el('div', { style: { display: 'flex', gap: '3px', margin: opts.margin || '3px 2px 2px' } }, [atkEl, hpEl]);
   }
 
@@ -688,65 +690,111 @@
   }
 
   // =================================================================== TITLE / DECK SELECT
+  // ===== 메인(타이틀) 화면 — 앰버 모노크롬 CRT 터미널. 게임 보드는 그대로, 여긴 자체 팔레트(흑배경+호박색). =====
+  var AMB = '#ffb000', AMB_HI = '#ffd27a', AMB_DIM = '#b3791f';
   function renderTitle() {
     clear();
-    var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt } });
-    wrap.appendChild(titlebar('RUNTIME — NEW MATCH'));
-    var body = el('div', { style: { padding: '22px clamp(14px,2.4vw,30px) 26px' } });
-    body.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '30px', letterSpacing: '.05em' } }, ['▦ RUNTIME']));
-    body.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, marginBottom: '20px' } }, ['turn-based memory-grid TCG · ruleset v1 · seed cards v4']));
+    // 테마별 팔레트 — 다크=앰버 인광, 라이트=먹색(페이퍼 화이트 화면). index.html .crt-monitor CSS 변수와 짝을 맞춤.
+    var dark = themeMode === 'dark';
+    if (dark) { AMB = '#ffb000'; AMB_HI = '#ffd27a'; AMB_DIM = '#b3791f'; }
+    else { AMB = '#1d1d24'; AMB_HI = '#111319'; AMB_DIM = '#6b6b75'; }
+    var hdrLine = dark ? 'rgba(255,176,0,.25)' : 'rgba(29,29,36,.20)';
+    var titleGlow = dark ? '0 0 10px rgba(255,176,0,.55), 0 0 2px rgba(255,176,0,.9)' : '0 0 1px rgba(0,0,0,.12)';
+    var ledCol = dark ? '#ffb000' : '#3c8a66';
+    var brandCol = dark ? '#7a6b45' : '#8a857a', brandCol2 = dark ? '#5f5436' : '#9c968a';
+    var monitor = el('div', { class: 'crt-monitor' });
+    var screen = el('div', { class: 'crt-screen' });
+    var b = el('div', { class: 'crt-body' });
 
-    body.appendChild(sectionLabel('내 덱'));
-    body.appendChild(deckGrid(function (k) { return k === myDeck; }, function (k) { myDeck = k; render(); }));
-    body.appendChild(sectionLabel('상대 덱'));
-    var oppRow = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '18px' } });
-    oppRow.appendChild(chip('랜덤 (random)', oppDeck === '__random', function () { oppDeck = '__random'; render(); }));
-    Object.keys(DECKS).forEach(function (k) { oppRow.appendChild(chip(k, oppDeck === k, function () { oppDeck = k; render(); })); });
-    body.appendChild(oppRow);
-
-    var meta = RT.analyzeDeck(DECKS[myDeck].list);
-    body.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, lineHeight: 1.7, marginBottom: '16px' } }, [
-      DECKS[myDeck].name + ' · 30장 · ' + (meta.singleClass ? '단일 클래스(' + (meta.classes[0] || 'generic') + ')' : '혼합덱'),
-      el('br'), '규칙: 본체 HP 50 · 한 턴 2액션(선언/이동/포인터) · 기본 공격(인접·무료·턴1회) · 함수·트리거는 무료 · ' + G_capText()
+    // 터미널 헤더 상태줄
+    b.appendChild(el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: AMB_DIM, letterSpacing: '.08em', borderBottom: '1px solid ' + hdrLine, paddingBottom: '7px', marginBottom: '16px' } }, [
+      el('span', {}, ['RUNTIME OS  v1.0']),
+      el('span', {}, ['MEM 50/50K  ·  ONLINE'])
     ]));
-    var startRow = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' } }, [
-      el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 22px' }, onclick: startMatch }, ['▶ 대국 시작']),
-      el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 22px', background: SKIN.rangeGold, color: '#1d1d24', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.5), inset -2px -2px 0 rgba(0,0,0,.25), 2px 2px 0 rgba(0,0,0,.25)' }, onclick: startChallenge }, ['🏆 도전 모드']),
-      el('button', { class: 'btn ghost', style: { fontSize: '15px', padding: '12px 22px' }, onclick: function () { renderTutorial(0); } }, ['📖 게임 방법'])
+
+    // 대형 타이틀(인광 글로우)
+    b.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: 'clamp(30px,6.4vw,54px)', letterSpacing: '.16em', lineHeight: 1, color: AMB_HI, textShadow: titleGlow } }, ['RUNTIME']));
+    b.appendChild(el('div', { style: { fontSize: '11px', color: AMB_DIM, marginTop: '7px', marginBottom: '20px', letterSpacing: '.04em' } }, ['turn-based memory-grid TCG  ·  seed cards v4']));
+
+    // ▸ MY DECK
+    b.appendChild(crtLabel('▸ MY DECK'));
+    b.appendChild(crtDeckGrid(function (k) { return k === myDeck; }, function (k) { myDeck = k; render(); }));
+
+    // ▸ OPPONENT
+    b.appendChild(crtLabel('▸ OPPONENT'));
+    var oppRow = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px', margin: '8px 0 18px' } });
+    oppRow.appendChild(crtChip('RANDOM', oppDeck === '__random', function () { oppDeck = '__random'; render(); }));
+    Object.keys(DECKS).forEach(function (k) { oppRow.appendChild(crtChip(k, oppDeck === k, function () { oppDeck = k; render(); })); });
+    b.appendChild(oppRow);
+
+    // ▸ SYSTEM — 덱 요약 + 규칙(터미널 정보 블록)
+    var meta = RT.analyzeDeck(DECKS[myDeck].list);
+    b.appendChild(crtLabel('▸ SYSTEM'));
+    b.appendChild(crtInfo([
+      ['DECK', DECKS[myDeck].name.replace(/^\w+ · /, '') + '  ·  30 cards  ·  ' + (meta.singleClass ? 'single-class(' + (meta.classes[0] || 'generic') + ')' : 'mixed')],
+      ['RULES', 'HP50 · 2 actions/turn · basic atk(adj·free·1x) · fn/trigger free'],
+      ['LIMIT', G_capText()]
+    ]));
+
+    // 실행 버튼
+    var startRow = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '18px' } }, [
+      el('button', { class: 'crt-btn', style: { fontSize: '15px' }, onclick: startMatch }, ['▶ START']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: startChallenge }, ['🏆 CHALLENGE']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { renderTutorial(0); } }, ['📖 HELP'])
     ]);
-    body.appendChild(startRow);
-    body.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginTop: '8px' } }, [
-      '도전 모드: 선택한 내 덱으로, 이길수록 강해지는 AI와 연속 대결 — ',
-      el('b', { style: { color: SKIN.rangeGold } }, [myDeck + ' 덱 최고 ' + bestStreak(myDeck) + '연승'])
+    b.appendChild(startRow);
+    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
+      'CHALLENGE — 선택한 내 덱으로 점점 강해지는 AI와 연속 대결. ',
+      el('span', { style: { color: AMB } }, ['BEST ' + myDeck + ' ' + bestStreak(myDeck) + 'W'])
     ]));
     var recs = bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });
     if (recKeys.length) {
-      body.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginTop: '4px' } }, [
-        '덱별 기록 — ' + recKeys.map(function (k) { return k + ' ' + recs[k] + '연승'; }).join('  ·  ')
+      b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '4px' } }, [
+        'LOG — ' + recKeys.map(function (k) { return k + ':' + recs[k] + 'W'; }).join('  ·  ')
       ]));
     }
-    wrap.appendChild(body);
-    app.appendChild(wrap);
+
+    // 프롬프트 커서줄
+    b.appendChild(el('div', { style: { fontSize: '13px', color: AMB, marginTop: '18px', fontWeight: 700, letterSpacing: '.05em' } }, [
+      'READY', el('span', { class: 'crt-cursor' })
+    ]));
+
+    screen.appendChild(b);
+    monitor.appendChild(screen);
+    // 모니터 하판 — 전원 LED + 브랜드 + 모델명
+    monitor.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '9px 6px 2px' } }, [
+      el('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: ledCol, boxShadow: '0 0 7px ' + ledCol } }),
+      el('span', { class: 'grot', style: { fontSize: '10px', letterSpacing: '.34em', color: brandCol, fontWeight: 700 } }, ['R U N T I M E']),
+      el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9px', color: brandCol2, letterSpacing: '.1em' } }, ['MODEL RT-50'])
+    ]));
+    app.appendChild(monitor);
   }
+  function crtLabel(t) { return el('div', { style: { fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: '11px', letterSpacing: '.14em', color: AMB, margin: '2px 0 2px' } }, [t]); }
+  function crtChip(label, on, cb) { return el('button', { onclick: cb, class: 'crt-opt' + (on ? ' on' : ''), style: { fontSize: '11px' } }, [label]); }
   function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
-  function sectionLabel(t) { return el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '4px 0 8px' } }, [t]); }
-  function deckGrid(isSel, on) {
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(168px,1fr))', gap: '9px', marginBottom: '18px' } });
+  // 덱 선택 — 터미널 옵션 타일. GLY(클래스 글리프)로 계열 표시, 선택 시 인버스(호박색 채움).
+  function crtDeckGrid(isSel, on) {
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(152px,1fr))', gap: '7px', margin: '8px 0 18px' } });
     Object.keys(DECKS).forEach(function (k) {
-      var d = DECKS[k], c = CLS[d.cls] || CLS.generic, on2 = isSel(k);
+      var d = DECKS[k], on2 = isSel(k), gly = GLY[d.cls] || GLY.generic;
       grid.appendChild(el('button', {
-        onclick: function () { on(k); },
-        style: { display: 'flex', flexDirection: 'column', gap: '3px', padding: '10px 11px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, borderTop: '4px solid ' + c, boxShadow: on2 ? ('0 0 0 2px ' + SKIN.chassis + ', 0 0 0 4px ' + SKIN.silk) : 'inset 1px 1px 0 ' + SKIN.bevelHi + ', 2px 2px 0 rgba(0,0,0,.18)', cursor: 'pointer' }
+        onclick: function () { on(k); }, class: 'crt-opt' + (on2 ? ' on' : ''),
+        style: { display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }
       }, [
-        el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px' } }, [k + (on2 ? '  ✓' : '')]),
-        el('span', { style: { fontSize: '11px', color: SKIN.panelText } }, [d.name.replace(/^\w+ · /, '')]),
-        el('span', { class: 'mono', style: { fontSize: '9px', color: c } }, [d.cls.toUpperCase()])
+        el('span', { style: { fontSize: '12px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
+        el('span', { style: { fontSize: '10px', opacity: '.72' } }, [d.name.replace(/^\w+ · /, '')])
       ]));
     });
     return grid;
   }
-  function chip(label, on, cb) {
-    return el('button', { onclick: cb, class: 'mono', style: { fontSize: '11px', fontWeight: 700, padding: '5px 11px', border: '1px solid ' + SKIN.ink, background: on ? SKIN.silk : SKIN.chassis, color: on ? SKIN.chassis : SKIN.txt, boxShadow: on ? 'inset 1px 1px 0 rgba(255,255,255,.15)' : 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -1px -1px 0 ' + SKIN.bevelLo2 } }, [label]);
+  // 정보 블록 — [라벨] 값 줄들. 라벨은 흐린 호박, 값은 밝은 호박.
+  function crtInfo(rows) {
+    return el('div', { style: { margin: '4px 0 4px', lineHeight: 1.75, fontSize: '11px' } }, rows.map(function (r) {
+      return el('div', { style: { display: 'flex', gap: '10px' } }, [
+        el('span', { style: { color: AMB_DIM, minWidth: '48px', fontWeight: 700 } }, [r[0]]),
+        el('span', { style: { color: AMB } }, [r[1]])
+      ]);
+    }));
   }
 
   // =================================================================== START + MULLIGAN
