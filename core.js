@@ -945,9 +945,15 @@
   // ── 데스크톱 멀리건 ── 실제 게임 필드(디스펜서·보드·사이드패널)를 블러 배경으로 깔고,
   //   그 위 정중앙에 멀리건 오버레이를 호버링. 카드는 위 3장·아래 2장 그리드. 코인/딜 애니는 fxLayer/덱 슬롯 사용.
   function renderMulliganDesktop(wrap) {
-    wrap.style.position = 'relative';
+    // 뷰포트를 꽉 채우는 고정 셸 — 스크롤 없이 한 화면. 실제 게임 화면(디스펜서·보드·손패·컨트롤·사이드패널)을
+    // 블러 배경으로 깔고, 그 위 정중앙에 멀리건 오버레이(위3·아래2, 뷰포트에 맞춰 자동 스케일).
+    var W = window.innerWidth || 1180, H = window.innerHeight || 800;
+    wrap.style.position = 'fixed'; wrap.style.top = '0'; wrap.style.left = '0';
+    wrap.style.width = W + 'px'; wrap.style.height = H + 'px';
+    wrap.style.margin = '0'; wrap.style.overflow = 'hidden'; wrap.style.transform = 'none'; wrap.style.boxShadow = 'none';
+
     wrap.appendChild(titlebar('RUNTIME — MATCH.app   ·   멀리건 · 시작 패 교체'));
-    var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '11px', flexWrap: 'wrap', color: SKIN.txt } }, [
+    var strip = el('div', { class: 'mono', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 12px', borderBottom: '1px solid ' + SKIN.ink, fontSize: '11px', flexWrap: 'wrap', color: SKIN.txt, flex: 'none' } }, [
       el('span', { style: { fontWeight: 700 } }, ['◈ 멀리건']),
       el('span', { style: { color: SKIN.muted } }, ['내덱 ' + (DECKS[myDeck] ? myDeck : '')]),
       el('span', { style: { color: SKIN.muted } }, ['상대 ' + (G.oppKey || '?')]),
@@ -956,21 +962,26 @@
     if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']));
     wrap.appendChild(strip);
 
-    // stage: 블러된 게임 필드 배경 + 정중앙 멀리건 오버레이
-    var stage = el('div', { style: { position: 'relative' } });
+    // stage: 남은 높이를 채우는 무대(블러 배경 + 정중앙 멀리건 오버레이). 넘치는 배경은 크롭.
+    var stage = el('div', { style: { position: 'relative', flex: '1 1 auto', minHeight: '0', overflow: 'hidden' } });
 
-    // 배경(블러 · 상호작용 차단) — 실제 대국 레이아웃(디스펜서·보드·사이드패널). 딜 배출점(덱 슬롯)/코인 기준 보드가 여기 존재.
-    var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap', filter: 'blur(3px)', transform: 'scale(1.01)', pointerEvents: 'none' } });
-    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '11px' } });
+    // 배경(블러 · 상호작용 차단) — 실제 게임 화면 레이아웃. 세로 중앙 정렬, 넘치면 크롭.
+    // 딜 배출점(deckslot-HUMAN)·코인 기준(#board)이 여기 존재해 애니메이션 좌표가 실제 필드에 정확히 맞음.
+    var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', filter: 'blur(3px)', transform: 'scale(1.02)', pointerEvents: 'none' } });
+    var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1180px' } });
+    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '7px' } });
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl());
     left.appendChild(deckDispenser(HUMAN));
+    left.appendChild(handBar(false));
+    left.appendChild(controls(false));
     main.appendChild(left);
     main.appendChild(sidePanel());
-    stage.appendChild(main);
+    bg.appendChild(main);
+    stage.appendChild(bg);
 
     // 어둡게 덮는 스크림(블러 배경 대비 오버레이 가독성)
-    stage.appendChild(el('div', { style: { position: 'absolute', inset: '0', background: 'rgba(12,12,18,.5)', pointerEvents: 'none' } }));
+    stage.appendChild(el('div', { style: { position: 'absolute', inset: '0', background: 'rgba(12,12,18,.55)', pointerEvents: 'none' } }));
 
     // 멀리건 오버레이(정중앙 호버링): 헤더 · 안내 · 3+2 카드 그리드 · 컨트롤
     var ov = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px' } });
@@ -1322,7 +1333,14 @@
       W = Math.max(94, Math.min(150, Math.floor((avail - 40) / 3)));
       var rr = W / 150; MINH = Math.round(208 * rr); VPH = Math.round(90 * rr);
     }
-    else if (big) { W = 176; MINH = 250; VPH = 116; }
+    else if (big) {
+      // 데스크톱 멀리건 위3·아래2 그리드 — 스크롤 없이 한 화면에 크게 들어오도록 뷰포트(가로 3장·세로 2행)에 맞춰 스케일.
+      var vw = Math.min(window.innerWidth || 1180, 1180), vh = window.innerHeight || 800;
+      var wByW = Math.floor((vw - 72) / 3);   // 가로 3장 + 여백
+      var wByH = Math.floor((vh - 220) / 2 * 0.70); // 세로 2행 + 상/하단 크롬 여유, 카드 종횡비(176/250≈.70)
+      W = Math.max(140, Math.min(230, Math.min(wByW, wByH)));
+      var br = W / 176; MINH = Math.round(250 * br); VPH = Math.round(116 * br);
+    }
     else { W = 150; MINH = 150; VPH = 92; }
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
