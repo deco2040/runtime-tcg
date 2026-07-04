@@ -623,6 +623,7 @@
     for (var i = 0; i < tokens; i++) { var c = g.firstEmptyHome(AI); if (c) g.summon(AI, 'Token5', c); }
   }
   var mullPick = {}, mullBusy = false, mullPhase = false, mullReady = false, mullCoinDone = false, mullFirst = 0, mullHideIdx = [];
+  var handFlyIn = null; // 멀리건→대국 전환 시 손패로 날아 들어오는 카드 인덱스(도착 전까지 숨김)
   // 멀리건을 실제 게임 필드(보드) 위에서 진행 — 선후공 코인플립 → 덱 디스펜서에서 딜링 → 필드 교체 선택 → 플레이.
   function renderMulligan() {
     clear(); // NOTE: do NOT reset mullPick here — that would wipe the selection on every click
@@ -779,11 +780,60 @@
     runMulliganDeal(dealIdx, function () { mullHideIdx = []; setTimeout(proceedFromMulligan, 420); });
   }
   function proceedFromMulligan() {
+    // 멀리건 최종 패를 하단 손패 위치로 날려 넣는 전환 — 오버레이 카드를 클론해 fxLayer 에서 손패 슬롯으로 비행.
+    // 1) 대국 렌더 '전에' 오버레이 카드의 화면 좌표+클론을 확보(렌더하면 오버레이가 사라짐). fxLayer 는 clear() 에도 살아남음.
+    var parent = fxLayer();
+    var srcCount = G.players[HUMAN].hand.length, flyers = [];
+    for (var i = 0; i < srcCount; i++) {
+      var node = document.querySelector('[data-mull-idx="' + i + '"]');
+      if (!node) continue;
+      var r = node.getBoundingClientRect();
+      var clone = node.cloneNode(true);
+      clone.style.position = 'fixed'; clone.style.margin = '0'; clone.style.left = r.left + 'px'; clone.style.top = r.top + 'px';
+      clone.style.width = r.width + 'px'; clone.style.height = r.height + 'px'; clone.style.zIndex = 92; clone.style.pointerEvents = 'none'; clone.style.transformOrigin = 'top left';
+      parent.appendChild(clone);
+      flyers.push({ i: i, r: r, clone: clone });
+    }
+
     mullBusy = false; mullPhase = false;
-    // AI: simple mulligan — toss nothing (keep)
+    handFlyIn = flyers.map(function (f) { return f.i; }); // 도착 전까지 손패 카드 숨김
+    // 2) 대국 시작 + 렌더(손패는 숨겨진 채). AI: 별도 멀리건 없이 유지.
     G.beginTurn();
     renderMatch();
-    if (G.active === AI && G.winner === undefined) runAI();
+
+    function reveal(idx) { var s = document.querySelector('[data-hand-idx="' + idx + '"]'); if (s) s.style.opacity = '1'; }
+    function finish() {
+      handFlyIn = null;
+      for (var k = 0; k < srcCount; k++) reveal(k);
+      if (G.active === AI && G.winner === undefined) runAI();
+    }
+    if (!flyers.length) { finish(); return; }
+
+    // 3) 각 클론을 해당 손패 슬롯으로 비행(스태거) — 도착하면 클론 제거 + 실제 슬롯 공개 + 착지 팝.
+    var pending = flyers.length;
+    var doneOne = function () { if (--pending <= 0) finish(); };
+    flyers.forEach(function (f, k) {
+      var t = document.querySelector('[data-hand-idx="' + f.i + '"]');
+      if (!t) { f.clone.remove(); doneOne(); return; }
+      var tr = t.getBoundingClientRect();
+      var dx = tr.left - f.r.left, dy = tr.top - f.r.top, sc = f.r.width ? tr.width / f.r.width : 1;
+      if (!f.clone.animate) { f.clone.remove(); reveal(f.i); doneOne(); return; }
+      var a;
+      try {
+        a = f.clone.animate([
+          { transform: 'translate(0,0) scale(1)', opacity: 1, offset: 0 },
+          { transform: 'translate(' + (dx * .5) + 'px,' + (dy * .5) + 'px) scale(' + ((1 + sc) / 2) + ')', opacity: 1, offset: .5 },
+          { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + sc + ')', opacity: 1, offset: 1 }
+        ], { duration: 440, delay: k * 85, easing: 'cubic-bezier(.3,.8,.35,1)', fill: 'forwards' });
+      } catch (e) { f.clone.remove(); reveal(f.i); doneOne(); return; }
+      setTimeout(function () { Sound.draw(); }, k * 85 + 120);
+      a.onfinish = function () {
+        f.clone.remove(); reveal(f.i);
+        var s = document.querySelector('[data-hand-idx="' + f.i + '"]');
+        if (s && s.animate) { try { s.animate([{ transform: 'translateY(-7px) scale(1.06)' }, { transform: 'none' }], { duration: 170, easing: 'ease-out' }); } catch (e) {} }
+        doneOne();
+      };
+    });
   }
 
   // =================================================================== MATCH
@@ -973,7 +1023,10 @@
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl());
     left.appendChild(deckDispenser(HUMAN));
-    left.appendChild(handBar(false));
+    // 멀리건 중엔 아직 손패가 없음 — 빈 손패 자리만(완료 시 최종 카드가 여기로 날아 들어옴). handBar 데스크톱 빈 상태와 동일 스타일.
+    left.appendChild(el('div', { style: { position: 'relative', display: 'flex', gap: '7px', flexWrap: 'nowrap', justifyContent: 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } }, [
+      el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음'])
+    ]));
     left.appendChild(controls(false));
     main.appendChild(left);
     main.appendChild(sidePanel());
@@ -1304,7 +1357,7 @@
       // safe center: 카드가 넘칠 땐 왼쪽부터 정렬(양끝이 잘려 스크롤 못하는 문제 방지). 관성 스크롤 on.
       var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'safe center', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
-      hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
+      hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
       return row;
     }
@@ -1312,7 +1365,7 @@
     // 카드 윗부분이 잘린다. 상단 패딩으로 헤드룸을 주고 음수 마진으로 레이아웃 간격을 보정, z-index 로 위 요소 위에 그림.
     var row = el('div', { style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: hand.length > 6 ? 'flex-start' : 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } });
     if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음']));
-    hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
+    hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
     if (drawPulse) drawPulse = false;
     return row;
   }
