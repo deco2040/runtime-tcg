@@ -1443,11 +1443,29 @@
   // 데스크톱 손패: 커서를 좌/우 끝에 대고 있으면 그 방향으로 손패가 자동 스크롤(스크롤바 대신 hover 로 넘겨봄).
   // 끝에 가까울수록 빨라진다. #handrow 를 매 프레임 다시 찾으므로 재렌더(요소 교체)에도 끊기지 않는다.
   var handEdge = { raf: null, vx: 0 };
+  // 감지폭 표시용 반투명 화살표 밴드(fxLayer 위 fixed) — 한 번 만들어 재사용.
+  function handEdgeBand() {
+    var a = document.getElementById('handedge');
+    if (!a) {
+      a = el('div', { id: 'handedge', style: { position: 'fixed', zIndex: 82, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: '0', transition: 'opacity .12s ease', fontSize: '17px', color: 'rgba(255,255,255,.72)', textShadow: '0 1px 3px rgba(0,0,0,.55)' } });
+      fxLayer().appendChild(a);
+    }
+    return a;
+  }
+  function showHandEdge(r, dir, edge) { // dir<0 왼쪽 / dir>0 오른쪽
+    var a = handEdgeBand();
+    a.textContent = dir < 0 ? '◀' : '▶';
+    a.style.top = r.top + 'px'; a.style.height = r.height + 'px'; a.style.width = edge + 'px';
+    a.style.left = (dir < 0 ? r.left : r.right - edge) + 'px';
+    a.style.background = 'linear-gradient(to ' + (dir < 0 ? 'left' : 'right') + ', transparent, ' + hexa(SKIN.own, .14) + ')';
+    a.style.opacity = '1';
+  }
+  function hideHandEdge() { var a = document.getElementById('handedge'); if (a) a.style.opacity = '0'; }
   function handEdgeStep() {
     var el = document.getElementById('handrow');
     if (!el || !handEdge.vx) { handEdge.raf = null; return; }
     var max = el.scrollWidth - el.clientWidth;
-    if (max <= 0) { handEdge.raf = null; handEdge.vx = 0; return; }
+    if (max <= 0) { handEdge.raf = null; handEdge.vx = 0; hideHandEdge(); return; }
     var nl = el.scrollLeft + handEdge.vx;
     if (nl < 0) nl = 0; else if (nl > max) nl = max;
     el.scrollLeft = nl; handScroll = nl;
@@ -1455,17 +1473,18 @@
   }
   function handEdgeMove(e) {
     var el = e.currentTarget, max = el.scrollWidth - el.clientWidth;
-    if (max <= 0) { handEdge.vx = 0; return; } // 손패가 넘치지 않으면 스크롤 불필요
+    if (max <= 0) { handEdge.vx = 0; hideHandEdge(); return; } // 손패가 넘치지 않으면 스크롤 불필요
     var r = el.getBoundingClientRect();
     var EDGE = Math.min(90, r.width * 0.16); // 좌/우 끝 감지 폭(px)
-    var MAXV = 20;                            // 프레임당 최대 이동(px)
+    var MAXV = 8;                             // 프레임당 최대 이동(px) — 부드럽게
     var dL = e.clientX - r.left, dR = r.right - e.clientX, vx = 0;
-    if (dL < EDGE) vx = -MAXV * (1 - Math.max(0, dL) / EDGE);
-    else if (dR < EDGE) vx = MAXV * (1 - Math.max(0, dR) / EDGE);
+    if (dL < EDGE) { vx = -MAXV * (1 - Math.max(0, dL) / EDGE); showHandEdge(r, -1, EDGE); }
+    else if (dR < EDGE) { vx = MAXV * (1 - Math.max(0, dR) / EDGE); showHandEdge(r, 1, EDGE); }
+    else hideHandEdge();
     handEdge.vx = vx;
     if (vx && !handEdge.raf) handEdge.raf = RAF(handEdgeStep);
   }
-  function handEdgeStop() { handEdge.vx = 0; }
+  function handEdgeStop() { handEdge.vx = 0; hideHandEdge(); }
   function handBar(meTurn) {
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
