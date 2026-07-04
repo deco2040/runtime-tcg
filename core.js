@@ -1440,6 +1440,32 @@
   }
 
   // ---- hand
+  // 데스크톱 손패: 커서를 좌/우 끝에 대고 있으면 그 방향으로 손패가 자동 스크롤(스크롤바 대신 hover 로 넘겨봄).
+  // 끝에 가까울수록 빨라진다. #handrow 를 매 프레임 다시 찾으므로 재렌더(요소 교체)에도 끊기지 않는다.
+  var handEdge = { raf: null, vx: 0 };
+  function handEdgeStep() {
+    var el = document.getElementById('handrow');
+    if (!el || !handEdge.vx) { handEdge.raf = null; return; }
+    var max = el.scrollWidth - el.clientWidth;
+    if (max <= 0) { handEdge.raf = null; handEdge.vx = 0; return; }
+    var nl = el.scrollLeft + handEdge.vx;
+    if (nl < 0) nl = 0; else if (nl > max) nl = max;
+    el.scrollLeft = nl; handScroll = nl;
+    handEdge.raf = RAF(handEdgeStep);
+  }
+  function handEdgeMove(e) {
+    var el = e.currentTarget, max = el.scrollWidth - el.clientWidth;
+    if (max <= 0) { handEdge.vx = 0; return; } // 손패가 넘치지 않으면 스크롤 불필요
+    var r = el.getBoundingClientRect();
+    var EDGE = Math.min(90, r.width * 0.16); // 좌/우 끝 감지 폭(px)
+    var MAXV = 20;                            // 프레임당 최대 이동(px)
+    var dL = e.clientX - r.left, dR = r.right - e.clientX, vx = 0;
+    if (dL < EDGE) vx = -MAXV * (1 - Math.max(0, dL) / EDGE);
+    else if (dR < EDGE) vx = MAXV * (1 - Math.max(0, dR) / EDGE);
+    handEdge.vx = vx;
+    if (vx && !handEdge.raf) handEdge.raf = RAF(handEdgeStep);
+  }
+  function handEdgeStop() { handEdge.vx = 0; }
   function handBar(meTurn) {
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
@@ -1453,7 +1479,7 @@
     }
     // 가로 스크롤 컨테이너는 세로도 클리핑되므로(overflowX:auto → overflowY 강제 auto), 호버 시 떠오르는
     // 카드 윗부분이 잘린다. 상단 패딩으로 헤드룸을 주고 음수 마진으로 레이아웃 간격을 보정, z-index 로 위 요소 위에 그림.
-    var row = el('div', { style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: hand.length > 6 ? 'flex-start' : 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } });
+    var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: hand.length > 6 ? 'flex-start' : 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } });
     if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음']));
     hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
     if (drawPulse) drawPulse = false;
