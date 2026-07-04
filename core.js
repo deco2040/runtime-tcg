@@ -1310,20 +1310,43 @@
       tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', overflow: 'hidden' })
     ]);
   }
+  // 상태이상 칩 — 필드 인스턴스의 부정 상태(ATK0·봉쇄)를 뷰포트 상단에 크고 선명한 배지로.
+  // 7px 구석 텍스트로는 인지가 안 돼서(사용자 피드백) 솔리드 컬러 칩 + 흰 글씨 + 링 + 은은한 펄스로 강조.
+  function statusChip(label, bg) {
+    return el('span', { class: 'mono', style: {
+      display: 'inline-flex', alignItems: 'center', gap: '1px', flex: 'none',
+      fontSize: '8px', fontWeight: 800, letterSpacing: '.02em', lineHeight: 1.3, whiteSpace: 'nowrap',
+      color: '#fff', background: bg, padding: '1px 4px', borderRadius: '3px',
+      border: '1px solid rgba(255,255,255,.75)',
+      boxShadow: '0 1px 3px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4)',
+      animation: 'statChip 2.2s ease-in-out infinite'
+    } }, [label]);
+  }
+  function statusChips(u) {
+    var chips = [];
+    if (u.atkZero || u.atkZeroUntil > G.turnNo) chips.push(statusChip('ATK0', '#E24B4A'));   // 공격력 0
+    if (G.isBound(u)) chips.push(statusChip('🔒봉쇄', '#2456a6'));                              // 이동 불가
+    if (!chips.length) return null;
+    return el('div', { style: {
+      position: 'absolute', top: '1px', left: '50%', transform: 'translateX(-50%)', zIndex: 7,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', pointerEvents: 'none'
+    } }, chips);
+  }
   // 필드 셀 = 창(L1). 프레임=오너색 베벨 · 타이틀바=클래스색+LED(+적 빗금) · 뷰포트 · 마이크로 상태바.
   function objTile(u, key) {
     var card = CARDS[u.cardId], me = u.owner === HUMAN, cl = CLS[card.cls] || CLS.generic;
     var fr = OWNER_FRAME[u.owner];
     var own = OWNER_LED[u.owner]; // 순수 오너색(틸/마젠타) — 소유자 워시용
     var a = G.effAtk(u), hp = G.curHp(u), mx = G.effMaxHp(u);
-    var bound = G.isBound(u);
     var seld = sel && sel.type === 'board' && sel.key === key;
     var st = Object.assign({ position: 'relative', width: '96%', height: '96%', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', overflow: 'hidden', boxShadow: '2px 2px 0 rgba(0,0,0,.28)' }, raisedBev(fr[0], fr[1]));
     // 소유자 워시 — 카드 전체 면을 오너색으로 물들여 한눈에 내/적 구분. 적을 더 진하게.
     var wash = hexa(own, me ? 0.16 : 0.24);
     st.backgroundImage = 'linear-gradient(' + wash + ',' + wash + ')';
-    st.borderColor = own; // 베벨 대신 솔리드 오너색 프레임으로 대비 강화
-    if (seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px ' + SKIN.faceLo + ', 2px 2px 0 rgba(0,0,0,.28)';
+    // 오너 프레임 강화(사용자 피드백) — 3px 솔리드 오너색 + 내부 틴트 + 외곽 오너색 헤일로 링으로 내/적 구분 확대. 적은 더 진하게.
+    st.border = '3px solid ' + own;
+    st.boxShadow = 'inset 0 0 0 1px ' + hexa(own, me ? .35 : .5) + ', 0 0 0 2px ' + hexa(own, me ? .28 : .42) + ', 2px 2px 0 rgba(0,0,0,.28)';
+    if (seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px ' + SKIN.faceLo + ', 0 0 0 5px ' + hexa(own, .55) + ', 2px 2px 0 rgba(0,0,0,.28)';
     if (lungingKeys[key]) st.visibility = 'hidden';
     var myTurn = me && G.active === HUMAN && !aiThinking;
     if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
@@ -1336,20 +1359,20 @@
     // For 발동 가능(내 턴 & 남은 횟수 & 대상 가능) 여부 — 배지 색/펄스로 강조.
     var forFire = myTurn && CARDS[u.cardId].abilities.some(function (ab, idx) { return ab.kw === 'For' && G.canFireFor(u, idx) && G.forReady(u, idx); });
     var badges = el('div', { style: { display: 'flex', alignItems: 'center', gap: '2px', flex: 'none' } }, [
-      atkBadge ? el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: G.canBasicAttack(u) ? '#ffe14d' : 'rgba(255,255,255,.6)' } }, [atkBadge]) : null,
-      bound ? el('span', { style: { fontSize: '7px', lineHeight: 1 } }, ['🔒']) : null
+      atkBadge ? el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: G.canBasicAttack(u) ? '#ffe14d' : 'rgba(255,255,255,.6)' } }, [atkBadge]) : null
+      // 봉쇄(🔒)는 뷰포트 상단 상태이상 칩(statusChips)으로 크게 표시 — 타이틀바 중복 배지 제거.
     ]);
     // 필드 For 잔여 횟수 = 뷰포트 좌상단 코너 배지(눈에 띄게). 발동가능=녹색+펄스, 남았지만 이번 턴 소진/불가=중립.
     var forBadge = forN ? el('span', { class: 'mono', title: 'For 함수 잔여 ' + forN + '회' + (forFire ? ' · 지금 발동 가능' : ''), style: { position: 'absolute', top: '1px', left: '1px', zIndex: 6, fontSize: '10px', fontWeight: 700, lineHeight: 1, color: '#fff', background: forFire ? '#3c8a66' : 'rgba(29,29,36,.82)', border: '1px solid ' + (forFire ? '#c4ea9f' : 'rgba(255,255,255,.4)'), borderRadius: '3px', padding: '1px 3px', boxShadow: forFire ? '0 0 0 1px rgba(0,0,0,.35), 0 0 7px rgba(60,138,102,.85)' : '0 1px 2px rgba(0,0,0,.4)', animation: forFire ? 'readyPulse 1.5s ease-in-out infinite' : 'none' } }, ['⟳' + forN]) : null;
     return el('div', { style: st }, [
       // 타이틀바(클래스색) — LED(오너) + 이름(축소) + 배지. 적 = 빗금(비활성 창).
       winTitlebar(card, { led: u.owner, ledPx: 9, icon: false, nameFs: 7, hatch: !me, pad: '2px 3px', gap: 2, right: badges }),
-      // 뷰포트 — 셀을 채우는 일러스트(글리프). ATK0 오버레이. 오너색 옅은 워시로 소유자 강조.
+      // 뷰포트 — 셀을 채우는 일러스트(글리프). 상태이상 칩(상단) · For 배지(좌상단). 오너색 옅은 워시로 소유자 강조.
       el('div', { style: Object.assign({ flex: 1, minHeight: '12px', margin: '2px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(own, me ? 0.14 : 0.2) + ',' + hexa(own, me ? 0.14 : 0.2) + ')', overflow: 'hidden' }, sunkenBev()) }, [
         el('span', { style: { fontSize: 'clamp(12px,2.2vw,22px)', lineHeight: 1, color: cl } }, [GLY[card.cls]]),
         artLayer(card),
         forBadge,
-        u.atkZero ? el('span', { class: 'mono', style: { position: 'absolute', bottom: '0', right: '2px', fontSize: '7px', color: '#E24B4A', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,.6)' } }, ['ATK0']) : null
+        statusChips(u)
       ]),
       // 마이크로 상태바 — ATK 필드 | HP 뉴트럴 미터
       statusStrip(a, hp, mx, { atkW: 26, fs: 9, icoPx: 8, meterH: 5, margin: '0 2px 2px', buffed: a > (card.atk || 0) })
