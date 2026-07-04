@@ -139,6 +139,7 @@
     // self While auras
     if (u.cardId === 'Race') { if (this.adj(u).some(function (x) { return x.owner === u.owner && x.uid !== u.uid && cardCls(x) === 'thread'; })) a += 3; }
     if (u.cardId === 'Overflow') { a += 2 * this.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }).length; }
+    if (u.cardId === 'Cannon') { a += 2 * this.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'memory'; }).length; }
     if (u.cardId === 'Profiler') { a += this.unitsInShape(u, square, 1).filter(function (x) { return x.owner !== u.owner && x.type === 'object'; }).length; }
     // neighbor-granted auras
     var hive = this.hivemindActive(u.owner) && cardCls(u) === 'thread';
@@ -947,14 +948,14 @@
     Fork: 'x1', Daemon: 'x1', Worker: 's1', Interrupt: 'x1', Overflow: 'x1', Race: 'x1', Burst: 's2', Signal: 'x1', Panic: 'x1', Exec: 's1',
     Spike: 'lf2', Trap: 'x1', Cursor: 'lf2', Surge: 's1',
     Kernel: 'allyAll', Compile: 'allyAll', Mainframe: 'allyAll', Hivemind: 'allyAll',
-    Cache: 'x1', Heap: 'x1', Stack: 'x1', Sentinel: 'x1', Const: 'x1', Watchdog: 'lfEnd', Sweeper: 's2', Persist: 'allyAll',
+    Cache: 'x1', Heap: 'x1', Stack: 'x1', Sentinel: 'x1', Const: 'x1', Watchdog: 'lfEnd', Sweeper: 's2', Persist: 'allyAll', Cannon: 'lfEnd', Overrun: 'self',
     Mutex: 'self', Buffer: 'self', Barrier: 'self', Page: 'self', Lock: 'enemy1', Register: 'enemy1', Pin: 'enemy1', Singleton: 'global', Bedrock: 'self',
     Goto: 'lf2', Hook: 's1', Snipe: 'd2', Trace: 's1', Callback: 's1', Vector: 'lf3', Probe: 's2', Jump: 'move', Async: 'move',
     Pipe: 'self', Proxy: 'self', Lambda: 'self', Singularity: 'self', Conduit: 'self', Inject: 'enemy1', Reroute: 'enemy1', Patch: 'ally1',
     Echo: 'x1', Token: 'x1', Bit: 'x1', Flag: 'x1', Merge: 'x1', Delete: 'd2', Loop: 'x1', Stub: 'x1', Ping: 's2',
     Cast: 'enemy1', Bool: 'ally1', Overlord: 'global', Polymorph: 'self', Swap: 'move',
     'boost()': 'ally1', 'overclock()': 'allyAll', 'crash()': 's2', 'strike()': 'bf3', 'spawn()': 'self', 'burst()': 's2', 'fork()': 'ally1', 'rush()': 'move', 'amplify()': 'allyAll',
-    'free()': 'bs2', 'lock()': 's2', 'restore()': 'ally1', 'barrier()': 'self', 'purge()': 's2', 'reflect()': 'self', 'compact()': 'allyAll', 'wall()': 'self', 'freeze()': 's2', 'fortify()': 'allyAll',
+    'free()': 'bs2', 'lock()': 's2', 'restore()': 'ally1', 'barrier()': 'self', 'purge()': 's2', 'reflect()': 'self', 'compact()': 'allyAll', 'wall()': 'self', 'freeze()': 's2', 'fortify()': 'allyAll', 'segfault()': 'self',
     'memcpy()': 's2', 'goto()': 'move', 'snipe()': 'bf3', 'swap()': 'move', 'inject()': 's2', 'pull()': 's2', 'push()': 's2', 'chain()': 's2', 'proxy()': 'self', 'trace()': 'move',
     'kill()': 's2', 'ping()': 's2', 'sync()': 'ally1', 'flush()': 'ax1', 'shift()': 'move', 'drop()': 's2', 'assert()': 's2', 'throw()': 's2', 'wait()': 's2', 'cast()': 'ally1', 'catch()': 'self', 'bind()': 's2', 'echo()': 'far', 'patch()': 'ally1', 'clear()': 's2', 'exit()': 'global', 'malloc()': 'self', 'grep()': 'self', 'yield()': 'self', 'copy()': 'self'
   };

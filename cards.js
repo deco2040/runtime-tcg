@@ -242,5 +242,18 @@
   def({ id: 'siphon()', cls: 'memory', kind: 'pointer', need: 'enemy', text: '적 1명 4 피해 + 내 본체 4 회복', cast: function (G, p, tk) { var u = G.board[tk]; if (u) { G.deal(u, 4, { attacker: { owner: p } }); G.healInst(G.body(p), 4); } } });
   def({ id: 'glitch()', cls: 'process', kind: 'pointer', need: 'enemy', text: '적 1명에게 4 피해 후 적 진영 쪽으로 「밀어내기」 (뒤칸이 막혔으면 피해만)', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; G.deal(u, 4, { attacker: { owner: p } }); if (G.board[tk]) G.pushAway(u, p); } });
   def({ id: 'mend()', cls: 'generic', kind: 'pointer', need: 'allyOrBody', text: '아군/본체 체력 +5 회복', cast: function (G, p, tk) { var u = tk ? G.board[tk] : (woundedAlly(G, p) || G.body(p)); if (u) G.healInst(u, 5); } });
+
+  // ---------------- content pack v3 (memory 후반 공성 — 요새 교착 해소용 피니셔)
+  // 셋 다 후반 게이트: 초반 수비력은 그대로 두고, 축적된 요새를 공격으로 전환한다.
+  // Cannon: 요새가 클수록 강해지는 공성포. 공격문은 Watchdog 원본(앞직선끝·벽 관통, 없으면 본체)을 재사용.
+  def({ id: 'Cannon', cls: 'memory', kind: 'object', atk: 2, hp: 11, require: { type: 'turnCount', n: 6 },
+    text: 'require 내 턴 6회+ 진행 · While 「옆칸」 memory 1장당 공격력 +2 · For(1) 「앞직선끝·첫」 적(벽 너머)/본체에 공격력만큼 피해',
+    abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, ROWS, true); if (t) G.deal(t, G.effAtk(u), { attacker: u }); else { var b = G.enemyBody(u.owner); if (inLineToBody(G, u)) G.deal(b, G.effAtk(u), { attacker: u }); } } }] });
+  // Overrun: 요새가 3+ 세워지면 소환 즉시 적 본체를 벽 무시로 강타(축적 규모에 비례).
+  def({ id: 'Overrun', cls: 'memory', kind: 'object', atk: 4, hp: 9, require: { type: 'classOnBoard', cls: 'memory', n: 3 },
+    text: 'require 내 memory 3개+ 필드에 존재 · Once 선언 시 적 본체에 (내 memory 수 ×2) 피해',
+    abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { var n = G.allyObjects(u.owner).filter(function (x) { return cardCls(x) === 'memory'; }).length; G.deal(G.enemyBody(u.owner), n * 2, { attacker: u }); } }] });
+  // segfault(): 후반 확정 피니셔. 벽을 무시하고 적 본체를 직접 8 강타.
+  def({ id: 'segfault()', cls: 'memory', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 7 }, text: '적 본체 8 피해', cast: function (G, p) { G.deal(G.enemyBody(p), 8, { attacker: { owner: p } }); } });
   };
 })();
