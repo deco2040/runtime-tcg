@@ -70,7 +70,8 @@
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE']),
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderLobby) UI.renderLobby(); } }, ['🌐 LOBBY']),
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP'])
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { window.open('cards.html', '_blank', 'noopener'); } }, ['📇 도감'])
     ]);
     // 💬 DISCORD — 커뮤니티 서버 초대. config.js 의 RT_DISCORD.invite 가 실제 링크일 때만 노출(미설정 시 숨김).
     var dc = window.RT_DISCORD && window.RT_DISCORD.invite;
