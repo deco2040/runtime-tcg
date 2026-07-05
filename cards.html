@@ -133,6 +133,17 @@
   .search input::placeholder{color:var(--dim)}
   .search input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
+  /* data download */
+  .dlnote{font-size:11px;color:var(--dim);letter-spacing:.03em;margin:2px 2px 14px}
+  .dlrow{display:flex;flex-wrap:wrap;gap:10px}
+  .dlbtn{font:inherit;font-size:12.5px;letter-spacing:.03em;padding:11px 16px;border-radius:9px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;min-height:44px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--ink)}
+  .dlbtn .ic{font-size:15px;color:var(--accent)}
+  .dlbtn:hover{border-color:var(--accent);color:var(--hi)}
+  .dlbtn:active{transform:translateY(1px)}
+  .dlbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
   .grp{margin-bottom:26px}
   .grphd{display:flex;align-items:center;gap:9px;margin:0 0 11px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
   .grphd .gly{font-size:15px}
@@ -165,6 +176,16 @@
       </div>
 
       <nav class="nav" id="nav"></nav>
+
+      <section class="sec" id="download-sec">
+        <div class="seclabel"><h2>▸ 데이터 다운로드 · DOWNLOAD</h2><em>최신 데이터를 JSON 파일로</em></div>
+        <div class="dlnote">게임 룰 · 카드 풀 · 견본 덱을 각각 JSON 파일로 내려받습니다. 모바일에서도 바로 저장할 수 있어요.</div>
+        <div class="dlrow">
+          <button class="dlbtn" id="dl-rules" type="button"><span class="ic">⬇</span>게임 룰 (JSON)</button>
+          <button class="dlbtn" id="dl-cards" type="button"><span class="ic">⬇</span>카드 풀 (JSON)</button>
+          <button class="dlbtn" id="dl-decks" type="button"><span class="ic">⬇</span>견본 덱 (JSON)</button>
+        </div>
+      </section>
 
       <section class="sec" id="decks-sec">
         <div class="seclabel"><h2>▸ 견본 덱 · SAMPLE DECKS</h2><em>각 30장 · 카드를 눌러 접기/펼치기</em></div>
@@ -339,6 +360,80 @@
   ];
   var META={};C.forEach(function(r){META[r[0]]={id:r[0],cls:r[1],kind:r[2],atk:r[3],hp:r[4],tx:r[5],op:!!r[6],req:r[7]||""};});
 
+  // ---------- 게임 룰 (다운로드용) ----------
+  // 원문 출처 = core.js 의 BASICS(기본 룰) + GLOSS(능력·사거리 키워드) + engine.js 상수.
+  //   도감은 core.js 를 로드하지 않으므로 최신 룰 텍스트를 여기 그대로 이식한다.
+  //   ⚠ core.js 의 BASICS/GLOSS 가 바뀌면 이 블록도 함께 갱신할 것(단일 출처 아님).
+  var RULES={
+    version:"seed rules v6",
+    core:{bodyHp:40,board:{cols:5,rows:4},actionsPerTurn:2,handCap:10,turnCap:40,fatiguePerCard:3,
+      classCycle:["thread","process","memory"]},
+    basics:[
+      {t:"승리 조건",d:"상대 본체(HP 40)를 0 이하로 만들면 승리. 내 본체가 0 이하면 패배. 본체도 보드 칸이라 인접·사거리에 포함된다."},
+      {t:"턴 진행",d:"두 플레이어가 번갈아 턴을 가진다. 내 턴에 손패에서 카드를 내거나(선언) 유닛을 움직이고 공격한 뒤, [턴 종료]로 넘긴다. 턴 시작 때 카드 1장을 뽑는다."},
+      {t:"액션 2개 / 턴",d:"내 턴마다 액션 2개(상단 「액션」 핍). 선언(카드 배치)·이동·포인터 시전은 각각 액션 1을 소비한다. 액션이 0이면 더 이상 소비 행동을 할 수 없다."},
+      {t:"무료 행동 (액션 소비 X)",d:"기본 공격, For(N) 능동 능력, When·If·Once 트리거는 액션을 쓰지 않는다. 그래서 액션이 0이어도 기본 공격은 가능하다."},
+      {t:"기본 공격",d:"모든 유닛은 옆칸(상하좌우 1칸)의 적을 공격할 수 있다. 무료이며 유닛당 턴 1회. 자신의 공격력(ATK)만큼 피해를 준다. 보드의 빨강 ⚔ 칸이 닿는 범위다."},
+      {t:"인스턴스 vs 포인터",d:"인스턴스(유닛)는 필드에 남아 ATK/HP를 가지고 매 턴 싸운다. 포인터는 1회성 주문 — 시전에 액션 1을 쓰고 즉시 효과만 내고 사라진다."},
+      {t:"함수(능력) 사거리",d:"유닛의 함수/능력이 닿는 칸은 카드마다 다르다(보드의 노랑 칸). 아래 「사거리 키워드」의 모양을 참고. 필드 카드에 커서를 올리면 보드에 범위가 표시된다."},
+      {t:"피해 · 파괴",d:"HP가 0 이하가 되면 파괴된다. 피해는 턴을 넘겨 누적되며, 회복 효과로만 줄어든다."}
+    ],
+    classes:[
+      {cls:"thread",t:"thread · 공격형",d:"공高체低 글래스캐논. 집단 ATK 시너지·근접 압박. process에 강하고 memory에 약함."},
+      {cls:"memory",t:"memory · 방어형",d:"공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함."},
+      {cls:"process",t:"process · 유틸형",d:"변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함."},
+      {cls:"generic",t:"generic · 무클래스",d:"어느 덱에나 넣는 독립형. 단일 클래스 판정을 깨지 않는다."}
+    ],
+    abilityKeywords:[
+      {kw:"If",t:"If · 선택 발동",d:"조건이 맞을 때, 내가 원하면 골라서 발동(횟수 제한 없음)."},
+      {kw:"When",t:"When · 자동 발동",d:"조건이 맞을 때마다 강제로 자동 발동."},
+      {kw:"Once",t:"Once · 1회 발동",d:"조건이 맞으면 게임 중 딱 한 번만 발동."},
+      {kw:"While",t:"While · 지속 효과",d:"조건이 유지되는 동안 계속 적용되는 상시 효과."},
+      {kw:"For",t:"For(N) · 능동·턴1회",d:"내 턴마다 1번 직접 발동, 게임 전체에서 총 N번까지. 발동은 무료(액션 소비 X)."}
+    ],
+    rangeKeywords:[
+      {kw:"옆칸",t:"옆칸 = 기본 공격 범위",d:"상하좌우로 붙은 4칸(cross1). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸."},
+      {kw:"주위",t:"주위",d:"대각선까지 포함해 둘러싼 8칸 = square(1)."},
+      {kw:"앞 직선",t:"앞 직선",d:"적 본체 방향으로 뻗는 직선 사거리."},
+      {kw:"대각선",t:"대각선",d:"네 대각 방향으로 뻗는 사거리 = diagonal(N)."},
+      {kw:"테두리",t:"테두리",d:"특정 거리의 둘레 칸 = ring(N)."},
+      {kw:"관통",t:"관통(벽 너머)",d:"중간의 벽·유닛을 무시하고 직선상의 대상을 타격."}
+    ]
+  };
+
+  // ---------- 다운로드 (JSON) ----------
+  // 앵커 방식(dev.html 패턴 이식). Android=즉시 저장, iOS Safari=새 탭 미리보기(공유→파일에 저장).
+  function downloadBlob(blob,name){
+    var u=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(u);},4000);
+  }
+  function downloadJSON(obj,name){
+    downloadBlob(new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}),name);
+  }
+  function buildRulesJSON(){
+    var r={};for(var k in RULES){if(RULES.hasOwnProperty(k))r[k]=RULES[k];}
+    r.generatedFrom="core.js BASICS/GLOSS · engine.js";
+    return r;
+  }
+  function buildCardsJSON(){
+    return {version:"seed cards v6",count:C.length,cards:C.map(function(r){
+      return {id:r[0],cls:r[1],kind:r[2]==="f"?"function":"object",atk:r[3],hp:r[4],
+        text:r[5],op:!!r[6],require:r[7]||""};
+    })};
+  }
+  function buildDecksJSON(){
+    var RDx=window.RT_DECKS||{},out=[];
+    ORDER.forEach(function(k){
+      var d=RDx[k];if(!d)return;
+      var counts={},seq=[];
+      d.list.forEach(function(id){if(counts[id]==null){counts[id]=0;seq.push(id);}counts[id]++;});
+      out.push({key:k,name:d.name||k,cls:d.cls||"generic",total:d.list.length,
+        cards:seq.map(function(id){return {id:id,count:counts[id]};})});
+    });
+    return {version:"seed decks v6",count:out.length,decks:out};
+  }
+
   var ART=window.RT_ART||{};
   document.getElementById("artcount").textContent=Object.keys(ART).length;
   function art(id){var a=ART[id];if(!a)return null;if(typeof a==="string")return{src:a,pos:"50% 50%",fit:"cover"};return{src:a.src,pos:a.pos||"50% 50%",fit:a.fit||"cover"};}
@@ -389,7 +484,13 @@
   });
   document.getElementById("decks").innerHTML=decksHtml;
   document.getElementById("nav").innerHTML=
+    '<a class="wide" href="#download-sec">▸ 데이터 다운로드</a>'+
     navHtml+'<a class="wide" href="#catalog-sec">▸ 카드 도감 전체</a>';
+
+  // ---------- 다운로드 버튼 배선 ----------
+  document.getElementById("dl-rules").addEventListener("click",function(){downloadJSON(buildRulesJSON(),"runtime-tcg-rules.json");});
+  document.getElementById("dl-cards").addEventListener("click",function(){downloadJSON(buildCardsJSON(),"runtime-tcg-cards.json");});
+  document.getElementById("dl-decks").addEventListener("click",function(){downloadJSON(buildDecksJSON(),"runtime-tcg-decks.json");});
 
   // ---------- 카드 도감 ----------
   var totCards=C.length,fnCount=C.filter(function(r){return r[2]==="f";}).length;
