@@ -448,8 +448,9 @@
     // 선후공 보정(rules v12) — config 기반(_cfg). 기본 선공 5·후공 5.
     this.draw(this.firstPlayer, this._cfg.openFirst);
     this.draw(1 - this.firstPlayer, this._cfg.openSecond);
-    this.note('대국 시작 — 선공 P' + this.firstPlayer + ' (선공 ' + this._cfg.openFirst + ' / 후공 ' + this._cfg.openSecond + ')');
+    // (튜닝 knob, 기본 off) 후공 본체 HP 가산 — 선후공 미세 보정용. ⚠ 요새/방어덱을 비대칭 강화하므로 기본 미사용.
     if (this._cfg.secondBodyBonus) { var sb = this.board[bodyKey(1 - this.firstPlayer)]; if (sb) sb.baseHp += this._cfg.secondBodyBonus; }
+    this.note('대국 시작 — 선공 P' + this.firstPlayer + ' (선공 ' + this._cfg.openFirst + ' / 후공 ' + this._cfg.openSecond + ')');
   };
   Game.prototype.draw = function (player, n) {
     n = n || 1; var pl = this.players[player];
@@ -939,6 +940,7 @@
       for (var i = 0; i < CARDS[u.cardId].abilities.length; i++) {
         var _ab = CARDS[u.cardId].abilities[i];
         if (_ab.kw !== 'For' && _ab.kw !== 'If') continue;
+        // If(선택형): AI는 조건이 맞고 이득일 때만 발동 — aiWant 훅이 있으면 그 판단을 따른다.
         if (_ab.kw === 'If' && _ab.aiWant && !_ab.aiWant(g, u)) continue;
         var guard = 0;
         while (g.canFireFor(u, i) && g.forReady(u, i) && guard++ < 5 && g.winner === undefined) {
@@ -1131,7 +1133,7 @@
     if (pr) return { kind: 'grid', cells: squareRel(pr.n), originBottom: true, code: 'cast', castText: pr.text };
     var code = RANGE[id];
     if (!code) { var c = CARDS[id]; if (c && c.kind === 'pointer') code = (c.need === 'enemy' || c.need === 'cell') ? 'enemy1' : (/^ally|twoAlly/.test(c.need || '') ? 'ally1' : 'self'); else code = 'self'; }
-    var labels = { ally1: '아군 1', enemy1: '적 1', allyAll: '클래스 전체', global: '적 전체', far: '원거리 1칸', move: '이동·위치' };
+    var labels = { ally1: '아군 1', enemy1: '적 1', allyAll: '필드 전체', global: '적 전체', far: '원거리 1칸', move: '이동·위치' };
     if (labels[code]) return { kind: 'label', text: labels[code], code: code };
     // forward-line shapes read clearest projecting up from the bottom of the mini-grid
     return { kind: 'grid', cells: relCells(code), originBottom: code.charAt(0) === 'b' || code.indexOf('lf') === 0, code: code };

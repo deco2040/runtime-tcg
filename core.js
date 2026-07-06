@@ -204,7 +204,12 @@
   function ledDot(owner, sz) { return el('span', { style: { width: (sz || 8) + 'px', height: (sz || 8) + 'px', flex: 'none', borderRadius: '50%', background: OWNER_LED[owner], border: '1px solid rgba(0,0,0,.45)', boxShadow: '0 0 0 1px rgba(255,255,255,.6), 0 0 4px ' + hexa(OWNER_LED[owner], .9) } }); }
   // 앱아이콘 = 계열(무채색 글리프). 타이틀바 좌측.
   function appIcon(card, sz) { sz = sz || 13; return el('span', { title: '계열 ' + SERIES_LABEL[deriveSeries(card)], style: { width: sz + 'px', height: sz + 'px', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.28)' } }, [seriesIcon(card, Math.round(sz * 0.72), '#fff')]); }
-  // 타이틀바 = 클래스색 배경 + [LED?][앱아이콘?][이름][배지?][우측컨트롤?]. 적=빗금(비활성 창).
+  // OP(덱당 N=유니크) 표식 = 타이틀바 우상단 입체 금색 젬 칩 ◆ (⚔옆칸 자리 활용). 솔리드 금색이라 어떤 클래스색 위에서도 확실히 튄다.
+  function opBadge(px) {
+    px = px || 14;
+    return el('span', { class: 'mono', title: '덱당 1장 — 유니크(제한) 카드', style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: px + 'px', height: px + 'px', color: '#3a2600', fontSize: Math.round(px * 0.68) + 'px', fontWeight: 900, lineHeight: 1, background: 'linear-gradient(180deg,#ffe7a0,' + SKIN.gold + ' 58%,#b9820f)', border: '1px solid rgba(0,0,0,.5)', borderRadius: '2px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.55)' } }, ['◆']);
+  }
+  // 타이틀바 = 클래스색 배경 + [LED?][앱아이콘?][이름][배지?][우측컨트롤 · OP젬?]. 적=빗금(비활성 창).
   function winTitlebar(card, o) {
     o = o || {};
     var bg = CLS[card.cls] || CLS.generic, kids = [];
@@ -216,31 +221,94 @@
     kids.push(el('span', { class: 'mono', style: nameSt }, [o.name != null ? o.name : card.name]));
     if (o.badge) kids.push(o.badge);
     if (o.right) kids.push(o.right);
+    if (card.deckLimit && o.opBadge !== false) kids.push(opBadge(Math.round((o.nameFs || 9) + 5)));   // 우상단 OP 젬 칩
     var st = { display: 'flex', alignItems: 'center', gap: (o.gap || 4) + 'px', padding: (o.pad || '3px 5px'), background: bg, color: '#fff', flex: 'none' };
     if (o.hatch) st.backgroundImage = 'repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(0,0,0,.22) 2px,rgba(0,0,0,.22) 3px)';
     return el('div', { style: st }, kids);
   }
   // 사거리 = 타이틀바 우측 컨트롤(미니 그리드). 가운데=자기, 채운 칸=도달.
-  function rangeCtrl(spec, d) {
-    d = d || 3;
-    if (spec.kind === 'label') return el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,.3)', padding: '1px 3px', whiteSpace: 'nowrap', flex: 'none' } }, [spec.text]);
+  function rangeCtrl(spec, d, o) {
+    d = d || 3; o = o || {};
+    var op = o.opaque;   // opaque=true → 불투명 다크 배킹 위에서 쓰는 고대비 팔레트(코너 위젯)
+    if (spec.kind === 'label') return el('span', { class: 'mono', style: { fontSize: (op ? 7.5 : 7) + 'px', fontWeight: 700, color: '#ffe6a8', background: op ? 'transparent' : 'rgba(0,0,0,.3)', padding: op ? '0 2px' : '1px 3px', whiteSpace: 'nowrap', flex: 'none', letterSpacing: '.02em' } }, [spec.text]);
     var set = {}; spec.cells.forEach(function (c) { set[c[0] + ',' + c[1]] = 1; });
     var oc = 3, orow = spec.originBottom ? 5 : 3;
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,' + d + 'px)', gridTemplateRows: 'repeat(5,' + d + 'px)', gap: '1px', padding: '2px', background: 'rgba(0,0,0,.3)', flex: 'none' } });
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,' + d + 'px)', gridTemplateRows: 'repeat(5,' + d + 'px)', gap: '1px', padding: op ? '0' : '2px', background: op ? 'transparent' : 'rgba(0,0,0,.3)', flex: 'none' } });
     for (var r = 1; r <= 5; r++) for (var c = 1; c <= 5; c++) {
       var dc = c - oc, dr = r - orow, cs = { width: d + 'px', height: d + 'px' };
-      if (dc === 0 && dr === 0) cs.background = '#fff';
-      else if (set[dc + ',' + dr]) cs.background = '#e8c86a';
-      else cs.background = 'rgba(255,255,255,.18)';
+      if (dc === 0 && dr === 0) cs.background = '#ffffff';                                   // 자기 칸
+      else if (set[dc + ',' + dr]) cs.background = op ? '#ffcf4d' : '#e8c86a';               // 도달 칸(밝은 금색)
+      else { cs.background = op ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.18)'; if (op) cs.boxShadow = 'inset 0 0 0 0.5px rgba(255,255,255,.18)'; }
       grid.appendChild(el('div', { style: cs }));
     }
     return grid;
   }
-  // 기본 공격 뱃지 — 모든 유닛 공통(옆칸 1칸·무료·턴1회). 빨강 = 보드 ⚔칸/텍스트 「옆칸」과 동색.
-  function basicAtkChip(compact) {
-    var g = GLOSS['옆칸'];
-    // 카드 시스템의 표준 다크칩(⚙/✕/라벨과 동일) — 클래스색 타이틀바 위에서도 항상 가독.
-    return el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,.3)', padding: '0 3px', flex: 'none', whiteSpace: 'nowrap', letterSpacing: '.02em', cursor: 'help', lineHeight: 1.5 }, onmouseenter: function (e) { showKwTip(e.currentTarget, g); }, onmouseleave: hideKwTip }, [compact ? '⚔' : '⚔옆칸']);
+  // (기본 공격 뱃지 basicAtkChip 제거 — 모든 유닛 공통이라 카드마다 표기하지 않음. 피드백 반영.)
+  // ===== 조건 · 효과 분리/통일 (이슈 4·6) =====
+  // 효과문에서 선행 메타 절(덱당 N · require … · 조건 … · XX 단일 덱)을 제거 — 이들은 리본/조건 라인으로 별도 렌더하므로
+  // 효과문엔 효과만 남긴다. 조건이 여러 절(' · ')에 걸치기도 하므로:
+  //  · 모드 키워드(Once/While/When/If/For)가 있으면(=인스턴스) 그 지점부터가 효과 → 앞의 조건 절 전부 제거.
+  //  · 모드 키워드가 없으면(=포인터, 효과가 맨문장) 선행 메타 절만 앞에서부터 제거.
+  var _META_LEAD = /^\s*(덱당|require|조건)|단일\s*덱/;   // 한글은 \b가 안 먹으므로 경계 없이 접두 매칭
+  var _MODE_LEAD = /^\s*(Once|While|When|If|For)\b/;
+  function effectOnly(text) {
+    if (!text) return text || '';
+    var parts = text.split(' · ');
+    var mi = -1;
+    for (var k = 0; k < parts.length; k++) { if (_MODE_LEAD.test(parts[k])) { mi = k; break; } }
+    if (mi > 0 && _META_LEAD.test(parts[0])) return parts.slice(mi).join(' · ');   // 인스턴스: 모드 키워드부터
+    if (mi === -1) { var i = 0; while (i < parts.length && _META_LEAD.test(parts[i])) i++; if (i > 0) return parts.slice(i).join(' · '); } // 포인터: 선행 메타 절 제거
+    return text;
+  }
+  // 발동/시전 조건 스펙 → {label,text,met}. require=인스턴스 선언 조건 · castCondition=포인터 시전 조건. 없으면 null.
+  function condSpec(card) {
+    if (!card) return null;
+    var isP = card.kind === 'pointer', cond = isP ? card.castCondition : card.require;
+    if (!cond) return null;
+    var text = (RT && RT.castCondText) ? RT.castCondText(cond) : '조건';
+    var met = true;
+    try { met = isP ? G.castConditionMet(HUMAN, card) : G.requireMet(HUMAN, card.require); } catch (e) {}
+    return { label: isP ? '시전 조건' : '선언 조건', text: text, met: met };
+  }
+  // 통일 조건 라인 — [✓/⚠][라벨칩][조건문]. 충족=중립 / 미충족=heat. require·시전조건 공용(형식 일원화).
+  function condLine(spec, opts) {
+    opts = opts || {};
+    if (!spec) return null;
+    var fs = opts.fs || 8, g = spec.label === '선언 조건' ? GLOSS['require'] : GLOSS['시전 조건'];
+    // 조건문은 여러 줄이어도 짤리지 않게 줄바꿈 허용(flex-start 정렬). 라벨칩만 굵게, 조건문 본문은 일반 굵기(피드백: 두꺼워 읽기 힘듦).
+    return el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '3px', margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
+      el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
+      el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label]),
+      el('span', { style: { minWidth: 0, flex: 1, fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+    ]);
+  }
+  // 단일 클래스 덱 전용 카드(deckRule) 표식 — 효과문에서 뗀 'XX 단일 덱' 정보를 클래스색 칩으로 별도 표시(구분용).
+  function deckRuleLabel(card) {
+    if (!card || !card.deckRule) return null;
+    var m = /^([a-z]+)Single$/.exec(card.deckRule);
+    return m ? m[1] : null;
+  }
+  function deckRuleLine(card, opts) {
+    var cls = deckRuleLabel(card); if (!cls) return null;
+    opts = opts || {};
+    var cl = CLS[cls] || CLS.generic, gly = GLY[cls] || '';
+    return el('div', { class: 'mono', title: cls + ' 단일 클래스 덱에서만 넣을 수 있는 카드', style: { display: 'flex', alignItems: 'center', margin: opts.margin || '3px 2px 0', fontSize: (opts.fs || 8) + 'px', lineHeight: 1.3 } }, [
+      el('span', { style: { flex: 'none', fontWeight: 700, color: '#fff', background: cl, padding: '0 5px', borderRadius: '2px', letterSpacing: '.02em', border: '1px solid rgba(0,0,0,.3)' } }, [gly + ' ' + cls + ' 단일 덱'])
+    ]);
+  }
+  // 사거리 그리드 = 뷰포트 우하단 코너 오버레이(이슈 5: 타이틀바 과밀 해소). 불투명 다크 박스 배킹 + 밝은 셀로
+  // 일러스트 위에서도 확실히 읽히게(피드백: 반투명이라 묻힘). 인스턴스·포인터 공통으로 붙여 일관 표시.
+  function rangeCorner(id) {
+    var spec = RT.cardRange(id); if (!spec) return null;
+    // 헷갈리는 표시는 아예 숨긴다(피드백): 함수 범위 없는 self/passive(빈 그리드=기본 공격만) · global(적 전체, 전역 지정) → 위젯 없음.
+    if (spec.code === 'self' || spec.code === 'global') return null;
+    if (spec.kind === 'grid' && (!spec.cells || !spec.cells.length)) return null;
+    return el('div', { title: '사거리', style: { position: 'absolute', right: '2px', bottom: '2px', zIndex: 5, display: 'flex', alignItems: 'center', padding: '2px 3px', background: 'rgba(12,10,6,.92)', border: '1px solid rgba(255,255,255,.4)', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0,0,0,.7)' } }, [rangeCtrl(spec, 3.2, { opaque: true })]);
+  }
+  // 유니크 카드 프레임 금색 악센트 — 상태 boxShadow 앞에 inset 링 + 내부 글로우를 덧대 항상 표시(젬과 함께 은은히 강조).
+  function goldFrame(card, shadow) {
+    if (!card || !card.deckLimit) return shadow;
+    return 'inset 0 0 0 2px ' + SKIN.gold + ', inset 0 0 7px ' + hexa(SKIN.gold, .55) + (shadow ? ', ' + shadow : '');
   }
   // 카드 일러스트 매핑(window.RT_ART = art-map.js) 조회. 값은 문자열(경로) 또는 {src,pos,fit}.
   // 라이브로 window.RT_ART 를 읽으므로 dev.html 에서 객체를 교체하면 즉시 반영된다.
@@ -261,16 +329,21 @@
     opts = opts || {};
     var cl = CLS[card.cls] || CLS.generic, g = GLY[card.cls] || GLY.generic;
     var st = Object.assign({ position: 'relative', height: hgt + 'px', margin: opts.margin || '3px 2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, overflow: 'hidden' }, sunkenBev());
-    return el('div', { style: st }, [
+    var kids = [
       el('span', { style: { fontSize: Math.round(hgt * (opts.gScale || 0.44)) + 'px', lineHeight: 1, color: cl } }, [g]),
       artLayer(card)
-    ]);
+    ];
+    if (opts.overlay) kids = kids.concat(Array.isArray(opts.overlay) ? opts.overlay : [opts.overlay]);
+    return el('div', { style: st }, kids);
   }
   // 효과문 패널(sunken). richText 키워드 내장. flex 하한(§9).
   function effectPanel(card, opts) {
     opts = opts || {};
-    var st = Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: (opts.fs || 8) + 'px', lineHeight: 1.4, padding: '3px 5px', minHeight: (opts.min != null ? opts.min : 26) + 'px', overflow: 'hidden' }, opts.flex ? { flex: 1 } : {}, sunkenBev());
-    return el('div', { style: st }, richText(card.text));
+    var fs = opts.fs || 8;
+    var st = Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: fs + 'px', lineHeight: 1.45, padding: '3px 5px', minHeight: (opts.min != null ? opts.min : 26) + 'px', overflow: 'hidden' }, opts.flex ? { flex: 1 } : {}, sunkenBev());
+    // data-fit: 렌더 후 fitHand()가 넘치면 폰트를 자동 축소(잘림 방지). opts.fit === false 면 제외.
+    var props = opts.fit === false ? { style: st } : { style: st, 'data-fit': '1', 'data-fit-fs': fs };
+    return el('div', props, richText(effectOnly(card.text)));
   }
   // HP 뉴트럴 미터 — 정수1=칸1. 채움=hpFill, 저체력(≤34%)=heat. 빈칸=트랙.
   function hpMeter(cur, max, opts) {
@@ -342,8 +415,8 @@
     '강제 이동': { t: '강제 이동', d: '효과가 대상의 의사와 무관하게 경로를 따라 옮긴다. 강제이동 트리거(Thrash)와 진입 트리거가 발동.' },
     '재배치': { t: '재배치(relocate)', d: '위치를 제거한 뒤 새 칸에 재설정. 경로가 없어 이동·진입·강제이동 트리거 전부 비발동(Wormhole).' },
     '진입 시': { t: '진입 시', d: '해당 범위 칸으로 적이 들어올 때. 자발/강제 이동 공통 발동, 재배치는 비발동.' },
-    '피격 시': { t: '피격 시', d: '출처 불문 모든 피해를 받을 때. 반사류는 가해 인스턴스가 있을 때만 반사(포인터 피해는 반사 대상 없음).' },
-    '공격받을 때': { t: '공격받을 때', d: '기본 공격을 받을 때 한정(Mutex). 능력·포인터 피해에는 비발동.' },
+    '피격 시': { t: '피격 시', d: '가해 인스턴스에게 피해를 받을 때 발동(기본 공격·능력 피해 공통). 반사·반격류는 이때 가해 인스턴스를 대상으로 한다. 포인터 등 가해 인스턴스가 없는 피해에는 비발동.' },
+    '피격 후': { t: '피격 후', d: '가해 인스턴스에게 피해를 받은 뒤 처리(피해 계산 이후). 「피격 시」와 동일 조건 — 생존/체력 판정 등에 쓰인다.' },
     '앞직선': { t: '앞직선N', d: '전방 같은 열 광선. N ∈ {숫자, 끝}. 끝=보드 끝까지.' },
     '앞 직선': { t: '앞 직선', d: '적 본체 방향으로 뻗는 직선 사거리.' },
     '대각': { t: '대각N', d: '4대각 방향으로 각 N칸 뻗는 사거리 = diagonal(N).' },
@@ -370,6 +443,8 @@
   var MODE_KW = { If: 1, When: 1, Once: 1, While: 1, For: 1 };
   // 옆칸 = 기본 공격과 같은 칸 → 텍스트에서도 빨강으로 색통일(보드 ⚔칸·기본공격 뱃지와 동색).
   var ATTACK_KW = { '옆칸': 1, '옆 칸': 1 };
+  // 피격 트리거 강조(이슈 7). 룰상 「피격 시/후」로 단일화 — 가독성을 위해 앰버칩으로 강조.
+  var DMG_TRIGGER = { '피격 시': 1, '피격 후': 1 };
   var KW_PHRASES = Object.keys(GLOSS).sort(function (a, b) { return b.length - a.length; });
   function richText(text) {
     if (!text) return [];
@@ -380,18 +455,18 @@
       for (var p = 0; p < KW_PHRASES.length; p++) { var ph = KW_PHRASES[p]; if (text.substr(i, ph.length) === ph) { m = ph; break; } }
       if (m) {
         flush();
-        var isMode = MODE_KW[m];
-        var style = isMode
-          ? { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' }
-          : ATTACK_KW[m]
-            ? { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 }
-            : { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 600 };
-        nodes.push(el('span', { style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip }, [m]));
+        var isMode = MODE_KW[m], label = m, style;
+        var chip = { fontFamily: "'Space Mono',monospace", fontSize: '9px', fontWeight: 700, color: '#fff', padding: '0 4px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
+        if (isMode) style = { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
+        else if (DMG_TRIGGER[m]) style = Object.assign({}, chip, { background: '#c8791f' });        // 피격 시/후 = 앰버칩
+        else if (ATTACK_KW[m]) style = { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 };
+        else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 600 };
+        nodes.push(el('span', { style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip }, [label]));
         i += m.length;
       } else { buf += text[i]; i++; }
     }
     flush();
-    // keep-all 래퍼: 효과문이 렌더되는 모든 곳에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
+    // keep-all 래퍼: 효과문이 렌더되는 모든 곳(손패·보드·툴팁·미리보기)에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
     return [el('span', { style: { wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
   }
 
@@ -426,10 +501,12 @@
       el('div', { style: { padding: '7px 9px' } }, [
         el('div', { class: isP ? 'mono' : 'grot', style: { fontWeight: 700, fontSize: '16px', marginBottom: '5px' } }, [card.name]),
         isP ? null : el('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px' } }, [statBar('ATK', atk, ATK_MAX, SKIN.heat, unit ? card.atk : null), statBar('HP', hp, HP_MAX, SKIN.own)]),
-        el('div', { style: { fontSize: '11px', color: SKIN.txt, lineHeight: 1.5, marginBottom: '6px' } }, richText(card.text)),
+        el('div', { style: { fontSize: '11px', color: SKIN.txt, lineHeight: 1.5, marginBottom: '6px' } }, richText(effectOnly(card.text))),
         (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.own, fontWeight: 700, marginBottom: '5px' } }, ['시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
-        (isP && card.castCondition) ? el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, fontWeight: 700, marginBottom: '5px' } }, ['⚠ 조건 · ' + RT.castCondText(card.castCondition)]) : null,
+        condLine(condSpec(card), { fs: 9, margin: '0 0 5px' }),
+        deckRuleLine(card, { fs: 9, margin: '0 0 5px' }),
         isP ? null : el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, fontWeight: 700, marginBottom: '5px' } }, ['⚔ 기본 공격 · 옆칸 1칸']),
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ 덱당 ' + card.deckLimit + '장 — 유니크']) : null,
         rangeGridEl(RT.cardRange(id), cl)
       ])
     ]);
@@ -601,10 +678,10 @@
     var cl = CLS[card.cls] || CLS.generic, isP = card.kind === 'pointer';
     var lbl = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '15%', transform: 'translateX(-50%)', zIndex: 111, fontWeight: 700, fontSize: '13px', color: '#fff', background: owner === HUMAN ? SKIN.own : SKIN.enemy, padding: '4px 14px', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.35)', pointerEvents: 'none', whiteSpace: 'nowrap' } }, [(owner === HUMAN ? '나' : '상대') + ' · ' + (isP ? '포인터 시전' : '카드') + ' — ' + card.name]);
     var wrap = el('div', { style: { position: 'fixed', left: '50%', top: '34%', transform: 'translate(-50%,-50%)', zIndex: 111, width: '216px', pointerEvents: 'none' } }, [
-      el('div', { style: Object.assign({ background: SKIN.face, padding: '3px', boxShadow: '0 16px 34px rgba(0,0,0,.55)' }, raisedBev()) }, [
+      el('div', { style: Object.assign({ position: 'relative', background: SKIN.face, padding: '3px', boxShadow: '0 16px 34px rgba(0,0,0,.55)' }, raisedBev()) }, [
         winTitlebar(card, { iconPx: 15, nameFs: 12, hatch: owner !== HUMAN }),
         viewportBox(card, 92, { gScale: 0.5 }),
-        el('div', { style: Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, padding: '6px 7px', fontSize: '10.5px', lineHeight: 1.4 }, sunkenBev()) }, richText(card.text))
+        el('div', { style: Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, padding: '6px 7px', fontSize: '10.5px', lineHeight: 1.45 }, sunkenBev()) }, richText(effectOnly(card.text)))
       ])
     ]);
     var L = fxLayer(); L.appendChild(lbl); L.appendChild(wrap);
@@ -684,6 +761,7 @@
     if (COMPACT) { renderMulliganCompact(wrap); }
     else { renderMulliganDesktop(wrap); }
 
+    fitHand();   // 멀리건 카드 효과문 잘림 방지
     // 배분 전/재배분 대상 카드는 숨겨 두고 애니메이션으로 등장시킨다.
     mullHideIdx.forEach(function (i) { var n = document.querySelector('[data-mull-idx="' + i + '"]'); if (n) n.style.opacity = '0'; });
 
@@ -903,6 +981,17 @@
   }
 
   // =================================================================== MATCH
+  // 렌더 후 보정: 효과문([data-fit])이 고정 높이 패널을 넘치면(=잘림) 폰트를 단계적으로 축소해 전문이 보이게 한다.
+  // 카드 크기는 통일(이슈 3) 유지하면서, 유독 긴 소수 카드만 폰트를 줄여 '잘림 없음'을 보장(사용자 요구).
+  function fitHand() {
+    try {
+      var nodes = app.querySelectorAll('[data-fit]');
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i], fs = parseFloat(n.getAttribute('data-fit-fs')) || parseFloat(n.style.fontSize) || 9.5, guard = 0;
+        while (n.scrollHeight > n.clientHeight + 1 && fs > 6.5 && guard++ < 14) { fs -= 0.5; n.style.fontSize = fs + 'px'; }
+      }
+    } catch (e) {}
+  }
   function render() {
     // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
     // 스크롤이 왼쪽으로 튀지 않게 — 저장값에 의존하지 않고 매번 DOM 에서 직접 읽어 정확).
@@ -934,8 +1023,8 @@
       wrap.appendChild(titlebar(tbText));
       if (tutorial) wrap.appendChild(tutBanner());
 
-      var main = el('div', { style: { display: 'flex', gap: '10px', padding: 'clamp(3px,0.5vw,6px)', alignItems: 'stretch', flexWrap: 'wrap' } });
-      var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '4px' } });
+      var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap' } });
+      var left = el('div', { style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
 
       left.appendChild(deckDispenser(AI));
       left.appendChild(boardEl(false, deskBoardMaxW()));
@@ -946,6 +1035,10 @@
       main.appendChild(sidePanel());
       wrap.appendChild(main);
       app.appendChild(wrap);
+      // 데스크톱: 재렌더(카드 선택/클릭 등) 시 손패 가로 스크롤 위치 복원 — 클릭해도 맨 앞으로 튀지 않게.
+      // render() 진입 때 #handrow 에서 포착한 handScroll 을 그대로 재적용(동기 + 다음 프레임 보정).
+      var dhr = document.getElementById('handrow');
+      if (dhr) { dhr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
     }
 
     var pop = fieldPopover(); if (pop) app.appendChild(pop);
@@ -966,6 +1059,7 @@
     else if (aiThinking) app.appendChild(bannerEl('상대 차례', '#c23c70'));
     // 모바일 메뉴(항복·규칙) 바텀시트 — 대국이 진행 중일 때만. 게임 종료/실습완료 오버레이 위에는 띄우지 않는다.
     if (menuView && G.winner === undefined && !(tutorial && tutorial.finished)) app.appendChild(menuOverlay());
+    fitHand();   // 손패 효과문 잘림 방지(넘치면 폰트 자동 축소)
   }
 
   // ── 모바일 대국 화면 ── 필드(중앙) + 손패(아래) + 미니 상단바(턴/액션/카운트/[턴 종료]).
@@ -1039,7 +1133,7 @@
       pips,
       challenge ? el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆' + challenge.wins]) : null,
       el('span', { style: { flex: 1, minWidth: '6px' } }),
-      // ☰ 메뉴 — 항복·기본 룰 설명 바텀시트를 여는 작은 버튼(튜토리얼 중엔 숨김). 턴 종료 옆에 붙여 둔다.
+      // ☰ 메뉴 — 항복·규칙 요약 바텀시트를 여는 작은 버튼(튜토리얼 중엔 숨김). 턴 종료 옆에 붙여 둔다.
       tutorial ? null : el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '15px', fontWeight: 700, padding: '9px 12px', flex: 'none', lineHeight: 1, textAlign: 'center' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰']),
       el('button', { class: 'btn', style: { fontSize: '14px', fontWeight: 700, padding: '9px 22px', flex: 'none', whiteSpace: 'nowrap', background: meTurn ? SKIN.own : SKIN.chassisSunk, color: meTurn ? '#fff' : SKIN.muted }, disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료'])
     ]));
@@ -1195,7 +1289,7 @@
       var N = ab.forCount || 1, left = N - (u.onceUsed['for' + idx] || 0);
       var ready = G.forReady(u, idx);
       var isIf = ab.kw === 'If';
-      if (isIf && ab.options && ab.options.length) {
+      if (isIf && ab.options && ab.options.length) {           // If 분기: 옵션마다 버튼
         ab.options.forEach(function (op, oi) {
           btns.push(el('button', { style: popBtn(ready ? '#4a6bd8' : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, oi); } : function () { flash('발동할 수 없음'); } }, ['◆ ' + op.label]));
         });
@@ -1327,7 +1421,9 @@
     // 보드 외 세로 크롬 합(실측 최악치): 상단바 + 디스펜서2(슬림) + 손패(최대 ~251) + 컨트롤(슬림) + 갭/여백.
     // 상태 스트립 삭제·디스펜서/여백 축소로 이전(478)보다 크게 줄임 → 남는 세로를 전부 보드에 준다.
     // 손패는 카드 내용(포인터·2줄 효과문)에 따라 가변 → 최악치로 잡아 어떤 패에서도 스크롤이 안 나게 한다.
-    var chrome = 410 + (tutorial ? 48 : 0);
+    // 보드 외 세로 크롬(상단바+디스펜서2+손패+컨트롤+갭). 손패 헤드룸 제거(호버 확대는 fixed 승격) + 열/메인 갭 축소로
+    // 이전(410)보다 더 낮춤 → 남는 세로를 전부 보드에 준다(데스크톱은 넘쳐도 클리핑 아닌 페이지 스크롤이라 안전).
+    var chrome = 380 + (tutorial ? 48 : 0);
     var boardH = Math.max(150, Math.min(600, vh - chrome)); // 세로가 남으면 최대 600px까지 보드로 채움(기존 512 상향), 좁으면 축소
     return Math.round(Math.min(760, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 760)
   }
@@ -1514,6 +1610,35 @@
     if (vx && !handEdge.raf) handEdge.raf = RAF(handEdgeStep);
   }
   function handEdgeStop() { handEdge.vx = 0; hideHandEdge(); }
+  // 데스크톱 손패 호버 확대: 원본 카드를 그대로 position:fixed 로 승격 → 손패 컨테이너의 overflow 클리핑을 탈출해
+  // 크게 확대돼도 잘리지 않고 위 UI 를 덮는다(가려도 OK). fixed 는 조상 overflow 에 안 잘리고 hit 영역이 확대된
+  // 시각 박스를 따라가므로 mouseleave 플리커가 없다. 자리 유지용 플레이스홀더로 이웃 카드 밀림 방지.
+  // 재렌더(clear) 시 요소가 통째로 교체되므로 상태가 남아도 자동 정리된다.
+  var LIFT_TF = 'translateY(-16px) scale(1.55)', LIFT_BS = '0 24px 46px rgba(0,0,0,.7)';
+  function liftHandCard(t) {
+    if (COMPACT) return;
+    if (t.__dropT) { clearTimeout(t.__dropT); t.__dropT = null; }
+    if (t.__ph) { t.style.transform = LIFT_TF; t.style.boxShadow = LIFT_BS; return; } // 이미 승격 상태 → 재확대만
+    var r = t.getBoundingClientRect();
+    var ph = el('div', { style: { width: r.width + 'px', height: r.height + 'px', flex: 'none' } });
+    t.parentNode.insertBefore(ph, t); t.__ph = ph;
+    t.__css = { position: t.style.position, left: t.style.left, top: t.style.top, zIndex: t.style.zIndex, transform: t.style.transform, transformOrigin: t.style.transformOrigin, boxShadow: t.style.boxShadow };
+    t.style.position = 'fixed'; t.style.left = r.left + 'px'; t.style.top = r.top + 'px'; t.style.zIndex = '9999'; t.style.transformOrigin = 'center bottom';
+    void t.offsetWidth; // reflow → 확대 트랜지션 발동
+    t.style.transform = LIFT_TF; t.style.boxShadow = LIFT_BS;
+  }
+  function dropHandCard(t, immediate) {
+    if (!t.__ph) return;
+    var css = t.__css || {}, ph = t.__ph;
+    function restore() {
+      t.style.position = css.position || ''; t.style.left = css.left || ''; t.style.top = css.top || ''; t.style.zIndex = css.zIndex || ''; t.style.transform = css.transform || ''; t.style.transformOrigin = css.transformOrigin || ''; t.style.boxShadow = css.boxShadow || '';
+      if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
+      t.__ph = null; t.__dropT = null;
+    }
+    if (immediate) { restore(); return; }
+    t.style.transform = css.transform || ''; t.style.boxShadow = css.boxShadow || ''; // 원위치로 축소 애니 후 정리
+    t.__dropT = setTimeout(restore, 180);
+  }
   function handBar(meTurn) {
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
@@ -1525,9 +1650,9 @@
       if (drawPulse) drawPulse = false;
       return row;
     }
-    // 가로 스크롤 컨테이너는 세로도 클리핑되므로(overflowX:auto → overflowY 강제 auto), 호버 시 떠오르는
-    // 카드 윗부분이 잘린다. 상단 패딩으로 헤드룸을 주고 음수 마진으로 레이아웃 간격을 보정, z-index 로 위 요소 위에 그림.
-    var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: hand.length > 6 ? 'flex-start' : 'center', minHeight: '40px', alignItems: 'flex-end', padding: '20px 6px 4px', marginTop: '-14px' } });
+    // 호버 확대는 fixed 승격(liftHandCard)으로 컨테이너 클리핑을 탈출하므로 상단 헤드룸 패딩이 불필요 →
+    // 작은 여백만(선택 리프트·시전 링용). safe center: 카드가 넘칠 때 앞쪽이 잘려 스크롤 못 하는 문제 방지(왼쪽 끝 카드 온전히 보임).
+    var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: 'safe center', minHeight: '40px', alignItems: 'flex-end', padding: '16px 6px 4px', marginTop: '-8px' } });
     if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음']));
     hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
     if (drawPulse) drawPulse = false;
@@ -1535,13 +1660,9 @@
   }
   // 손패 풀창(L0). 인스턴스 = 창(타이틀바+뷰포트+효과문+상태바). 포인터 = 다이얼로그(상태바 없이 시전 버튼).
   function handCardEl(id, i, mode) {
-    // 모바일 손패는 작은 미니카드(칩)로 통일 — 손가락을 대면 큰 미리보기가 떠서 내용 확인.
+    // 모바일 손패는 작은 미니카드(칩)로 통일 — 손가락을 대면(길게 누름) 큰 미리보기가 떠서 내용 확인.
     if (COMPACT && (mode === 'play' || mode === 'idle')) return miniHandCard(id, i, mode);
     var card = CARDS[id], isP = card.kind === 'pointer';
-    // 실제 대국 중(손패가 있는 진짜 G)인지 — dev.html 미리보기(stub G)의 idle 과 구분.
-    var inGame = !!(G && G.players && G.players[HUMAN]);
-    // 상대 턴(idle)에도 데스크톱에서 손패를 클릭/호버해 상세 인스펙트할 수 있게 인터랙션 허용.
-    var interactive = mode === 'play' || (mode === 'idle' && inGame);
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
     var mullSel = mode === 'mull' && mullPick[i];
@@ -1562,24 +1683,28 @@
       W = Math.max(140, Math.min(230, Math.min(wByW, wByH)));
       var br = W / 176; MINH = Math.round(250 * br); VPH = Math.round(116 * br);
     }
-    else { W = 150; MINH = 150; VPH = 92; }
+    else { W = 158; MINH = 220; VPH = 78; }   // 고정 높이(이슈 3): 카드 키 통일. 뷰포트를 줄여 효과문 공간을 넉넉히(잘림 방지 + 큰 폰트).
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
-    // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
-    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: (mode === 'idle' && !inGame) ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow, wordBreak: 'keep-all', overflowWrap: 'break-word' }, raisedBev());
+    // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리). height 고정 → 모든 카드 동일 크기.
+    // wordBreak:keep-all → 한글은 띄어쓰기 단위로만 줄바꿈(음절 단독 widow 방지). overflowWrap:break-word → 칸보다 긴 토큰만 예외 분해(넘침 방지). 상속되어 효과문·조건문 등 모든 텍스트에 적용.
+    var st = Object.assign({ position: 'relative', width: W + 'px', height: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .16s cubic-bezier(.2,.8,.2,1)', boxShadow: shadow, wordBreak: 'keep-all', overflowWrap: 'break-word' }, raisedBev());
     // 터치: 손패 가로 스크롤은 브라우저(pan-x), 위(필드 방향) 드래그는 우리가 잡음. 데스크톱 hover 리프트엔 영향 없음.
     if (mode === 'play') st.touchAction = 'pan-x';
     if (playable && !seld && !mullSel) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
     if (seld || mullSel) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + (mullSel ? '#c23c70' : SKIN.faceLo); st.transform = 'translateY(-6px)'; }
     if (mode === 'play' && !playable) st.opacity = .5;
+    st.boxShadow = goldFrame(card, st.boxShadow);   // 유니크(덱당 N) 카드 = 금색 inset 프레임(이슈 1)
+    // 드래그 중인 카드 = 손패에서 '빠져나간' 빈 슬롯(흐림+눌린 자국). 실제 카드는 고스트로 커서를 따라간다.
+    if (mode === 'play' && drag && drag.moved && drag.i === i) { st.opacity = .2; st.transform = 'translateY(3px) scale(.96)'; st.boxShadow = 'inset 0 0 0 2px ' + hexa(SKIN.ink, .3); }
     var props = { style: st };
     if (mode === 'mull') { props['data-mull-idx'] = i; props.onclick = function () { if (mullBusy) return; mullPick[i] = !mullPick[i]; renderMulligan(); }; }
-    else if (interactive) {
-      props.onpointerdown = function (e) { startHandDrag(e, i); };
-      props.onmouseenter = function (e) { var t = e.currentTarget; t.__z = t.style.zIndex; t.__tf = t.style.transform; t.__bs = t.style.boxShadow; t.style.zIndex = '30'; t.style.transform = 'translateY(-12px) scale(1.07) rotate(-1.5deg)'; t.style.boxShadow = '0 14px 26px rgba(0,0,0,.6)'; };
-      props.onmouseleave = function (e) { var t = e.currentTarget; t.style.zIndex = t.__z || ''; t.style.transform = t.__tf || ''; t.style.boxShadow = t.__bs || ''; };
+    else if (mode === 'play') {
+      // 누르면(드래그/선택) 즉시 원위치 복원 후 드래그 시작.
+      props.onpointerdown = function (e) { dropHandCard(e.currentTarget, true); startHandDrag(e, i); };
+      // 호버: 원본 카드가 그대로 부드럽게 크게 확대(fixed 승격으로 잘림 없이 위 UI 를 덮음). 회전 없이 또렷.
+      props.onmouseenter = function (e) { liftHandCard(e.currentTarget); };
+      props.onmouseleave = function (e) { dropHandCard(e.currentTarget); };
     }
-
-    var reqBadge = card.require ? el('span', { class: 'mono', title: '선언 조건(require)', style: { fontSize: '7px', fontWeight: 700, background: 'rgba(0,0,0,.28)', color: '#fff', padding: '0 3px', flex: 'none' } }, ['⚙']) : null;
 
     // 멀리건 교체 대상 표시 — 카드 위에 반투명 뒷면 오버레이 + 「교체」리본(하스스톤식). 클릭은 통과.
     function mullWrap(node) {
@@ -1594,19 +1719,17 @@
       // 포인터 = 다이얼로그: 타이틀바(사거리 컨트롤) + 뷰포트(일러스트) + 효과·사거리·시전조건 패널 + [시전] 버튼.
       // 상태바 부재(=시전 버튼) 로 인스턴스와 실루엣 분리(§5). 일러스트는 뷰포트로 복원.
       var prI = RT.pointerRangeInfo(id);
-      var condTxt = card.castCondition ? RT.castCondText(card.castCondition) : null;
-      var condMet = card.castCondition ? G.castConditionMet(HUMAN, card) : true;
       return mullWrap(el('button', props, [
-        winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9, badge: reqBadge, right: rangeCtrl(RT.cardRange(id), big ? 3.4 : 3) }),
-        viewportBox(card, VPH, { gScale: 0.5 }),
-        el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, background: SKIN.effBg, color: SKIN.effTxt, padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()) }, [
+        winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9 }),
+        viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
+        // 시전 조건 = 효과문 위 독립 행(인스턴스 선언 조건과 동일 위치로 통일 · 여러 줄 허용).
+        condLine(condSpec(card), { fs: big ? 9 : 8.5 }),
+        el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, background: SKIN.effBg, color: SKIN.effTxt, fontSize: (big ? 10 : 9.5) + 'px', padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()), 'data-fit': '1', 'data-fit-fs': (big ? 10 : 9.5) }, [
           el('div', { style: { display: 'flex', gap: '6px', alignItems: 'flex-start' } }, [
             el('div', { style: { width: '20px', height: '20px', flex: 'none', borderRadius: '50%', background: '#d8472b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' } }, ['⚡']),
-            el('div', { style: { minWidth: 0, fontSize: big ? '9.5px' : '8.5px', lineHeight: 1.42 } }, richText(card.text))
+            el('div', { style: { minWidth: 0, lineHeight: 1.45 } }, richText(effectOnly(card.text)))
           ]),
-          prI ? el('div', { class: 'mono', style: { fontSize: '7.5px', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + prI.text]) : null,
-          condTxt ? el('div', { class: 'mono', style: { fontSize: '7.5px', fontWeight: 700, color: condMet ? SKIN.muted : SKIN.heat } }, [(condMet ? '✓' : '⚠') + ' 시전조건 · ' + condTxt]) : null,
-          card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '7px', color: SKIN.heat } }, ['덱당 ' + card.deckLimit]) : null
+          prI ? el('div', { class: 'mono', style: { fontSize: '0.85em', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + prI.text]) : null
         ]),
         el('div', { style: { display: 'flex', justifyContent: 'center', margin: '3px 2px 2px' } }, [
           el('span', { class: 'mono', style: Object.assign({ fontSize: big ? '10px' : '9px', fontWeight: 700, color: SKIN.effTxt, background: SKIN.face, padding: '3px 22px' }, raisedBev()) }, ['▶ 시전'])
@@ -1614,13 +1737,14 @@
       ]));
     }
 
-    // 인스턴스 = 창: 타이틀바 + 뷰포트 + 효과문 패널 + 상태바
-    var titleBadge = el('span', { style: { display: 'flex', gap: '2px', flex: 'none' } }, [reqBadge, basicAtkChip(!big)]);
+    // 인스턴스 = 창: 타이틀바 + 뷰포트(+사거리 코너) + [조건 라인] + 효과문 패널 + 상태바
+    // 기본 공격(옆칸)은 모든 유닛 공통이라 카드마다 표기하지 않는다(피드백: 작아서 안 읽히고 도움 안 됨 → 삭제).
     return mullWrap(el('button', props, [
-      winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9, badge: titleBadge, right: rangeCtrl(RT.cardRange(id), big ? 3.4 : 3) }),
-      viewportBox(card, VPH, { gScale: 0.5 }),
-      effectPanel(card, { fs: big ? 9.5 : 8, flex: true, min: 26 }),
-      card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '7px', color: SKIN.heat, margin: '2px 2px 0', textAlign: 'right' } }, ['덱당 ' + card.deckLimit]) : null,
+      winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9 }),
+      viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
+      condLine(condSpec(card), { fs: big ? 9 : 8.5 }),
+      deckRuleLine(card, { fs: big ? 8.5 : 8 }),
+      effectPanel(card, { fs: big ? 10 : 9.5, flex: true, min: 24 }),
       statusStrip(card.atk, card.hp, card.hp, { fs: big ? 12 : 11, icoPx: big ? 11 : 10, meterH: big ? 9 : 8 })
     ]));
   }
@@ -1637,6 +1761,7 @@
     if (mode === 'play' && !playable) st.opacity = .5;
     // 드래그 중인 카드는 손패에서 자리를 비운 것처럼 흐리게(하스스톤식 '집어든' 느낌)
     if (mode === 'play' && drag && drag.moved && drag.i === i) { st.opacity = .28; st.transform = 'translateY(2px)'; st.boxShadow = 'inset 0 0 0 2px ' + hexa(SKIN.ink, .3); }
+    st.boxShadow = goldFrame(card, st.boxShadow);   // 유니크(덱당 N) 금색 프레임(이슈 1)
     var props = { style: st };
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
@@ -1647,7 +1772,7 @@
     ]);
     return el('button', props, [
       // 상단(타이틀바)을 키우고 이름 줄바꿈 허용 → 전체 이름이 한번에 보이게
-      winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '3px 4px', wrap: true, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) }),
+      winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '3px 4px', wrap: true, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : null }),
       art,
       isP ? el('div', { class: 'mono', style: { flex: 'none', textAlign: 'center', fontSize: '9px', fontWeight: 700, color: '#d8472b', background: SKIN.effBg, padding: '3px 0', margin: '0 2px 2px', whiteSpace: 'nowrap', overflow: 'hidden' } }, ['◆ 드래그 시전'])
           : statusStrip(card.atk, card.hp, card.hp, { atkW: 32, fs: 13, icoPx: 11, margin: '0 2px 2px' })
@@ -1656,8 +1781,8 @@
   // 가로형 카드 상세 패널(모바일 peek 전용) — 왼쪽=카드(아트·ATK/HP), 오른쪽=이름·효과·사거리.
   function cardPreviewEl(id) {
     var card = CARDS[id], isP = card.kind === 'pointer', cl = CLS[card.cls] || CLS.generic;
-    var left = el('div', { style: Object.assign({ flex: '0 0 118px', display: 'flex', flexDirection: 'column', background: SKIN.face, overflow: 'hidden' }, raisedBev()) }, [
-      winTitlebar(card, { iconPx: 14, nameFs: 11, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : basicAtkChip(false) }),
+    var left = el('div', { style: Object.assign({ position: 'relative', flex: '0 0 118px', display: 'flex', flexDirection: 'column', background: SKIN.face, overflow: 'hidden' }, raisedBev()) }, [
+      winTitlebar(card, { iconPx: 14, nameFs: 11, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : null }),
       viewportBox(card, 108, { gScale: 0.5 }),
       isP ? null : statusStrip(card.atk, card.hp, card.hp, { fs: 14, icoPx: 12, meterH: 9 })
     ]);
@@ -1666,11 +1791,12 @@
       el('span', { class: 'mono', style: { fontSize: '9px', color: cl, fontWeight: 700 } }, [(card.cls || 'generic').toUpperCase()]),
       isP ? el('span', { class: 'mono', style: { fontSize: '9px', color: '#d8472b', fontWeight: 700 } }, ['포인터']) : null
     ])];
-    rows.push(el('div', { style: { fontSize: '12.5px', lineHeight: 1.5 } }, richText(card.text)));
+    rows.push(el('div', { style: { fontSize: '12.5px', lineHeight: 1.5 } }, richText(effectOnly(card.text))));
     var pr = isP ? RT.pointerRangeInfo(id) : null;
     if (pr) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + pr.text]));
-    if (card.castCondition) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.muted } }, ['시전조건 · ' + RT.castCondText(card.castCondition)]));
-    if (card.deckLimit) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.heat } }, ['덱당 ' + card.deckLimit + '장']));
+    var pcond = condSpec(card);
+    if (pcond) rows.push(condLine(pcond, { fs: 10, margin: '0' }));
+    if (card.deckRule) rows.push(deckRuleLine(card, { fs: 10, margin: '0' }));
     rows.push(rangeGridEl(RT.cardRange(id), cl)); // 인스턴스 함수 범위 / 포인터 시전 사거리 그리드(데스크톱 호버와 동일)
     var right = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 10px', background: SKIN.effBg, color: SKIN.effTxt, overflow: 'hidden' }, sunkenBev()) }, rows);
     return el('div', { style: Object.assign({ display: 'flex', gap: '3px', width: '360px', background: SKIN.chassis, padding: '3px' }, raisedBev()) }, [left, right]);
@@ -1680,10 +1806,10 @@
   function dragGhostEl(id) {
     var card = CARDS[id], isP = card.kind === 'pointer';
     var st = Object.assign({ width: '124px', minHeight: '160px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', overflow: 'hidden' }, raisedBev());
-    var head = winTitlebar(card, { iconPx: 12, nameFs: 10, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : basicAtkChip(true) });
+    var head = winTitlebar(card, { iconPx: 12, nameFs: 10, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : null });
     if (isP) return el('div', { style: st }, [
       head, viewportBox(card, 64, { gScale: 0.5 }),
-      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.4, overflow: 'hidden' }, sunkenBev()) }, richText(card.text))
+      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.4, overflow: 'hidden' }, sunkenBev()) }, richText(effectOnly(card.text)))
     ]);
     return el('div', { style: st }, [
       head, viewportBox(card, 60, { gScale: 0.5 }),
@@ -1759,7 +1885,7 @@
     } else if (!COMPACT) row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['손패 카드를 드래그 또는 클릭 · 내 유닛 클릭 → 행동']));
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
-    // ☰ 메뉴 — 항복·기본 룰 설명(모바일과 동일한 바텀시트). 턴 종료 옆에. 튜토리얼 중엔 숨김.
+    // ☰ 메뉴 — 항복·규칙 요약(모바일과 동일한 바텀시트). 턴 종료 옆에. 튜토리얼 중엔 숨김.
     if (!tutorial) row.appendChild(el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '12px', padding: '9px 12px' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰ 메뉴']));
     row.appendChild(el('button', { class: 'btn', disabled: !meTurn ? 'disabled' : null, onclick: meTurn ? endTurn : null }, ['턴 종료']));
     return row;
@@ -1848,10 +1974,11 @@
         ]),
         (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.enemy, marginBottom: '7px' } }, ['피해 누적 ' + (mx - hp) + ' · 최대 ' + mx]) : null,
         (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.faint, marginBottom: '7px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
-        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.rangeGold, marginBottom: '5px' } }, ['덱당 ' + card.deckLimit + '장 제한']) : null,
-        el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(card.text)),
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ 덱당 ' + card.deckLimit + '장 — 유니크(제한)']) : null,
+        el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(effectOnly(card.text))),
         (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '11.5px', color: SKIN.own, fontWeight: 700, marginBottom: '9px' } }, ['◆ 시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
-        (isP && card.castCondition) ? el('div', { class: 'mono', style: { fontSize: '11.5px', color: G.castConditionMet(HUMAN, card) ? SKIN.faint : SKIN.enemy, fontWeight: 700, marginBottom: '9px' } }, [(G.castConditionMet(HUMAN, card) ? '✓' : '⚠') + ' 시전조건 · ' + RT.castCondText(card.castCondition)]) : null,
+        condLine(condSpec(card), { fs: 11.5, margin: '0 0 9px' }),
+        deckRuleLine(card, { fs: 11.5, margin: '0 0 9px' }),
         forLeftLines(card, bu),
         isP ? null : el('div', { class: 'mono', style: { fontSize: '11.5px', color: SKIN.enemy, fontWeight: 700, marginBottom: '7px', display: 'flex', alignItems: 'center', gap: '5px' } }, [
           el('span', { style: { color: '#fff', background: SKIN.enemy, padding: '0 4px', flex: 'none' } }, ['⚔']),
@@ -1955,71 +2082,16 @@
     return ov;
   }
 
-  // ── 모바일 메뉴 바텀시트(항복 · 기본 룰 설명) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
-  //   규칙 설명은 기본 룰(BASICS) + GLOSS(키워드 사전)를 재사용해 보여준다.
+  // ── 모바일 메뉴 바텀시트(항복 · 규칙 요약) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
+  //   규칙 설명은 GLOSS(키워드 사전)를 그대로 재사용해 간략히 보여준다.
   var RULE_ABILITY = ['If', 'When', 'Once', 'While', 'For'];        // 특수능력 발동 방식
   var RULE_RANGE = ['옆칸', '1칸이내', '앞직선', '대각', '나이트', '관통', '직격']; // 사거리 키워드 (v6.1)
-  // 완전 기본룰 — 처음 보는 사람이 한 판을 굴릴 수 있는 최소 규칙.
-  var BASICS = [
-    { t: '승리 조건', d: '상대 본체(HP 40)를 0 이하로 만들면 승리. 내 본체가 0 이하면 패배. 본체도 보드 칸이라 인접·사거리에 포함된다.' },
-    { t: '턴 진행', d: '두 플레이어가 번갈아 턴을 가진다. 내 턴에 손패에서 카드를 내거나(선언) 유닛을 움직이고 공격한 뒤, [턴 종료]로 넘긴다. 턴 시작 때 카드 1장을 뽑는다.' },
-    { t: '액션 2개 / 턴', d: '내 턴마다 액션 2개(상단 「액션」 핍). 선언(카드 배치)·이동·포인터 시전은 각각 액션 1을 소비한다. 액션이 0이면 더 이상 소비 행동을 할 수 없다.' },
-    { t: '무료 행동 (액션 소비 X)', d: '기본 공격, For(N) 능동 능력, When·If·Once 트리거는 액션을 쓰지 않는다. 그래서 액션이 0이어도 기본 공격은 가능하다.' },
-    { t: '기본 공격', d: '모든 유닛은 옆칸(상하좌우 1칸)의 적을 공격할 수 있다. 무료이며 유닛당 턴 1회. 자신의 공격력(ATK)만큼 피해를 준다. 보드의 빨강 ⚔ 칸이 닿는 범위다.' },
-    { t: '인스턴스 vs 포인터', d: '인스턴스(유닛)는 필드에 남아 ATK/HP를 가지고 매 턴 싸운다. 포인터는 1회성 주문 — 시전에 액션 1을 쓰고 즉시 효과만 내고 사라진다.' },
-    { t: '함수(능력) 사거리', d: '유닛의 함수/능력이 닿는 칸은 카드마다 다르다(보드의 노랑 칸). 아래 「사거리 키워드」의 모양을 참고. 필드 카드에 커서를 올리면 보드에 범위가 표시된다.' },
-    { t: '피해 · 파괴', d: 'HP가 0 이하가 되면 파괴된다. 피해는 턴을 넘겨 누적되며, 회복 효과로만 줄어든다.' }
-  ];
   function ruleRows(keys) {
     return keys.map(function (k) {
       var g = GLOSS[k]; if (!g) return null;
       return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line } }, [
         el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [g.t]),
         el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [g.d])
-      ]);
-    }).filter(Boolean);
-  }
-  // 기본 룰 카드 목록 렌더.
-  function basicRows(list) {
-    return list.map(function (b) {
-      return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line } }, [
-        el('div', { class: 'grot', style: { fontSize: '11.5px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [b.t]),
-        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [b.d])
-      ]);
-    });
-  }
-  // 사거리 키워드용 5×5 예시 격자. ◆ = 시전 유닛, 색칸 = 효과가 닿는 칸.
-  //   pred(dx,dy) → 닿으면 true. 옆칸은 기본 공격과 동색(빨강), 나머지는 함수 범위색(노랑).
-  var RANGE_GRID = {
-    '옆칸':   { c: SKIN.enemy,     f: function (dx, dy) { return Math.abs(dx) + Math.abs(dy) === 1; } },
-    '주위':   { c: SKIN.rangeGold, f: function (dx, dy) { return Math.max(Math.abs(dx), Math.abs(dy)) === 1; } },
-    '앞 직선': { c: SKIN.rangeGold, f: function (dx, dy) { return dx === 0 && dy < 0; } },
-    '대각선': { c: SKIN.rangeGold, f: function (dx, dy) { return Math.abs(dx) === Math.abs(dy) && dx !== 0; } },
-    '테두리': { c: SKIN.rangeGold, f: function (dx, dy) { return Math.max(Math.abs(dx), Math.abs(dy)) === 2; } },
-    '관통':   { c: SKIN.rangeGold, f: function (dx, dy) { return dx === 0 && dy < 0; }, wall: [0, -1] }
-  };
-  function miniGrid(spec) {
-    var CELL = 14;
-    var g = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,' + CELL + 'px)', gap: '2px', flex: 'none' } });
-    for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) {
-      var center = dx === 0 && dy === 0;
-      var wall = spec.wall && dx === spec.wall[0] && dy === spec.wall[1];
-      var on = !center && !wall && spec.f(dx, dy);
-      var bg = center ? SKIN.own : wall ? SKIN.ink : on ? spec.c : SKIN.chassisSunk;
-      g.appendChild(el('div', { style: { width: CELL + 'px', height: CELL + 'px', background: bg, border: '1px solid ' + SKIN.line, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', lineHeight: 1 } }, [center ? '◆' : wall ? '▦' : '']));
-    }
-    return g;
-  }
-  // 사거리 키워드 행 = 격자(왼쪽) + 설명(오른쪽).
-  function rangeRows(keys) {
-    return keys.map(function (k) {
-      var g = GLOSS[k], spec = RANGE_GRID[k]; if (!g) return null;
-      return el('div', { style: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '7px 0', borderTop: '1px solid ' + SKIN.line } }, [
-        spec ? miniGrid(spec) : null,
-        el('div', { style: { flex: 1, minWidth: 0 } }, [
-          el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [g.t]),
-          el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [g.d])
-        ])
       ]);
     }).filter(Boolean);
   }
@@ -2046,17 +2118,13 @@
     }
     var kids;
     if (menuView === 'rules') {
-      var sectionLabel = function (t) { return el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, [t]); };
       kids = [
-        header('기본 룰 설명', 'menu'),
-        el('div', { style: { overflowY: 'auto', maxHeight: '62vh', WebkitOverflowScrolling: 'touch' } }, [
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['완전 기본 룰']),
-          el('div', {}, basicRows(BASICS)),
-          sectionLabel('특수능력 · 발동 방식'),
+        header('규칙 요약', 'menu'),
+        el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['특수능력 · 발동 방식']),
           el('div', {}, ruleRows(RULE_ABILITY)),
-          sectionLabel('사거리 키워드'),
-          el('div', { style: { fontSize: '10px', color: SKIN.faint, lineHeight: 1.5, margin: '2px 0 2px' } }, ['◆ = 시전 유닛 · 색칸 = 효과가 닿는 칸 · ▦ = 벽(관통은 무시)']),
-          el('div', {}, rangeRows(RULE_RANGE))
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['사거리 키워드']),
+          el('div', {}, ruleRows(RULE_RANGE))
         ])
       ];
     } else if (menuView === 'confirm') {
@@ -2071,7 +2139,7 @@
     } else {
       kids = [
         header('메뉴', null),
-        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 기본 룰 설명 (기본룰·특수능력·사거리)']),
+        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (특수능력·사거리)']),
         el('button', { class: 'btn', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px', background: SKIN.enemy, color: '#fff' }, onclick: function () { menuView = 'confirm'; render(); } }, ['🏳 항복'])
       ];
     }
@@ -2093,12 +2161,10 @@
 
   // =================================================================== interaction
   function clickHand(i) {
+    if (G.active !== HUMAN || G.winner !== undefined || aiThinking) return;
     var id = G.players[HUMAN].hand[i], card = CARDS[id];
-    if (!card) return;
-    pinned = { id: id }; // pin detail to the right panel — 상대 턴/AI 사고 중에도 상세 확인은 허용
+    pinned = { id: id }; // pin detail to the right panel
     sel = null;
-    // 액션(시전/선언)은 내 턴에만. 상대 턴에는 상세만 인스펙터에 고정하고 종료.
-    if (G.active !== HUMAN || G.winner !== undefined || aiThinking) { ptr = null; render(); return; }
     if (card.kind === 'pointer') {
       if (!G.canCast(HUMAN, id)) { flash(castWhy(card)); return; }
       // 모바일: 포인터는 탭이 아니라 필드로 드래그해서 놓을 때만 시전(오발동 방지).
@@ -2120,11 +2186,9 @@
     return '시전 불가';
   }
   function clickCell(key) {
-    if (mullPhase) return;
+    if (mullPhase || G.winner !== undefined || aiThinking || G.active !== HUMAN) return;
     var u = G.board[key];
-    if (u && u.type === 'object') pinned = { id: u.cardId, key: key }; // pin detail of any clicked unit (내/적 무관)
-    // 액션(선택/이동/공격/시전)은 내 턴에만. 상대 턴에는 상세만 고정하고 종료.
-    if (G.winner !== undefined || aiThinking || G.active !== HUMAN) { render(); return; }
+    if (u && u.type === 'object') pinned = { id: u.cardId, key: key }; // pin detail of any clicked unit
     if (ptr) {
       var tg = pointerTargets(ptr);
       if (tg.indexOf(key) >= 0) {
@@ -2160,7 +2224,7 @@
     if (!G.forReady(u, idx)) { flash('이동/발동할 칸이 없음 — 발동 불가'); return; }
     var extra = {};
     if (ab.trigger === 'onActive') { var d = G.moveCells(u)[0]; if (d) extra.dest = d; }
-    if (opt !== undefined && opt !== null) extra.opt = opt;
+    if (opt !== undefined && opt !== null) extra.opt = opt;   // If 분기 선택
     aFire(u, idx, extra); render();
   }
   function pointerTargets(ptr) {
@@ -2188,13 +2252,11 @@
     document.removeEventListener('pointercancel', onDragCancel);
   }
   function startHandDrag(e, i) {
-    if (G.winner !== undefined) return;
+    if (G.active !== HUMAN || G.winner !== undefined || aiThinking) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    // 상대 턴/AI 사고 중: 드래그-플레이는 잠그되(locked) 탭 상세보기·모바일 peek 은 계속 허용.
-    var locked = (G.active !== HUMAN || aiThinking);
     if (e.pointerType === 'mouse') e.preventDefault(); // 마우스: 텍스트 선택/네이티브 드래그 방지. 터치: 스크롤 허용 위해 보류.
-    try { var hc = e.currentTarget; pendingPlay = locked ? null : { rect: hc.getBoundingClientRect(), id: G.players[HUMAN].hand[i] }; } catch (er) { pendingPlay = null; }
-    drag = { i: i, moved: false, sx: e.clientX, sy: e.clientY, invalid: false, ghost: null, pid: e.pointerId, locked: locked };
+    try { var hc = e.currentTarget; pendingPlay = { rect: hc.getBoundingClientRect(), id: G.players[HUMAN].hand[i] }; } catch (er) { pendingPlay = null; }
+    drag = { i: i, moved: false, sx: e.clientX, sy: e.clientY, invalid: false, ghost: null, pid: e.pointerId };
     if (COMPACT) schedulePeek(i); // 꾹 누르면 큰 미리보기
     document.addEventListener('pointermove', onDragMove);
     document.addEventListener('pointerup', onDragUp);
@@ -2202,7 +2264,6 @@
   }
   function onDragMove(e) {
     if (!drag || (drag.pid != null && e.pointerId !== drag.pid)) return;
-    if (drag.locked) return; // 상대 턴: 드래그-플레이 비활성, 뗄 때 탭(상세)만 처리
     if (!drag.moved) {
       if (peek) return; // 이미 상세보기(peek) 중이면 손가락이 흔들려도 드래그(시전)로 전환하지 않음 — 인스펙트 유지(토스트/재렌더 방지)
       var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
@@ -2245,12 +2306,14 @@
       else sel = { type: 'hand', i: drag.i };
     }
     // 실제 카드가 손가락 위로 떠오르며(팝) 따라다님. invalid 이면 붉게 흐림.
-    var g = el('div', { id: 'draghost', style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,-108%) scale(.72) rotate(-3deg)', filter: 'drop-shadow(0 14px 22px rgba(0,0,0,.55))', opacity: drag.invalid ? .5 : 1, transition: 'transform .1s ease' } }, [dragGhostEl(id)]);
+    // 고스트 = 손패 원본과 동일한 풀사이즈 카드(handCardEl idle) → '원본 카드가 패에서 빠져나와 따라오는' 느낌.
+    // 누른 지점(slot 근처)에서 팝업돼 커서를 따라간다. 원본 슬롯은 흐린 빈자리로 남는다(위 st 흐림 처리).
+    var g = el('div', { id: 'draghost', style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,-104%) scale(.82) rotate(-3deg)', filter: 'drop-shadow(0 16px 26px rgba(0,0,0,.6))', opacity: drag.invalid ? .5 : 1, transition: 'transform .12s ease' } }, [COMPACT ? dragGhostEl(id) : handCardEl(id, -1, 'idle')]);
     g.style.left = drag.sx + 'px'; g.style.top = drag.sy + 'px';
     fxLayer().appendChild(g); drag.ghost = g;
     // 다음 프레임에 확대(집어드는 팝 애니메이션)
     void g.offsetWidth;
-    g.style.transform = 'translate(-50%,-108%) scale(1.04) rotate(-3deg)';
+    g.style.transform = 'translate(-50%,-104%) scale(.94) rotate(-3deg)';
     render();
   }
   function cellKeyAt(x, y) { try { var e = document.elementFromPoint(x, y); var c = e && e.closest ? e.closest('[data-key]') : null; return c ? c.getAttribute('data-key') : null; } catch (err) { return null; } }
