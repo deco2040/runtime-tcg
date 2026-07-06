@@ -49,12 +49,12 @@
     if (bCount(id) >= bLimit(id)) { bMsg = CARDS[id].name + ' 은(는) 최대 ' + bLimit(id) + '장'; UI.render(); return; }
     bDeck.list.push(id); bMsg = ''; if (Sound().draw) Sound().draw(); UI.render();
   }
-  function bRemove(id) { var i = bDeck.list.lastIndexOf(id); if (i >= 0) { bDeck.list.splice(i, 1); bMsg = ''; if (Sound().move) Sound().move(); UI.render(); } }
+  function bRemove(id) { var i = bDeck.list.lastIndexOf(id); if (i >= 0) { bDeck.list.splice(i, 1); if (bDeck.cover === id && bDeck.list.indexOf(id) < 0) bDeck.cover = null; bMsg = ''; if (Sound().move) Sound().move(); UI.render(); } }
 
   function openDeckBuilder(editKey) {
     UI.exitToGuide && UI.exitToGuide();   // 진행 중 게임/튜토리얼 상태 정리(G=null)
-    if (editKey && DECKS[editKey]) bDeck = { key: editKey, name: DECKS[editKey].name || '', list: DECKS[editKey].list.slice() };
-    else bDeck = { key: null, name: '', list: [] };
+    if (editKey && DECKS[editKey]) bDeck = { key: editKey, name: DECKS[editKey].name || '', list: DECKS[editKey].list.slice(), cover: DECKS[editKey].cover || null };
+    else bDeck = { key: null, name: '', list: [], cover: null };
     bFilter = 'all'; bMsg = ''; active = true; _scrollPool = 0; _scrollDeck = 0;
     if (app) app.style.maxWidth = 'min(97vw, 1560px)';   // 편집 화면은 전폭을 넓게 — 카드가 크고 텍스트가 또렷하게
     UI.render();
@@ -67,7 +67,7 @@
     var v = RT.validateDeck(bDeck.list);
     if (!v.ok) { bMsg = '덱 규칙 위반: ' + v.errors[0]; UI.render(); return; }
     var key = bDeck.key || UI.nextCustomKey();
-    UI.saveCustomDeck(key, name, bDeck.list);
+    UI.saveCustomDeck(key, name, bDeck.list, bDeck.cover);
     UI.setMyDeck(key);
     closeBuilder(); UI.renderTitle();
   }
@@ -102,7 +102,7 @@
       el('span', {}, [(bDeck.key ? 'EDIT ' + bDeck.key : 'NEW DECK')])
     ]));
     b.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: 'clamp(22px,4.4vw,36px)', letterSpacing: '.1em', lineHeight: 1, color: AMB_HI, textShadow: titleGlow } }, ['커스텀 덱 편집']));
-    b.appendChild(el('div', { class: 'grot', style: { fontSize: '12.5px', fontWeight: 500, color: AMB, marginTop: '7px', marginBottom: '15px', lineHeight: 1.5, textShadow: 'none' } }, ['카드를 클릭해 추가/제거 · 30장 · 카드별 최대 매수·단일클래스 규칙 준수 시 저장 가능']));
+    b.appendChild(el('div', { class: 'grot', style: { fontSize: '12.5px', fontWeight: 500, color: AMB, marginTop: '7px', marginBottom: '15px', lineHeight: 1.5, textShadow: 'none' } }, ['카드를 클릭해 추가/제거 · 30장 · 덱 카드의 ★로 대표(표지) 카드 지정 · 규칙 준수 시 저장']));
 
     // 상단 컨트롤: 이름 + 카운터 + 저장/삭제/취소
     var canSave = (n === 30 && v.ok && (bDeck.name || '').trim());
@@ -149,7 +149,8 @@
       tabs.appendChild(el('button', { onclick: function () { bFilter = t[0]; _scrollPool = 0; UI.render(); }, class: 'crt-opt' + (bFilter === t[0] ? ' on' : ''), style: { fontSize: '13px', padding: '8px 13px' } }, [t[1]]));
     });
     col.appendChild(tabs);
-    var grid = el('div', { id: 'db-pool', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(' + Math.round(FACE_W * POOL_SCALE + 20) + 'px,1fr))', gap: '16px 14px', maxHeight: '72vh', overflowY: 'auto', padding: '4px 2px' } });
+    var sc = poolScale(), mob = isMobileDB();
+    var grid = el('div', { id: 'db-pool', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(' + Math.round(FACE_W * sc + (mob ? 8 : 20)) + 'px,1fr))', gap: mob ? '10px 8px' : '16px 14px', maxHeight: '72vh', overflowY: 'auto', padding: '4px 2px' } });
     var lastCls = null;
     deckPool().forEach(function (id) {
       var c = CARDS[id];
@@ -207,7 +208,9 @@
   // 손패 카드 페이스(고정 158×220)를 배율 확대. transform 은 레이아웃 크기를 안 바꾸므로
   // 확대분만큼 겉박스 크기를 직접 잡아줘 이웃과 겹치지 않게 한다(origin=top center → 좌우 대칭·상단 고정).
   var FACE_W = 158, FACE_H = 220;
-  var POOL_SCALE = 1.32;   // 카드 풀 타일 확대 배율(텍스트 가독성)
+  // 카드 풀 타일 배율 — 데스크톱은 확대(1.32, 텍스트 가독성), 모바일은 축소(0.62, 한 화면에 다수 카드).
+  function isMobileDB() { try { return window.matchMedia('(max-width:640px)').matches; } catch (e) { return false; } }
+  function poolScale() { return isMobileDB() ? 0.62 : 1.32; }
   function scaledFace(node, sc) {
     if (!node) return null;
     if (!sc || sc === 1) return node;
@@ -223,9 +226,10 @@
     var readTxt = dark ? '#f6e3ba' : '#1d1d24';
     var subTxt = dark ? '#c9a86a' : '#4a4a52';
 
-    var stripW = Math.round(FACE_W * POOL_SCALE);
+    var sc = poolScale();
+    var stripW = Math.round(FACE_W * sc);
     var faceRaw = faceFor(id, false) || el('div', { class: 'grot', style: { width: '158px', minHeight: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + cl, color: readTxt, padding: '8px', textAlign: 'center', textShadow: 'none' } }, [c.name]);
-    var face = scaledFace(faceRaw, POOL_SCALE);
+    var face = scaledFace(faceRaw, sc);
     var faceBox = el('div', { style: { position: 'relative', display: 'flex', justifyContent: 'center' } }, [face]);
     if (cnt > 0) faceBox.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '23px', textAlign: 'center', fontSize: '13px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '12px', padding: '2px 7px', boxShadow: '0 1px 5px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + cnt]));
     // 단일 클래스(◈) 배지는 카드 페이스 자체에 이미 표시되므로 중복 태그 생략(요청)
@@ -310,6 +314,7 @@
     var dist = el('div', { style: { display: 'flex', gap: '11px', flexWrap: 'wrap', marginBottom: '10px', fontSize: '13px' } });
     ['thread', 'memory', 'process', 'generic'].forEach(function (cc) { if (byCls[cc]) dist.appendChild(el('span', { class: 'grot', style: { color: CLS[cc], fontWeight: 700, textShadow: 'none' } }, [(GLY[cc] || '●') + ' ' + byCls[cc]])); });
     if (bDeck.list.length) box.appendChild(dist);
+    if (bDeck.cover && CARDS[bDeck.cover]) box.appendChild(el('div', { class: 'grot', style: { fontSize: '11.5px', fontWeight: 700, color: AMB, marginBottom: '9px', textShadow: 'none' } }, ['★ 대표 카드: ' + CARDS[bDeck.cover].name]));
     if (!bDeck.list.length) { box.appendChild(el('div', { class: 'grot', style: { fontSize: '12.5px', color: AMB, padding: '12px 2px', textShadow: 'none' } }, ['비어 있음 — 왼쪽에서 카드를 추가하세요.'])); col.appendChild(box); return col; }
     var counts = {}; bDeck.list.forEach(function (id) { counts[id] = (counts[id] || 0) + 1; });
     var readTxt = dark ? '#f6e3ba' : '#1d1d24';
@@ -326,6 +331,15 @@
         style: { position: 'relative', display: 'inline-flex', cursor: 'pointer' }
       }, [face]);
       w.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '19px', textAlign: 'center', fontSize: '11px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '10px', padding: '1px 5px', boxShadow: '0 1px 4px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + counts[id]]));
+      // ★ 대표(표지) 카드 지정 토글 — 클릭 시 카드 제거와 겹치지 않게 stopPropagation.
+      (function (cid, cname) {
+        var isCover = bDeck.cover === cid;
+        w.appendChild(el('button', {
+          title: isCover ? '대표 카드 (클릭 시 해제)' : '대표(표지) 카드로 지정', class: 'grot',
+          onclick: function (e) { e.stopPropagation(); bDeck.cover = isCover ? null : cid; bMsg = isCover ? '' : (cname + ' 을(를) 대표 카드로 지정'); UI.render(); },
+          style: { position: 'absolute', top: '-8px', left: '-8px', fontSize: '12px', lineHeight: 1, padding: '2px 5px', background: isCover ? AMB : (dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)'), color: isCover ? (dark ? '#0a0a0c' : '#f4f5f8') : AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' }
+        }, [isCover ? '★' : '☆']));
+      })(id, c.name);
       grid.appendChild(w);
     });
     box.appendChild(grid);

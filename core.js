@@ -62,12 +62,12 @@
       var d = _customMem[id];
       // 현재 CARDS 에 없는 카드 id 는 제거 — 카드 개편/구버전 덱이 analyzeDeck 등에서 크래시하지 않게
       var list = (d.list || []).filter(function (cid) { return !!CARDS[cid]; });
-      DECKS[id] = { name: d.name, cls: d.cls || deckDominantCls(list), list: list, custom: true };
+      DECKS[id] = { name: d.name, cls: d.cls || deckDominantCls(list), list: list, custom: true, cover: (d.cover && CARDS[d.cover]) ? d.cover : undefined };
     });
   }
   function deckDominantCls(list) { var a = RT.analyzeDeck(list); return a.singleClass ? (a.classes[0] || 'generic') : 'mixed'; }
   function nextCustomKey() { var n = 1; while (_customMem['U' + n]) n++; return 'U' + n; }
-  function saveCustomDeck(key, name, list) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice() }; persistCustom(); syncCustomDecks(); }
+  function saveCustomDeck(key, name, list, cover) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice(), cover: (cover && list.indexOf(cover) >= 0) ? cover : undefined }; persistCustom(); syncCustomDecks(); }
   function deleteCustomDeck(key) { delete _customMem[key]; persistCustom(); syncCustomDecks(); if (myDeck === key) myDeck = presetKeys()[0] || 'T1'; }
   syncCustomDecks();
 
@@ -1535,8 +1535,9 @@
   }
   // 손패 풀창(L0). 인스턴스 = 창(타이틀바+뷰포트+효과문+상태바). 포인터 = 다이얼로그(상태바 없이 시전 버튼).
   function handCardEl(id, i, mode) {
-    // 모바일 손패는 작은 미니카드(칩) — 손가락을 대면 큰 미리보기가 떠서 내용 확인.
-    if (COMPACT && (mode === 'play' || mode === 'idle')) return miniHandCard(id, i, mode);
+    // 모바일 손패도 데스크톱과 동일한 풀카드 디자인을 쓴다(칩으로 스왑하지 않음).
+    // 세로 공간에 맞게 zoom 으로만 축소 → 가로 스크롤 손패에 자연 배치. (구 miniHandCard 미사용)
+    var compactHand = COMPACT && (mode === 'play' || mode === 'idle');
     var card = CARDS[id], isP = card.kind === 'pointer';
     // 실제 대국 중(손패가 있는 진짜 G)인지 — dev.html 미리보기(stub G)의 idle 과 구분.
     var inGame = !!(G && G.players && G.players[HUMAN]);
@@ -1571,6 +1572,8 @@
     if (playable && !seld && !mullSel) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
     if (seld || mullSel) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + (mullSel ? '#c23c70' : SKIN.faceLo); st.transform = 'translateY(-6px)'; }
     if (mode === 'play' && !playable) st.opacity = .5;
+    // 모바일: 풀카드를 zoom 으로 축소(레이아웃 박스까지 축소 → 가로 스크롤 손패에 여러 장, 세로 부담↓).
+    if (compactHand) st.zoom = 0.66;
     var props = { style: st };
     if (mode === 'mull') { props['data-mull-idx'] = i; props.onclick = function () { if (mullBusy) return; mullPick[i] = !mullPick[i]; renderMulligan(); }; }
     else if (interactive) {

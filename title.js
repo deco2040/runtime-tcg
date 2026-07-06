@@ -151,17 +151,52 @@
     }, [av, el('div', { style: { minWidth: '0' } }, [line1, line2]), cta]);
   }
   function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
-  // 덱 선택 — 터미널 옵션 타일. GLY(클래스 글리프)로 계열 표시, 선택 시 인버스(호박색 채움).
+
+  // 덱 대표 카드 id — 명시된 d.cover 우선, 없으면 리스트에서 첫 '비토큰 유닛(가능하면 아트 보유)'.
+  function deckCoverId(d) {
+    var C = (RT && RT.CARDS) || {}, ART = window.RT_ART || {}, TOK = /^(Token|Wall|__)/;
+    if (d.cover && C[d.cover]) return d.cover;
+    var list = d.list || [], withArt = null, anyInst = null, anyCard = null;
+    for (var i = 0; i < list.length; i++) {
+      var id = list[i], c = C[id];
+      if (!c || TOK.test(id)) continue;
+      if (anyCard == null) anyCard = id;
+      if (c.kind === 'object') { if (anyInst == null) anyInst = id; if (ART[id] && withArt == null) withArt = id; }
+    }
+    return withArt || anyInst || anyCard || list[0];
+  }
+  // 대표 카드 일러스트 썸네일. CRT 감성 유지 — 다크=앰버 듀오톤, 라이트=먹색 그레이스케일. 아트 없으면 클래스 글리프.
+  function coverThumb(d, size) {
+    size = size || 44;
+    var dk = UI.getTheme() === 'dark';
+    var id = deckCoverId(d), C = (RT && RT.CARDS) || {}, card = C[id] || {};
+    var gly = GLY[card.cls || d.cls] || GLY.generic;
+    var borderCol = dk ? 'rgba(255,176,0,.32)' : 'rgba(29,29,36,.22)';
+    var box = el('span', { style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid ' + borderCol, background: dk ? 'rgba(255,176,0,.05)' : 'rgba(29,29,36,.04)' } });
+    box.appendChild(el('span', { style: { position: 'absolute', fontSize: Math.round(size * 0.5) + 'px', fontWeight: 700, color: dk ? '#b3791f' : '#6b6b75', opacity: '.5' } }, [gly]));
+    var v = (window.RT_ART || {})[id], src = typeof v === 'string' ? v : (v && v.src);
+    if (src) {
+      var img = el('img', { style: { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: (v && v.fit) || 'cover', objectPosition: (v && v.pos) || '50% 50%', filter: dk ? 'grayscale(1) sepia(1) saturate(2.8) hue-rotate(-12deg) brightness(1.08) contrast(1.02)' : 'grayscale(1) contrast(1.05) brightness(.98)' } });
+      img.src = src; img.loading = 'lazy'; img.alt = '';
+      img.onerror = function () { if (img.parentNode) img.parentNode.removeChild(img); };
+      box.appendChild(img);
+    }
+    return box;
+  }
+  // 덱 선택 — 터미널 옵션 타일. 좌측 대표 카드 썸네일 + 우측 클래스/이름. 선택 시 인버스(호박색 채움).
   function crtDeckGrid(isSel, on, keys) {
     var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(184px,1fr))', gap: '10px', margin: '10px 0 20px' } });
     (keys || Object.keys(DECKS)).forEach(function (k) {
       var d = DECKS[k], on2 = isSel(k), gly = GLY[d.cls] || GLY.generic;
       grid.appendChild(el('button', {
         onclick: function () { on(k); }, class: 'crt-opt' + (on2 ? ' on' : ''),
-        style: { display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', padding: '11px 13px', minHeight: '52px' }
+        style: { display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', padding: '9px 11px', minHeight: '58px' }
       }, [
-        el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
-        el('span', { style: { fontSize: '11px', opacity: '.72' } }, [d.name.replace(/^\w+ · /, '')])
+        coverThumb(d, 44),
+        el('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '0', flex: '1 1 auto' } }, [
+          el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '') + gly + ' ' + k]),
+          el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [d.name.replace(/^\w+ · /, '')])
+        ])
       ]));
     });
     return grid;
@@ -173,10 +208,13 @@
       var d = DECKS[k], on2 = (k === myDeck), gly = GLY[d.cls] || GLY.generic;
       grid.appendChild(el('div', {
         onclick: function () { UI.setMyDeck(k); render(); }, class: 'crt-opt' + (on2 ? ' on' : ''),
-        style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', padding: '11px 30px 11px 13px', minHeight: '52px', cursor: 'pointer' }
+        style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', padding: '9px 30px 9px 11px', minHeight: '58px', cursor: 'pointer' }
       }, [
-        el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
-        el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장']),
+        coverThumb(d, 44),
+        el('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '0', flex: '1 1 auto' } }, [
+          el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '') + gly + ' ' + k]),
+          el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장'])
+        ]),
         el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k); }, style: { position: 'absolute', top: '5px', right: '6px', fontSize: '15px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
       ]));
     });
