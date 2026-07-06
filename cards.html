@@ -198,14 +198,14 @@
 
 <!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → (RT_NO_BOOT) → sound → theme → core.
      부트는 막고(RT_NO_BOOT) 실제 카드풀(window.RT.CARDS)과 인게임 손패 카드 렌더러(window.__RT_UI.cardFaceEl)만 사용. -->
-<script src="cards.js?v=73"></script>
-<script src="decks.js?v=73"></script>
-<script src="engine.js?v=73"></script>
-<script src="art-map.js?v=73"></script>
+<script src="cards.js?v=74"></script>
+<script src="decks.js?v=74"></script>
+<script src="engine.js?v=74"></script>
+<script src="art-map.js?v=74"></script>
 <script>window.RT_NO_BOOT = true;</script>
-<script src="sound.js?v=73"></script>
-<script src="theme.js?v=73"></script>
-<script src="core.js?v=73"></script>
+<script src="sound.js?v=74"></script>
+<script src="theme.js?v=74"></script>
+<script src="core.js?v=74"></script>
 <script>
 (function(){
   "use strict";
@@ -226,7 +226,7 @@
   var GLY = {thread:"▲",memory:"■",process:"◇",generic:"●",mixed:"◆",none:"▦"};
   var catOrder = ["thread","memory","process","generic"];
   // 토큰/벽(분신) 등 소환 전용 카드는 도감/덱 타일에서 제외.
-  var DENY = {Token1:1,Token2:1,Token21:1,Token2b:1,Token5:1,Wall5:1,Wall8:1,Wall10:1};
+  var DENY = {Token1:1,Token2:1,Token21:1,Token2b:1,Token5:1,Wall5:1,Wall8:1,Wall10:1,'overtime()':1};
   var allIds = Object.keys(CARDS).filter(function(id){
     var c = CARDS[id]; return c && !DENY[id] && (c.kind==="object"||c.kind==="pointer");
   });

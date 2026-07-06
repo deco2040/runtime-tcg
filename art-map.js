@@ -200,4 +200,5 @@ window.RT_ART = {
   "Snapshot": "art/Snapshot.png",
   "Wormhole": "art/Wormhole.png",
   "Sudo": "art/Sudo.png",
+  "overtime()": "art/overtime.png",
 };

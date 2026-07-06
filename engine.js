@@ -102,7 +102,7 @@
     // 선후공 보정 config(rules v12): 선공 5·후공 5, 선공 1턴차 드로우 스킵 없음.
     // 80턴 결착(피로) 메타에선 "적게 뽑는 쪽이 늦게 소진→피로 늦음"이라 선공 드로우 스킵이 선공 이점을
     // 오히려 키웠음(64%). 스킵 제거로 덱중립하게 ~57%로 완화(본체HP 보정은 요새덱 펌핑 부작용이라 미채택).
-    this._cfg = Object.assign({ openFirst: 5, openSecond: 5, firstSkipDraw: false, secondBodyBonus: 0 }, opts);
+    this._cfg = Object.assign({ openFirst: 5, openSecond: 5, firstSkipDraw: false, secondBodyBonus: 0, secondComp: true }, opts);
   }
   function newPlayer(i) {
     return { idx: i, deck: [], hand: [], graveyard: [], destroyedAlly: 0, pointersCast: 0, turnsTaken: 0,
@@ -489,6 +489,8 @@
     this.forUsesThisTurn = {};
     // draw: (config) 선공 1턴차 드로우 스킵 여부. everyone else draws.
     if (!(this._cfg.firstSkipDraw && p === this.firstPlayer && pl.turnsTaken === 1)) this.draw(p, 1);
+    // 후공 보정: 후공 첫 턴 시작 시 '동전'(overtime, 이번 턴 액션 +2) 1장 덱 외 지급(멀리건 후라 덱 미오염).
+    if (this._cfg.secondComp && p !== this.firstPlayer && pl.turnsTaken === 1 && pl.hand.length < 10) pl.hand.push('overtime()');
     this.note('— P' + p + ' 턴 시작 (turn ' + this.turnNo + ') —');
     // onTurnStart triggers (auto for When; For are user/AI-activated)
     this.fireTurnStart(p);

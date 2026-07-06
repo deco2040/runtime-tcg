@@ -318,6 +318,8 @@
     def({ id: 'halt()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 1턴 봉쇄', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.bind(u, 1); } });
     def({ id: 'log()', cls: 'generic', kind: 'pointer', need: 'none', text: '카드 1장 뽑기, 이번 턴 포인터를 이미 시전했다면 1장 더 뽑기', cast: function (G, p) { G.draw(p, 1); if (G.turnFlags.pointerCastThisTurn > 1) G.draw(p, 1); } });
     def({ id: 'defer()', cls: 'process', kind: 'pointer', need: 'none', text: '다음 내 턴 액션 +2', cast: function (G, p) { G.players[p].deferredActions = (G.players[p].deferredActions || 0) + 2; } });
+    // 후공 보정 카드('동전' 격) — 후공 첫 턴에 덱 외로 1장 지급. 덱 편성 불가(deckbuilder/도감 제외).
+    def({ id: 'overtime()', cls: 'generic', kind: 'pointer', need: 'none', text: '이번 턴 액션 +2 · 후공 보정(덱 편성 불가)', cast: function (G, p) { G.grantActions(2); } });
 
     // ============================================================ IF — 선택 발동 능력 카드 (조건부·2분기)
     // kw:'If' = 능동 활성(For와 동일 회계). options=UI 분기 버튼, ch.opt=선택 인덱스, aiOpt=AI 분기.

@@ -28,7 +28,7 @@
   // 덱 편성 가능한 카드 풀 — 토큰/벽/분신 등 소환 전용 카드는 제외
   function deckPool() {
     if (_pool) return _pool;
-    var deny = { Token1: 1, Token2: 1, Token21: 1, Token2b: 1, Token5: 1, Wall5: 1, Wall8: 1, Wall10: 1, __body0: 1, __body1: 1 };
+    var deny = { Token1: 1, Token2: 1, Token21: 1, Token2b: 1, Token5: 1, Wall5: 1, Wall8: 1, Wall10: 1, __body0: 1, __body1: 1, 'overtime()': 1 };
     var order = { thread: 0, memory: 1, process: 2, generic: 3, none: 4 };
     _pool = Object.keys(CARDS).filter(function (id) { var c = CARDS[id]; return c && !deny[id] && (c.kind === 'object' || c.kind === 'pointer'); });
     function ord(cls) { return (cls in order) ? order[cls] : 9; }   // ⚠ 0이 falsy라 `order[cls]||9` 쓰면 thread(0)가 꼴찌로 밀림
