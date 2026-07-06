@@ -310,19 +310,7 @@
     // 상단: 아바타 + 닉/뱃지 + 계정 버튼
     card.appendChild(
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '11px' } }, [
-        el(
-          'div',
-          {
-            class: 'grot',
-            style: {
-              width: '40px', height: '40px', flex: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '20px', fontWeight: 700, color: p.hi,
-              border: '1px solid ' + p.line, background: p.faint,
-            },
-          },
-          [isMember ? '◈' : '◇']
-        ),
+        (UI.avatarEl ? UI.avatarEl(me || { nickname: nick }, 40) : el('div', { class: 'grot', style: { width: '40px', height: '40px', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700, color: p.hi, border: '1px solid ' + p.line, background: p.faint } }, [isMember ? '◈' : '◇'])),
         el('div', { style: { flex: 1, minWidth: 0 } }, [
           el(
             'div',
@@ -378,25 +366,29 @@
   function deckTile(p, k, sel, onClick, extra) {
     var d = UI.DECKS && UI.DECKS[k];
     if (!d) return null;
-    var gly = GLY[d.cls] || GLY.generic;
-    var kids = [
-      el('span', { style: { fontSize: '12px', fontWeight: 700, letterSpacing: '.04em' } }, [
-        (sel ? '▶ ' : '  ') + gly + ' ' + k,
-      ]),
+    // 구성별 대표색으로 글리프 틴트(메인 페이지와 동일). core 헬퍼 우선, 없으면 d.cls.
+    var ccls = (UI.deckCoverCls ? UI.deckCoverCls(d.list) : d.cls) || 'generic';
+    var col = (UI.CLS && UI.CLS[ccls]) || null;
+    var gly = GLY[ccls] || GLY[d.cls] || GLY.generic;
+    // 좌측 대표 카드 썸네일(메인과 동일한 coverThumb) + 우측 이름 열.
+    var thumb = UI.deckCoverThumb ? UI.deckCoverThumb(d, 38) : null;
+    var textCol = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '0', flex: '1 1 auto' } }, [
+      el('span', { style: { fontSize: '12px', fontWeight: 700, letterSpacing: '.04em', color: col || undefined } }, [(sel ? '▶ ' : '') + gly + ' ' + k]),
       el('span', {
         style: {
           fontSize: '10px', opacity: '.72',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         },
       }, [(d.name || '(이름 없음)').replace(/^\w+ · /, '')]),
-    ];
+    ]);
+    var kids = thumb ? [thumb, textCol] : [textCol];
     if (extra) kids.push(extra);
     return el('div', {
       onclick: onClick,
       class: 'crt-opt' + (sel ? ' on' : ''),
       style: {
-        position: 'relative', display: 'flex', flexDirection: 'column', gap: '2px',
-        textAlign: 'left', cursor: 'pointer', paddingRight: extra ? '26px' : undefined,
+        position: 'relative', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px',
+        textAlign: 'left', cursor: 'pointer', paddingRight: extra ? '26px' : undefined, minHeight: '52px',
       },
     }, kids);
   }
@@ -405,7 +397,7 @@
     return el('div', {
       style: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill,minmax(128px,1fr))',
+        gridTemplateColumns: 'repeat(auto-fill,minmax(158px,1fr))',
         gap: '6px', margin: '6px 0 12px',
       },
     });

@@ -6,8 +6,13 @@
   var el = UI.el, clear = UI.clear, app = UI.app;
   var DECKS = UI.DECKS, RT = UI.RT;
   var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
+  var CLS = UI.CLS || { thread: '#d8472b', memory: '#2456a6', process: '#c8951b', generic: '#6b6b75', mixed: '#8a6fb0', none: '#1d1d24' };
+  // 덱 구성별 대표색: 순수 클래스=고유색 · generic 최다=회색 · 혼합=보라. core 의 판정 헬퍼 우선.
+  function deckColor(d) { var c = (UI.deckCoverCls ? UI.deckCoverCls(d.list) : (d.cls || 'generic')); return CLS[c] || CLS.generic; }
   // 터미널 팔레트(테마별로 renderTitle 진입 시 갱신) — 헬퍼들이 참조하므로 모듈 스코프에 둔다.
   var AMB = '#ffb000', AMB_HI = '#ffd27a', AMB_DIM = '#b3791f';
+  // 메인 화면 단계: null = 모드 선택(싱글/온라인) · 'single' = 싱글 셋업(덱·상대·START/CHALLENGE).
+  var titleMode = null;
 
   function renderTitle() {
     clear();
@@ -43,58 +48,8 @@
     var presets = (UI.presetKeys && UI.presetKeys()) || Object.keys(DECKS);
     var customs = (UI.customKeys && UI.customKeys()) || [];
 
-    // ▸ 견본 덱 (SAMPLE)
-    b.appendChild(crtLabel('▸ 견본 덱 · SAMPLE'));
-    b.appendChild(crtDeckGrid(function (k) { return k === myDeck; }, function (k) { UI.setMyDeck(k); render(); }, presets));
-
-    // ▸ 커스텀 덱 (CUSTOM) — 저장된 자작 덱 선택/편집 + 새 덱 만들기
-    b.appendChild(crtLabel('▸ 커스텀 덱 · CUSTOM'));
-    b.appendChild(crtCustomGrid(myDeck, customs, render));
-
-    // ▸ OPPONENT
-    b.appendChild(crtLabel('▸ OPPONENT'));
-    var oppRow = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px', margin: '8px 0 18px' } });
-    oppRow.appendChild(crtChip('RANDOM', oppDeck === '__random', function () { UI.setOppDeck('__random'); render(); }));
-    presets.forEach(function (k) { oppRow.appendChild(crtChip(k, oppDeck === k, function () { UI.setOppDeck(k); render(); })); });
-    b.appendChild(oppRow);
-
-    // ▸ SYSTEM — 덱 요약 + 규칙(터미널 정보 블록)
-    var meta = RT.analyzeDeck(DECKS[myDeck].list);
-    b.appendChild(crtLabel('▸ SYSTEM'));
-    b.appendChild(crtInfo([
-      ['DECK', DECKS[myDeck].name.replace(/^\w+ · /, '') + '  ·  30 cards  ·  ' + (meta.singleClass ? 'single-class(' + (meta.classes[0] || 'generic') + ')' : 'mixed')],
-      ['RULES', 'HP40 · 2 actions/turn · basic atk(adj·free·1x) · fn/trigger free'],
-      ['LIMIT', G_capText()]
-    ]));
-
-    // 실행 버튼
-    var startRow = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '18px' } }, [
-      el('button', { class: 'crt-btn', style: { fontSize: '16px' }, onclick: UI.startMatch }, ['▶ START']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { if (UI.renderLobby) UI.renderLobby(); } }, ['🌐 LOBBY']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { window.open('cards.html', '_blank', 'noopener'); } }, ['📇 도감'])
-    ]);
-    // 💬 DISCORD — 커뮤니티 서버 초대. config.js 의 RT_DISCORD.invite 가 실제 링크일 때만 노출(미설정 시 숨김).
-    var dc = window.RT_DISCORD && window.RT_DISCORD.invite;
-    if (dc && dc.indexOf('YOUR-') === -1) {
-      startRow.appendChild(el('button', {
-        class: 'crt-btn ghost', style: { fontSize: '16px' },
-        onclick: function () { window.open(dc, '_blank', 'noopener'); }
-      }, ['💬 DISCORD']));
-    }
-    b.appendChild(startRow);
-    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
-      'CHALLENGE — 선택한 내 덱으로 점점 강해지는 AI와 연속 대결. ',
-      el('span', { style: { color: AMB } }, ['BEST ' + myDeck + ' ' + UI.bestStreak(myDeck) + 'W'])
-    ]));
-    var recs = UI.bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });
-    if (recKeys.length) {
-      b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '4px' } }, [
-        'LOG — ' + recKeys.map(function (k) { return k + ':' + recs[k] + 'W'; }).join('  ·  ')
-      ]));
-    }
+    if (titleMode === 'single') buildSingle(b, presets, customs, myDeck, oppDeck, render);
+    else buildModeSelect(b, render);
 
     // 프롬프트 커서줄
     b.appendChild(el('div', { style: { fontSize: '13px', color: AMB, marginTop: '18px', fontWeight: 700, letterSpacing: '.05em' } }, [
@@ -117,6 +72,86 @@
       el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9px', color: brandCol2, letterSpacing: '.1em' } }, ['MODEL RT-50'])
     ]));
     app.appendChild(monitor);
+  }
+
+  // 공용 유틸 버튼 줄 — 계정 · 게임방법 · 도감 · (디스코드).
+  function utilRow() {
+    var row = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '16px' } }, [
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 게임방법']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { window.open('cards.html', '_blank', 'noopener'); } }, ['📇 도감'])
+    ]);
+    var dc = window.RT_DISCORD && window.RT_DISCORD.invite;
+    if (dc && dc.indexOf('YOUR-') === -1) row.appendChild(el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { window.open(dc, '_blank', 'noopener'); } }, ['💬 DISCORD']));
+    return row;
+  }
+
+  // 1단계: 모드 선택 — 싱글 플레이 / 온라인 플레이.
+  function buildModeSelect(b, render) {
+    b.appendChild(crtLabel('▸ 모드 선택 · MODE'));
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '12px', margin: '10px 0 6px' } }, [
+      modeCard('🎮', '싱글 플레이', 'SINGLE', 'AI와 대국 · 견본/커스텀 덱 · 도전 모드', function () { titleMode = 'single'; render(); }),
+      modeCard('🌐', '온라인 플레이', 'ONLINE', '다른 플레이어와 실시간 대전 · 로비', function () { if (UI.renderLobby) UI.renderLobby(); })
+    ]);
+    b.appendChild(grid);
+    b.appendChild(utilRow());
+    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, ['모드를 선택하세요. 싱글은 덱을 고른 뒤 바로 시작, 온라인은 로비에서 상대를 찾습니다.']));
+  }
+  function modeCard(icon, title, sub, desc, cb) {
+    return el('button', {
+      onclick: cb, class: 'crt-opt',
+      style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', textAlign: 'left', padding: '18px 16px', minHeight: '112px' }
+    }, [
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
+        el('span', { style: { fontSize: '26px', lineHeight: 1 } }, [icon]),
+        el('span', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.2em', opacity: '.7' } }, [sub])
+      ]),
+      el('span', { style: { fontSize: '19px', fontWeight: 700, letterSpacing: '.03em' } }, [title]),
+      el('span', { style: { fontSize: '11px', opacity: '.72', lineHeight: 1.5 } }, [desc])
+    ]);
+  }
+
+  // 2단계: 싱글 셋업 — 견본/커스텀 덱 · 상대 덱 · START/CHALLENGE.
+  function buildSingle(b, presets, customs, myDeck, oppDeck, render) {
+    // 뒤로(모드 선택으로)
+    b.appendChild(el('button', { class: 'crt-btn ghost', style: { fontSize: '13px', padding: '4px 12px', marginBottom: '6px' }, onclick: function () { titleMode = null; render(); } }, ['‹ 모드 선택']));
+
+    // ▸ 견본 덱 (SAMPLE)
+    b.appendChild(crtLabel('▸ 견본 덱 · SAMPLE'));
+    b.appendChild(crtDeckGrid(function (k) { return k === myDeck; }, function (k) { UI.setMyDeck(k); render(); }, presets));
+
+    // ▸ 커스텀 덱 (CUSTOM) — 저장된 자작 덱 선택/편집 + 새 덱 만들기
+    b.appendChild(crtLabel('▸ 커스텀 덱 · CUSTOM'));
+    b.appendChild(crtCustomGrid(myDeck, customs, render));
+
+    // ▸ OPPONENT
+    b.appendChild(crtLabel('▸ 상대 덱 · OPPONENT'));
+    var oppRow = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px', margin: '8px 0 18px' } });
+    oppRow.appendChild(crtChip('RANDOM', oppDeck === '__random', function () { UI.setOppDeck('__random'); render(); }));
+    presets.forEach(function (k) { oppRow.appendChild(crtChip(k, oppDeck === k, function () { UI.setOppDeck(k); render(); })); });
+    b.appendChild(oppRow);
+
+    // ▸ SYSTEM — 덱 요약 + 규칙(터미널 정보 블록)
+    var meta = RT.analyzeDeck(DECKS[myDeck].list);
+    b.appendChild(crtLabel('▸ SYSTEM'));
+    b.appendChild(crtInfo([
+      ['DECK', DECKS[myDeck].name.replace(/^\w+ · /, '') + '  ·  30 cards  ·  ' + (meta.singleClass ? 'single-class(' + (meta.classes[0] || 'generic') + ')' : 'mixed')],
+      ['RULES', 'HP40 · 2 actions/turn · basic atk(adj·free·1x) · fn/trigger free'],
+      ['LIMIT', G_capText()]
+    ]));
+
+    // 실행 버튼 — START / CHALLENGE (하단)
+    b.appendChild(el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '18px' } }, [
+      el('button', { class: 'crt-btn', style: { fontSize: '17px', minWidth: '132px' }, onclick: UI.startMatch }, ['▶ START']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '17px', minWidth: '132px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE'])
+    ]));
+    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
+      'CHALLENGE — 선택한 내 덱으로 점점 강해지는 AI와 연속 대결. ',
+      el('span', { style: { color: AMB } }, ['BEST ' + myDeck + ' ' + UI.bestStreak(myDeck) + 'W'])
+    ]));
+    var recs = UI.bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });
+    if (recKeys.length) b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '4px' } }, ['LOG — ' + recKeys.map(function (k) { return k + ':' + recs[k] + 'W'; }).join('  ·  ')]));
+    b.appendChild(utilRow());
   }
   function footLink(label, href) {
     return el('a', { href: href, target: '_blank', rel: 'noopener', style: { color: AMB_DIM, textDecoration: 'underline', textUnderlineOffset: '2px', cursor: 'pointer' } }, [label]);
@@ -171,9 +206,10 @@
     var dk = UI.getTheme() === 'dark';
     var id = deckCoverId(d), C = (RT && RT.CARDS) || {}, card = C[id] || {};
     var gly = GLY[card.cls || d.cls] || GLY.generic;
-    var borderCol = dk ? 'rgba(255,176,0,.32)' : 'rgba(29,29,36,.22)';
-    var box = el('span', { style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid ' + borderCol, background: dk ? 'rgba(255,176,0,.05)' : 'rgba(29,29,36,.04)' } });
-    box.appendChild(el('span', { style: { position: 'absolute', fontSize: Math.round(size * 0.5) + 'px', fontWeight: 700, color: dk ? '#b3791f' : '#6b6b75', opacity: '.5' } }, [gly]));
+    // 덱 구성별 대표색으로 프레임·글리프를 틴트(모노크롬 일러 위에 색 큐).
+    var col = deckColor(d);
+    var box = el('span', { style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1.5px solid ' + col, boxShadow: 'inset 0 0 0 1px ' + (dk ? 'rgba(0,0,0,.35)' : 'rgba(255,255,255,.35)') + ', 0 0 6px ' + col + '55', background: dk ? 'rgba(255,176,0,.05)' : 'rgba(29,29,36,.04)' } });
+    box.appendChild(el('span', { style: { position: 'absolute', fontSize: Math.round(size * 0.5) + 'px', fontWeight: 700, color: col, opacity: '.6' } }, [gly]));
     var v = (window.RT_ART || {})[id], src = typeof v === 'string' ? v : (v && v.src);
     if (src) {
       var img = el('img', { style: { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: (v && v.fit) || 'cover', objectPosition: (v && v.pos) || '50% 50%', filter: dk ? 'grayscale(1) sepia(1) saturate(2.8) hue-rotate(-12deg) brightness(1.08) contrast(1.02)' : 'grayscale(1) contrast(1.05) brightness(.98)' } });
@@ -238,4 +274,7 @@
     }));
   }
   UI.renderTitle = renderTitle;
+  // 공용 노출 — 로비/매치메이킹에서 메인과 동일한 대표 카드 썸네일·구성색을 재사용.
+  UI.deckCoverThumb = coverThumb;
+  UI.deckColorFor = deckColor;
 })();

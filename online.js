@@ -410,7 +410,10 @@
         el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: p.dim, letterSpacing: '.08em' } }, [mine ? '나' : '상대']),
         (prof && prof.is_guest) ? el('span', { style: { fontSize: '9px', color: p.dim, border: '1px solid ' + p.line, padding: '1px 4px' } }, ['게스트']) : null,
       ]),
-      el('div', { class: 'grot', style: { fontSize: '16px', fontWeight: 700, color: accent, marginBottom: '6px', wordBreak: 'break-all', lineHeight: 1.2 } }, [nick || '???']),
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } }, [
+        (UI.avatarEl ? UI.avatarEl({ nickname: nick, avatar: prof && prof.avatar }, 34) : null),
+        el('div', { class: 'grot', style: { fontSize: '16px', fontWeight: 700, color: accent, wordBreak: 'break-all', lineHeight: 1.2, minWidth: 0 } }, [nick || '???']),
+      ]),
     ];
     if (!prof) {
       kids.push(el('div', { style: { fontSize: '11px', color: p.dim } }, ['전적 불러오는 중…']));

@@ -66,7 +66,35 @@
     });
   }
   function deckDominantCls(list) { var a = RT.analyzeDeck(list); return a.singleClass ? (a.classes[0] || 'generic') : 'mixed'; }
+  // 대표 카드 색 판정(구성별): 순수/주력 단일 비-generic 클래스 → 그 클래스색 / generic 이 최다 버킷 → generic(회색) / 비-generic 2종 이상 혼합 → mixed(보라).
+  function deckCoverCls(list) {
+    var by = { thread: 0, memory: 0, process: 0, generic: 0 };
+    for (var i = 0; i < (list || []).length; i++) {
+      var c = CARDS[list[i]]; var cc = c ? c.cls : (/^(Token|Wall|__)/.test(list[i]) ? 'generic' : null);
+      if (by[cc] != null) by[cc]++;
+    }
+    var maxNon = Math.max(by.thread, by.memory, by.process);
+    var nonGen = ['thread', 'memory', 'process'].filter(function (k) { return by[k] > 0; });
+    if (by.generic > maxNon) return 'generic';
+    if (nonGen.length <= 1) return nonGen[0] || 'generic';
+    return 'mixed';
+  }
   function nextCustomKey() { var n = 1; while (_customMem['U' + n]) n++; return 'U' + n; }
+  // ---- 프로필 아바타(이모지 프리셋 or 닉 이니셜). 로비·대전 중·계정에서 공용. 상대 확인용.
+  var AVA_EMOJI = ['🐙', '🤖', '👾', '🐺', '🦊', '🐲', '🦉', '🦈', '⚡', '🔥', '💠', '🎯', '🛰', '🕹', '👑', '💾'];
+  function avatarHue(str) { var h = 0; str = String(str || '?'); for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360; return h; }
+  function avatarInitials(nick) { return (String(nick || '?').replace(/[^A-Za-z0-9가-힣]/g, '').slice(0, 2).toUpperCase()) || '::'; }
+  // prof: {nickname, avatar} 객체 또는 닉 문자열. avatar(이모지)가 있으면 이모지, 없으면 이니셜. 색=닉 해시(accent 로 강제 가능).
+  function avatarEl(prof, size, accent) {
+    size = size || 40;
+    var nick = (prof && typeof prof === 'object') ? (prof.nickname || '') : (typeof prof === 'string' ? prof : '');
+    var av = (prof && typeof prof === 'object') ? (prof.avatar || '') : '';
+    var bg = accent || ('hsl(' + avatarHue(nick || av || '?') + ',42%,44%)');
+    var box = el('span', { class: 'grot', style: { flex: 'none', width: size + 'px', height: size + 'px', borderRadius: Math.round(size * 0.2) + 'px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: bg, color: '#fff', fontWeight: 700, letterSpacing: '.02em', overflow: 'hidden', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)' } });
+    if (av) box.appendChild(el('span', { style: { fontSize: Math.round(size * 0.56) + 'px', lineHeight: 1 } }, [av]));
+    else box.appendChild(el('span', { style: { fontSize: Math.round(size * 0.42) + 'px' } }, [avatarInitials(nick)]));
+    return box;
+  }
   function saveCustomDeck(key, name, list, cover) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice(), cover: (cover && list.indexOf(cover) >= 0) ? cover : undefined }; persistCustom(); syncCustomDecks(); }
   function deleteCustomDeck(key) { delete _customMem[key]; persistCustom(); syncCustomDecks(); if (myDeck === key) myDeck = presetKeys()[0] || 'T1'; }
   syncCustomDecks();
@@ -388,7 +416,8 @@
     'memory': { t: 'memory · 방어형', d: '공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함.' },
     'process': { t: 'process · 유틸형', d: '변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함.' },
     'generic': { t: 'generic · 무클래스', d: '이종 시너지형. 3클래스가 동족 시너지라면 generic은 이종 시너지(다른 클래스를 섞을수록 강함) + 어디서나 작동하는 기본 부품. 참조값: 내 필드 클래스 종류 수(generic 포함, 최대 4).' },
-    '본체': { t: '본체', d: '플레이어 거점(HP 40). 0 이하면 패배. 보드 칸이라 인접·사거리에 포함된다.' },
+    '적': { t: '적 = 적 유닛 + 적 본체', d: '「적」은 적 인스턴스와 적 본체를 함께 가리킨다. 피해를 주는 능력·포인터는 범위·직선이 닿으면 본체도 직접 노린다. 봉쇄·강제 이동·약화·바운스 등 조작 효과는 인스턴스에만 적용. 「적 인스턴스」/「적 본체」로 명시된 경우엔 그 대상만.' },
+    '본체': { t: '본체', d: '플레이어 거점(HP 40). 0 이하면 패배. 보드 칸이라 「적」 피해(기본 공격·라인·데미지 포인터)의 대상에 포함된다.' },
     '봉쇄': { t: '봉쇄', d: '봉쇄된 인스턴스는 이동·기본 공격·For 능동이 전부 불가. While 지속 오라와 When/If/Once 트리거는 유지된다.' },
     '이동 불가': { t: '이동 불가', d: '이동만 막는 부분 제한(Cache·Const 자신·ROM). 기본 공격·For·능력은 정상. 봉쇄와 별개.' },
     '관통': { t: '관통(벽 너머)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 지정·타격(대상 지정 관통). 피해량 수정과는 무관 — 피해감소 무시는 「직격」.' },
@@ -669,7 +698,7 @@
       setActionToast(ev.srcOwner != null ? ev.srcOwner : HUMAN, (ev.srcCard ? cardNm(ev.srcCard) + ' → ' : '') + labelAt(ev.key) + ' ' + txt);
       pushFeed({ actor: ev.srcOwner, icon: '◈', kind: 'stat', card: ev.srcCard, text: (ev.srcCard ? cardNm(ev.srcCard) + ' · ' : '') + labelAt(ev.key) + ' ' + txt });
     }
-    else if (ev.type === 'draw') { if (ev.player === HUMAN) drawPulse = true; ejectCard(ev.player); Sound.draw(); }
+    else if (ev.type === 'draw') { if (ev.overtime) { overtimeDrawFx(ev.player); } else { if (ev.player === HUMAN) drawPulse = true; ejectCard(ev.player); Sound.draw(); } }
   }
   // 상대(및 자동) 포인터 시전 시 어떤 카드인지 인지 가능한 속도로 큰 카드를 보여주고 사라지는 연출.
   function revealCard(cardId, owner) {
@@ -1092,8 +1121,15 @@
     var hp = b ? G.curHp(b) : 0, mx = b ? G.effMaxHp(b) : 1, accent = ownerColor(owner), low = mx && hp / mx <= 0.34;
     var who = me ? '나' : '상대';
     if (onlineMatch) { var k = me ? (G.myKey || '나') : (G.oppKey || '상대'); who = k.length > 10 ? k.slice(0, 9) + '…' : k; }
-    var kids = [
-      el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: accent, flex: 'none', maxWidth: '92px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: who }, [who]),
+    var kids = [];
+    // 온라인 대전: 이름 앞에 아바타 — 서로 상대를 눈으로 확인.
+    if (onlineMatch && UI.avatarEl) {
+      var _pf = me ? (onlineMatch.myProfile || (UI.Net && UI.Net.profile && UI.Net.profile())) : onlineMatch.oppProfile;
+      kids.push(UI.avatarEl({ nickname: me ? (G.myKey || '나') : (G.oppKey || '상대'), avatar: _pf && _pf.avatar }, 20));
+    }
+    kids.push(
+      el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: accent, flex: 'none', maxWidth: '92px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: who }, [who]));
+    kids = kids.concat([
       el('span', { style: { fontSize: '13px', color: low ? SKIN.heat : accent, flex: 'none' } }, ['♥']),
       el('b', { class: 'mono', style: { fontSize: '16px', fontWeight: 700, color: low ? SKIN.heat : accent, lineHeight: 1, flex: 'none' } }, [String(hp)]),
       el('span', { class: 'mono', style: { fontSize: '9px', color: SKIN.muted, flex: 'none' } }, ['/' + mx]),
@@ -1103,7 +1139,7 @@
       pileStat('덱', pl.deck.length, '남은 덱'),
       pileStat('묘', pl.graveyard.length, '묘지'),
       pileStat('패', pl.hand.length, '손패')
-    ];
+    ]);
     if (opts.extra) opts.extra.forEach(function (n) { if (n) kids.push(n); });
     return el('div', { style: Object.assign({ display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 10px', background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none', flexWrap: 'wrap' }, opts.style || {}) }, kids);
   }
@@ -1380,6 +1416,35 @@
       { transform: 'translateY(' + (dir * 52) + 'px) scale(1.02) rotate(' + (dir * 3) + 'deg)', opacity: 1, offset: .7 },
       { transform: 'translateY(' + (dir * 96) + 'px) scale(.88)', opacity: 0 }
     ], { duration: 520, easing: 'cubic-bezier(.3,.7,.3,1)' });
+  }
+  // 후공 보정 '동전'(overtime) 추가 지급 연출 — 멀리건으로 손패가 갖춰지고 일반 드로우가 끝난 뒤,
+  // 카드 한 장이 덱에서 손패로 '또 하나 더' 날아드는 강조 애니메이션(금빛 코인). 살짝 지연해 '추가' 느낌을 준다.
+  function overtimeDrawFx(owner) {
+    var me = owner === HUMAN;
+    if (me) drawPulse = true;                 // 실제 손패의 마지막(overtime) 카드가 drawIn 으로 등장
+    Sound.draw();
+    setTimeout(function () {
+      Sound.draw();
+      var slot = document.getElementById('deckslot-' + owner);
+      var r = slot ? slot.getBoundingClientRect() : null;
+      if (!r) { setActionToast(owner, '🪙 후공 보정 — 추가 카드 「동전」'); return; }
+      var hand = document.getElementById('handrow');
+      var hr = hand ? hand.getBoundingClientRect() : null, dir = me ? 1 : -1;
+      var sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+      var destX = hr ? (hr.left + hr.width - 44) : sx;
+      var destY = hr ? (hr.top + hr.height / 2) : (sy + dir * 130);
+      var dx = destX - sx, dy = destY - sy;
+      var coin = el('div', { style: { position: 'fixed', left: sx + 'px', top: sy + 'px', width: '40px', height: '56px', marginLeft: '-20px', marginTop: '-28px', background: 'linear-gradient(135deg,#ffd27a,#c8951b)', border: '1.5px solid #8a6a12', borderRadius: '5px', zIndex: 130, boxShadow: '0 6px 18px rgba(200,149,27,.6), 0 0 16px rgba(255,210,122,.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 700 } }, ['🪙']);
+      fxLayer().appendChild(coin);
+      anim(coin, [
+        { transform: 'translate(0,0) scale(.4) rotate(-12deg)', opacity: 0 },
+        { transform: 'translate(' + (dx * 0.3) + 'px,' + (dy * 0.3 - 24) + 'px) scale(1.12) rotate(6deg)', opacity: 1, offset: 0.4 },
+        { transform: 'translate(' + (dx * 0.82) + 'px,' + (dy * 0.82) + 'px) scale(1) rotate(-3deg)', opacity: 1, offset: 0.82 },
+        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.7)', opacity: 0 }
+      ], { duration: 720, easing: 'cubic-bezier(.25,.85,.3,1)' });
+      setActionToast(owner, '🪙 후공 보정 — 추가 카드 「동전」(이번 턴 액션 +2)');
+      pushFeed({ actor: owner, icon: '🪙', kind: 'draw', card: 'overtime()', text: '후공 보정 · 「동전」 추가 획득' });
+    }, 260);
   }
   function gauge(cur, max, color) {
     return el('div', { style: { flex: 1, maxWidth: '220px', minWidth: '70px', height: '12px', background: SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelLo, position: 'relative' } }, [
@@ -2009,7 +2074,10 @@
       var accent = mine ? SKIN.own : SKIN.enemy;
       var kids = [
         el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginBottom: '2px' } }, [mine ? '나' : '상대']),
-        el('div', { class: 'grot', style: { fontSize: '14px', fontWeight: 700, color: accent, wordBreak: 'break-all', lineHeight: 1.2, marginBottom: '3px' } }, [nick || '???']),
+        el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', marginBottom: '3px' } }, [
+          (UI.avatarEl ? UI.avatarEl({ nickname: nick, avatar: prof && prof.avatar }, 30) : null),
+          el('div', { class: 'grot', style: { fontSize: '14px', fontWeight: 700, color: accent, wordBreak: 'break-all', lineHeight: 1.2, minWidth: 0 } }, [nick || '???']),
+        ]),
       ];
       if (prof) {
         var g = prof.games || 0, w = prof.wins || 0, l = prof.losses || 0, d = prof.draws || 0;
@@ -2085,7 +2153,8 @@
   // ── 모바일 메뉴 바텀시트(항복 · 규칙 요약) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
   //   규칙 설명은 GLOSS(키워드 사전)를 그대로 재사용해 간략히 보여준다.
   var RULE_ABILITY = ['If', 'When', 'Once', 'While', 'For'];        // 특수능력 발동 방식
-  var RULE_RANGE = ['옆칸', '1칸이내', '앞직선', '대각', '나이트', '관통', '직격']; // 사거리 키워드 (v6.1)
+  var RULE_TARGET = ['적', '본체', '인스턴스', '분신'];               // 대상 규칙 (적=인스턴스+본체)
+  var RULE_RANGE = ['옆칸', '1칸이내', '앞직선', '대각', '나이트', '관통', '직격']; // 함수 범위 키워드 (v6.1)
   function ruleRows(keys) {
     return keys.map(function (k) {
       var g = GLOSS[k]; if (!g) return null;
@@ -2123,7 +2192,9 @@
         el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
           el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['특수능력 · 발동 방식']),
           el('div', {}, ruleRows(RULE_ABILITY)),
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['사거리 키워드']),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['대상 규칙']),
+          el('div', {}, ruleRows(RULE_TARGET)),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['함수 범위 · 사거리 키워드']),
           el('div', {}, ruleRows(RULE_RANGE))
         ])
       ];
@@ -2139,7 +2210,7 @@
     } else {
       kids = [
         header('메뉴', null),
-        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (특수능력·사거리)']),
+        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (특수능력·대상·함수 범위)']),
         el('button', { class: 'btn', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px', background: SKIN.enemy, color: '#fff' }, onclick: function () { menuView = 'confirm'; render(); } }, ['🏳 항복'])
       ];
     }
@@ -2581,6 +2652,8 @@
   UI.getOppDeck = function () { return oppDeck; }; UI.setOppDeck = function (k) { oppDeck = k; };
   // 커스텀 덱: title.js(견본/커스텀 구분) · deckbuilder.js(저장/삭제) 가 소비
   UI.GLY = GLY;
+  UI.deckCoverCls = deckCoverCls; UI.deckDominantCls = deckDominantCls;
+  UI.avatarEl = avatarEl; UI.AVA_EMOJI = AVA_EMOJI;
   UI.isCustomKey = isCustomKey; UI.presetKeys = presetKeys; UI.customKeys = customKeys;
   UI.saveCustomDeck = saveCustomDeck; UI.deleteCustomDeck = deleteCustomDeck; UI.nextCustomKey = nextCustomKey;
   UI.exitToGuide = function () {

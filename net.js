@@ -124,6 +124,7 @@
       .then(function (r) {
         if (r.data) {
           _profile = r.data;
+          if (!_profile.avatar) { var la = getLocalAvatar(); if (la) _profile.avatar = la; }
           return _profile;
         }
         // 트리거 미설정 등으로 프로필이 없으면 클라에서 생성 시도(RLS insert 정책 필요)
@@ -152,7 +153,7 @@
       if (!c) return null;
       return c
         .from('profiles')
-        .select('id,nickname,is_guest,wins,losses,draws,games')
+        .select('*')
         .eq('id', userId)
         .maybeSingle()
         .then(function (r) {
@@ -177,6 +178,25 @@
         if (r.data) _profile = r.data;
         return _profile;
       });
+  }
+
+  // 아바타(이모지 프리셋 문자열). 로컬 우선 저장 → 게스트/오프라인/컬럼 미적용에도 항상 동작.
+  // 백엔드 profiles.avatar 컬럼이 있으면 동기화(없어 실패해도 로컬은 유지).
+  function getLocalAvatar() { try { return window.localStorage.getItem('rt_avatar') || ''; } catch (e) { return ''; } }
+  function setLocalAvatar(av) { try { window.localStorage.setItem('rt_avatar', av || ''); } catch (e) {} }
+  function updateAvatar(av) {
+    av = (av || '').slice(0, 8);
+    setLocalAvatar(av);
+    if (_profile) _profile.avatar = av;
+    if (!_client || !_session) return Promise.resolve(_profile);
+    return _client
+      .from('profiles')
+      .update({ avatar: av })
+      .eq('id', _session.user.id)
+      .select()
+      .maybeSingle()
+      .then(function (r) { if (r && r.data) { _profile = r.data; _profile.avatar = av; } return _profile; })
+      .catch(function () { return _profile; });   // 컬럼 미적용 시에도 로컬 유지
   }
 
   var ADJ = [
@@ -478,6 +498,8 @@
     reloadProfile: loadProfile,
     fetchProfile: fetchProfile,
     updateNickname: updateNickname,
+    updateAvatar: updateAvatar,
+    localAvatar: getLocalAvatar,
     randomNick: randomNick,
     onAuth: function (cb) {
       _authSubs.push(cb);

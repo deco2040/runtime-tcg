@@ -126,15 +126,6 @@
   .foot{margin-top:38px;padding-top:16px;border-top:1px solid var(--line);font-size:10.5px;color:var(--dim);line-height:1.7;letter-spacing:.03em}
   .foot a{color:var(--accent)}
 
-  /* data download */
-  .dlnote{font-size:11px;color:var(--dim);margin:0 0 12px;letter-spacing:.02em}
-  .dlrow{display:flex;flex-wrap:wrap;gap:9px}
-  .dlbtn{font:inherit;font-size:12px;letter-spacing:.03em;padding:9px 15px;border-radius:8px;cursor:pointer;
-    background:var(--panel2);border:1px solid var(--line);color:var(--ink)}
-  .dlbtn:hover{border-color:var(--accent);color:var(--accent)}
-  .dlbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .dlbtn .ic{margin-right:6px}
-
   /* ---------- 모바일 반응형 ----------
      모바일에선 카탈로그·덱 카드 모두 작은 미니 사이즈(94×124)로 통일해 한 줄에 여러 장 보이게 하고,
      카드를 탭하면 데스크톱 풀카드를 크게 띄운다(아래 showBig). 데스크톱은 카탈로그 풀카드 유지. */
@@ -183,16 +174,6 @@
       </div>
 
       <nav class="nav" id="nav"></nav>
-
-      <section class="sec" id="download-sec">
-        <div class="seclabel"><h2>▸ 데이터 다운로드 · DOWNLOAD</h2><em>최신 라이브 데이터를 JSON으로</em></div>
-        <div class="dlnote">게임 룰 · 카드 풀 · 견본 덱을 각각 JSON 파일로 내려받습니다(실제 게임 데이터에서 즉석 생성). 모바일에서도 저장됩니다.</div>
-        <div class="dlrow">
-          <button class="dlbtn" id="dl-rules" type="button"><span class="ic">⬇</span>게임 룰 (JSON)</button>
-          <button class="dlbtn" id="dl-cards" type="button"><span class="ic">⬇</span>카드 풀 (JSON)</button>
-          <button class="dlbtn" id="dl-decks" type="button"><span class="ic">⬇</span>견본 덱 (JSON)</button>
-        </div>
-      </section>
 
       <section class="sec" id="decks-sec">
         <div class="seclabel"><h2>▸ 견본 덱 · SAMPLE DECKS</h2><em>각 30장 · 제목을 눌러 펼치기</em></div>
@@ -386,37 +367,7 @@
     openDecks.push(det);
     decksHost.appendChild(det);
   });
-  document.getElementById("nav").innerHTML=navHtml+'<a class="wide" href="#download-sec">▸ 데이터 다운로드</a>'+'<a class="wide" href="#catalog-sec">▸ 카드 도감 전체</a>';
-
-  // ---------- 데이터 다운로드 (라이브 RT.CARDS / RT.DECKS 에서 즉석 생성) ----------
-  function downloadJSON(obj,name){
-    var blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
-    var u=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(function(){URL.revokeObjectURL(u);},1500);
-  }
-  function buildCardsJSON(){
-    var out=[];
-    allIds.forEach(function(id){ var c=CARDS[id];
-      out.push({id:id,cls:c.cls,kind:c.kind,atk:c.atk||0,hp:c.hp||0,text:c.text||"",op:c.deckLimit===1?true:false}); });
-    return {game:"RUNTIME TCG",kind:"cards",version:"live",count:out.length,cards:out};
-  }
-  function buildDecksJSON(){
-    var out=[];
-    ORDER.forEach(function(k){ var d=DECKS[k]; if(!d||!d.list) return;
-      var counts={},seq=[]; d.list.forEach(function(id){ if(counts[id]==null){counts[id]=0;seq.push(id);} counts[id]++; });
-      out.push({key:k,name:d.name||k,cls:d.cls||"generic",size:d.list.length,cards:seq.map(function(id){return [id,counts[id]];})}); });
-    return {game:"RUNTIME TCG",kind:"decks",version:"live",count:out.length,decks:out};
-  }
-  function buildRulesJSON(){
-    return {game:"RUNTIME TCG",kind:"rules",version:"live",
-      bodyHP:40, actionsPerTurn:2, turnCap:(RT.DEFAULT_TURN_CAP||50),
-      basics:["기본 공격 = 옆칸 인접·무료·턴 1회","함수(포인터)/트리거 발동은 액션 무소비","턴당 액션 2 = 선언/시전에 소비","본체 HP 40 → 0이면 패배"],
-      keywords:{Once:"조건 충족 1회 자동 발동",While:"지속(상시) 효과",When:"트리거 시 자동 발동",For:"능동 발동 · 턴당 forCount회 · 무료",If:"선택 발동 — 조건 충족 시 원할 때 골라 발동(분기 선택 가능)"}};
-  }
-  document.getElementById("dl-rules").addEventListener("click",function(){downloadJSON(buildRulesJSON(),"runtime-tcg-rules.json");});
-  document.getElementById("dl-cards").addEventListener("click",function(){downloadJSON(buildCardsJSON(),"runtime-tcg-cards.json");});
-  document.getElementById("dl-decks").addEventListener("click",function(){downloadJSON(buildDecksJSON(),"runtime-tcg-decks.json");});
+  document.getElementById("nav").innerHTML=navHtml+'<a class="wide" href="#catalog-sec">▸ 카드 도감 전체</a>';
 
   // ---------- theme 토글 ----------
   // SKIN 은 살아있는 공유 객체라 기존 카드 노드는 저절로 재도색되지 않음 → 재생성 필요.

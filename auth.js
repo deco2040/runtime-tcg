@@ -82,6 +82,32 @@
     return wrap;
   }
 
+  function doSetAvatar(av) {
+    if (!(UI.Net && UI.Net.updateAvatar)) return;
+    UI.Net.updateAvatar(av)
+      .then(function () { msg = av ? '✔ 아바타를 변경했어요' : '✔ 이니셜 아바타로 변경'; redraw(); })
+      .catch(function () { redraw(); });
+  }
+  // 프로필 사진(아바타) 선택 — 이모지 프리셋 or 이니셜. 게스트도 로컬 저장으로 즉시 반영, 로그인 시 상대에게 노출.
+  function avatarBlock(p) {
+    var prof = UI.Net.profile && UI.Net.profile();
+    var nick = (prof && prof.nickname) || 'guest';
+    var cur = (prof && prof.avatar) || (UI.Net.localAvatar && UI.Net.localAvatar()) || '';
+    var wrap = el('div', { style: { margin: '14px 0 4px', borderTop: '1px solid ' + p.line, paddingTop: '12px' } });
+    wrap.appendChild(el('div', { style: { fontSize: '11px', color: p.dim, marginBottom: '8px', letterSpacing: '.06em' } }, ['▸ 프로필 사진 · AVATAR']));
+    wrap.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' } }, [
+      (UI.avatarEl ? UI.avatarEl({ nickname: nick, avatar: cur }, 46) : null),
+      el('div', { style: { fontSize: '11px', color: p.dim, lineHeight: 1.5 } }, ['대전 상대에게 이 아바타가 보입니다. 이모지를 고르거나 이니셜로 둘 수 있어요.']),
+    ]));
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(42px,1fr))', gap: '6px' } });
+    (UI.AVA_EMOJI || []).forEach(function (em) {
+      grid.appendChild(el('button', { onclick: function () { doSetAvatar(em); }, class: 'crt-opt' + (cur === em ? ' on' : ''), style: { fontSize: '20px', padding: '6px 0', textAlign: 'center' } }, [em]));
+    });
+    grid.appendChild(el('button', { onclick: function () { doSetAvatar(''); }, class: 'crt-opt' + (cur === '' ? ' on' : ''), style: { fontSize: '11px', padding: '6px 0', textAlign: 'center' } }, ['이니셜']));
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
   function statsBlock(p) {
     var s = curStats();
     var rate = s.games ? Math.round((s.wins / s.games) * 100) : 0;
@@ -575,6 +601,7 @@
 
     // 닉네임 편집(세션/프로필 있을 때) + 통계(항상, 오프라인은 로컬 기록) — 특수 뷰에선 숨김
     if (!special && enabled && prof) b.appendChild(nickBlock(p));
+    if (!special) b.appendChild(avatarBlock(p));
     if (!special) b.appendChild(statsBlock(p));
 
     if (msg) {

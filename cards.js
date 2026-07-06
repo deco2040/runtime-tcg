@@ -13,6 +13,8 @@
     function strongestEnemy(G, owner) { var e = G.enemyObjects(owner); e.sort(function (a, b) { return G.effAtk(b) - G.effAtk(a); }); return e[0] || null; }
     function weakestEnemy(G, owner) { var e = G.enemyObjects(owner); e.sort(function (a, b) { return G.curHp(a) - G.curHp(b); }); return e[0] || null; }
     function nearestEnemyWithin(G, u, n) { var k = unitKey(G, u); if (!k) return null; var e = G.enemyObjects(u.owner).filter(function (x) { var xk = unitKey(G, x); return xk && cheb(xk, k) <= n; }); e.sort(function (a, b) { return G.curHp(a) - G.curHp(b); }); return e[0] || null; }
+    // 적 = 적 인스턴스 + 적 본체(피해 대상). 사거리 내 인스턴스가 있으면 기존과 동일(약한 대상 우선), 인스턴스가 사거리 밖일 때만 사거리 내 본체를 노림 — 결정타가 본체까지 닿게.
+    function nearestEnemyOrBodyWithin(G, u, n) { var inst = nearestEnemyWithin(G, u, n); var k = unitKey(G, u); if (k) { var eb = G.enemyBody(u.owner), bk = bodyKey(1 - u.owner); if (eb && cheb(bk, k) <= n) { if (!inst) return eb; return G.curHp(eb) < G.curHp(inst) ? eb : inst; } } return inst; }
     function farthestEnemy(G, u, n) { var k = unitKey(G, u); if (!k) return null; var e = G.enemyObjects(u.owner).filter(function (x) { var xk = unitKey(G, x); return xk && (n == null || cheb(xk, k) <= n); }); e.sort(function (a, b) { return manh(unitKey(G, b), k) - manh(unitKey(G, a), k); }); return e[0] || null; }
     function woundedAlly(G, owner) { var a = G.allyObjects(owner).filter(function (x) { return x.dmg > 0; }); a.sort(function (x, y) { return y.dmg - x.dmg; }); return a[0] || null; }
     function pickAdjEnemy(G, u, ch) { if (ch && ch.target && G.board[ch.target]) return G.board[ch.target]; var e = G.adj(u).filter(function (x) { return x.owner !== u.owner && x.type === 'object'; }); e.sort(function (a, b) { return G.curHp(a) - G.curHp(b); }); return e[0] || null; }
@@ -45,7 +47,7 @@
     def({ id: 'Kernel', cls: 'thread', kind: 'object', atk: 4, hp: 6, require: { type: 'classOnBoard', cls: 'thread', n: 2 }, text: 'require 내 thread 2개+ 필드에 존재 · Once 선언 시 내 thread 전부 공격력 +1',
       abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { allyThreads(G, u.owner).forEach(function (x) { G.buffAtk(x, 1); }); } }] });
     def({ id: 'Salvo', cls: 'thread', kind: 'object', atk: 6, hp: 2, text: 'For(1) 「2칸이내」 적 1명에게 공격력만큼 피해',
-      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyWithin(G, u, 2); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }] });
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyOrBodyWithin(G, u, 2); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }] });
     def({ id: 'Recursion', cls: 'thread', kind: 'object', atk: 3, hp: 3, text: 'When 피격 후 생존 시 공격력 +2',
       abilities: [{ kw: 'When', trigger: 'onDamaged', fn: function (G, u) { if (G.curHp(u) > 0) G.buffAtk(u, 2); } }] });
     def({ id: 'Signal', cls: 'thread', kind: 'object', atk: 4, hp: 3, text: 'Once 선언 시 「옆칸」 아군 thread 1장 공격력 +4',
@@ -133,7 +135,7 @@
     def({ id: 'Watchdog', cls: 'memory', kind: 'object', atk: 3, hp: 11, text: 'For(1) 「앞직선끝·첫」 적에게 공격력만큼 피해',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, ROWS, true); if (t) G.deal(t, G.effAtk(u), { attacker: u }); else if (inLineToBody(G, u)) G.deal(G.enemyBody(u.owner), G.effAtk(u), { attacker: u }); } }] });
     def({ id: 'Sweeper', cls: 'memory', kind: 'object', atk: 2, hp: 12, text: 'For(1) 「2칸이내」 적 1명 3 피해',
-      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyWithin(G, u, 2); if (t) G.deal(t, 3, { attacker: u }); } }] });
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyOrBodyWithin(G, u, 2); if (t) G.deal(t, 3, { attacker: u }); } }] });
     def({ id: 'Pin', cls: 'memory', kind: 'object', atk: 1, hp: 8, require: { type: 'turnCount', n: 3 }, text: 'require 내 턴 3회+ 진행 · When 선언 시 적 1명 2턴 봉쇄',
       abilities: [{ kw: 'When', trigger: 'onSummon', fn: function (G, u) { var t = bestEnemyObj(G, u.owner); if (t) G.bind(t, 2); } }] });
     def({ id: 'Persist', cls: 'memory', kind: 'object', atk: 0, hp: 12, text: 'While 다른 내 memory 전부 최대체력 +2', abilities: [] });
@@ -187,7 +189,7 @@
     def({ id: 'Longjmp', cls: 'process', kind: 'object', atk: 5, hp: 6, text: 'For(1) 「앞직선2·첫」 적에게 공격력만큼 피해',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 2, true); if (t) G.deal(t, G.effAtk(u), { attacker: u }); else if (inLineToBody(G, u, 2)) G.deal(G.enemyBody(u.owner), G.effAtk(u), { attacker: u }); } }] });
     def({ id: 'Hook', cls: 'process', kind: 'object', atk: 3, hp: 6, text: 'When 포인터 시전 시 「1칸이내」 적 1명 2 피해',
-      abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u) { var t = nearestEnemyWithin(G, u, 1); if (t) G.deal(t, 2, { attacker: u }); } }] });
+      abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u) { var t = nearestEnemyOrBodyWithin(G, u, 1); if (t) G.deal(t, 2, { attacker: u }); } }] });
     def({ id: 'Pipe', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'When 내 포인터로 피해를 준 대상에게 추가 2 피해',
       abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u, ctx) { if (ctx.target && ctx.target.uid != null && G.board[unitKey(G, ctx.target)]) G.deal(ctx.target, 2, { attacker: u }); } }] });
     def({ id: 'Relay', cls: 'process', kind: 'object', atk: 4, hp: 6, text: 'When 턴당 첫 포인터 시전 시 자기와 「1칸이내」 아군 process 전부 공격력 +1',
@@ -212,7 +214,7 @@
     def({ id: 'Vector', cls: 'process', kind: 'object', atk: 6, hp: 5, require: { type: 'classOnBoard', cls: 'process', n: 2 }, text: 'require 내 process 2개+ 필드에 존재 · For(1) 「앞직선3·전부」 적 전부에게 공격력만큼 피해 · 직격(피해감소 무시)',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var k = unitKey(G, u), q = P(k); line(q[0], q[1], 0, fwd(u.owner), 3).map(function (c) { return G.board[c]; }).filter(function (x) { return x && x.owner !== u.owner && x.type === 'object'; }).forEach(function (x) { G.deal(x, G.effAtk(u), { attacker: u, direct: true }); }); } }] });
     def({ id: 'Lambda', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'When 턴당 첫 포인터 시전 시 「2칸이내」 적 1명 3 피해',
-      abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u) { if (u.flags.lamTurn === G.turnNo) return; u.flags.lamTurn = G.turnNo; var t = nearestEnemyWithin(G, u, 2); if (t) G.deal(t, 3, { attacker: u }); } }] });
+      abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u) { if (u.flags.lamTurn === G.turnNo) return; u.flags.lamTurn = G.turnNo; var t = nearestEnemyOrBodyWithin(G, u, 2); if (t) G.deal(t, 3, { attacker: u }); } }] });
     def({ id: 'Cursor', cls: 'process', kind: 'object', atk: 4, hp: 4, text: 'For(1) 「앞직선3·첫」 적에게 공격력만큼 피해',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 3, false); if (t) G.deal(t, G.effAtk(u), { attacker: u }); else if (inLineToBody(G, u, 3)) G.deal(G.enemyBody(u.owner), G.effAtk(u), { attacker: u }); } }] });
     def({ id: 'Spooler', cls: 'process', kind: 'object', atk: 2, hp: 6, text: 'When 턴당 첫 포인터 시전 시 카드 1장 뽑기',
@@ -222,7 +224,7 @@
         ready: function (G, u) { var uk = unitKey(G, u); if (!uk) return false; var q = P(uk); if (!ortho(q[0], q[1]).some(function (c) { return !G.board[c]; })) return false; return G.enemyObjects(u.owner).some(function (x) { var xk = unitKey(G, x); return xk && cheb(xk, uk) <= 3; }); },
         fn: function (G, u, ch) { var uk = unitKey(G, u); if (!uk) return; var t = (ch.target && G.board[ch.target]) ? G.board[ch.target] : nearestEnemyWithin(G, u, 3); if (!t) return; var tk = unitKey(G, t); if (!tk) return; var q = P(uk); var cells = ortho(q[0], q[1]).filter(function (c) { return !G.board[c]; }); cells.sort(function (a, b) { return manh(a, tk) - manh(b, tk); }); var dest = cells[0]; if (dest && manh(dest, tk) < manh(tk, uk)) G.forceMove(t, dest); if (G.board[unitKey(G, t)]) G.deal(t, 2, { attacker: u }); } }] });
     def({ id: 'Cron', cls: 'process', kind: 'object', atk: 4, hp: 6, text: 'When 내 턴 시작 시 「앞직선2·첫」 적에게 2 피해',
-      abilities: [{ kw: 'When', trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 2, false); if (t) G.deal(t, 2, { attacker: u }); } }] });
+      abilities: [{ kw: 'When', trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 2, false); if (t) G.deal(t, 2, { attacker: u }); else if (inLineToBody(G, u, 2)) G.deal(G.enemyBody(u.owner), 2, { attacker: u }); } }] });
     def({ id: 'Marshal', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'When 포인터 시전 시 자기 「1칸이동」 가능',
       abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u) { var dest = forwardDest(G, u); if (dest && !G.isMoveLocked(u)) G.move(u, dest, true); } }] });
     def({ id: 'Thrash', cls: 'process', kind: 'object', atk: 3, hp: 5, text: 'While 적 인스턴스가 강제 이동될 때마다 그 적에게 2 피해', abilities: [] });
@@ -241,7 +243,7 @@
     def({ id: 'goto()', cls: 'process', kind: 'pointer', need: 'allyProcess', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 내 process 1장 「3칸이내」 빈 칸으로 이동(경로의 벽·유닛 무시)',
       castValid: function (G, p, tk) { var u = G.board[tk]; return !!u && u.owner === p && !!jumpEmpty(G, u); },
       cast: function (G, p, tk, o) { var u = G.board[tk]; if (!u) return; var dest = (o && o.dest && !G.board[o.dest] && cheb(tk, o.dest) <= 3) ? o.dest : jumpEmpty(G, u); if (dest) G.teleport(u, dest); } });
-    def({ id: 'snipe()', cls: 'process', kind: 'pointer', need: 'none', text: '「앞직선4·첫」 적 7 피해 · 직격(피해감소 무시)', cast: function (G, p, tk, o) { var t = G.firstEnemyInLine(bodyKey(p), p, 4 + (o.rangeBonus || 0), false); if (t) G.deal(t, 7, { attacker: { owner: p }, direct: true }); } });
+    def({ id: 'snipe()', cls: 'process', kind: 'pointer', need: 'none', text: '「앞직선4·첫」 적 7 피해 · 직격(피해감소 무시)', cast: function (G, p, tk, o) { var n = 4 + (o.rangeBonus || 0); var t = G.firstEnemyInLine(bodyKey(p), p, n, false); if (t) { G.deal(t, 7, { attacker: { owner: p }, direct: true }); return; } var bp = P(bodyKey(p)), eb = P(bodyKey(1 - p)); if (bp[0] === eb[0] && Math.abs(eb[1] - bp[1]) <= n) { var dr = fwd(p), blk = false; for (var kk = 1; kk < Math.abs(eb[1] - bp[1]); kk++) { if (G.board[K(bp[0], bp[1] + dr * kk)]) { blk = true; break; } } if (!blk) G.deal(G.enemyBody(p), 7, { attacker: { owner: p }, direct: true }); } } });
     def({ id: 'swap()', cls: 'process', kind: 'pointer', need: 'twoAlly', text: '내 인스턴스 2장 위치 교환', cast: function (G, p, tk, o) { var a = G.board[tk], b = o && o.second ? G.board[o.second] : null; if (!b) { var allies = G.allyObjects(p).filter(function (x) { return x !== a; }); b = allies[0]; } if (a && b) { var ka = unitKey(G, a), kb = unitKey(G, b); delete G.board[ka]; delete G.board[kb]; G.board[kb] = a; G.board[ka] = b; G.fireEnterTriggers(a); G.fireEnterTriggers(b); } } });
     def({ id: 'inject()', cls: 'process', kind: 'pointer', need: 'enemy', text: '적 1명 공격력 -4 (2턴)', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.debuffAtkTurns(u, 4, 2); } });
     def({ id: 'pull()', cls: 'process', kind: 'pointer', need: 'enemy', text: '적 1명 내 본체 쪽으로 「1칸이동」',
@@ -281,7 +283,7 @@
     def({ id: 'Delete', cls: 'generic', kind: 'object', atk: 5, hp: 2, text: 'For(1) 「2칸이내」 체력 2 이하 적 1명 파괴',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var k = unitKey(G, u); var t = (ch.target && G.board[ch.target]) ? G.board[ch.target] : G.enemyObjects(u.owner).filter(function (x) { var xk = unitKey(G, x); return xk && cheb(xk, k) <= 2 && G.curHp(x) <= 2; }).sort(function (a, b) { return G.curHp(a) - G.curHp(b); })[0]; if (t && cheb(unitKey(G, t), k) <= 2 && G.curHp(t) <= 2) G.destroy(t, { attacker: u }); } }] });
     def({ id: 'Pivot', cls: 'generic', kind: 'object', atk: 3, hp: 4, text: 'For(1) 턴 중 자기 「1칸이동」', abilities: [{ kw: 'For', forCount: 1, trigger: 'onActive', ready: function (G, u) { return G.moveCells(u).length > 0; }, fn: function (G, u, ch) { var dest = (ch.dest && G.moveCells(u).indexOf(ch.dest) >= 0) ? ch.dest : (forwardDest(G, u) || G.moveCells(u)[0]); if (dest) G.move(u, dest, true); } }] });
-    def({ id: 'Sonar', cls: 'generic', kind: 'object', atk: 2, hp: 4, text: 'For(2) 「2칸이내」 적 1명 2 피해', abilities: [{ kw: 'For', forCount: 2, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyWithin(G, u, 2); if (t) G.deal(t, 2, { attacker: u }); } }] });
+    def({ id: 'Sonar', cls: 'generic', kind: 'object', atk: 2, hp: 4, text: 'For(2) 「2칸이내」 적 1명 2 피해', abilities: [{ kw: 'For', forCount: 2, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyOrBodyWithin(G, u, 2); if (t) G.deal(t, 2, { attacker: u }); } }] });
     def({ id: 'Loop', cls: 'generic', kind: 'object', atk: 3, hp: 5, text: 'For(2) 「옆칸」 적 1명에게 (내 필드 클래스 종류 수 ×2) 피해',
       abilities: [{ kw: 'For', forCount: 2, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = pickAdjEnemy(G, u, ch); if (t) { var cls = {}; G.allyObjects(u.owner).forEach(function (x) { cls[cardCls(x)] = 1; }); G.deal(t, Object.keys(cls).length * 2, { attacker: u }); } } }] });
     def({ id: 'Stub', cls: 'generic', kind: 'object', atk: 1, hp: 6, text: 'While 「옆칸」 적 공격력 -1', abilities: [] });
@@ -326,7 +328,7 @@
     def({ id: 'Predicate', cls: 'thread', kind: 'object', atk: 4, hp: 3, text: 'If 선택 발동 · [저격] 「2칸이내」 적 1명 공격력만큼 피해 / [규합] 「옆칸」 아군 thread 전부 공격력 +2',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '저격' }, { label: '규합' }],
         ready: function (G, u) { return !!nearestEnemyWithin(G, u, 2) || G.adj(u).some(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }); },
-        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = ch.target ? G.board[ch.target] : nearestEnemyWithin(G, u, 2); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } else { G.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }).forEach(function (x) { G.buffAtk(x, 2); }); } },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = ch.target ? G.board[ch.target] : nearestEnemyOrBodyWithin(G, u, 2); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } else { G.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }).forEach(function (x) { G.buffAtk(x, 2); }); } },
         aiOpt: function (G, u) { var e = nearestEnemyWithin(G, u, 2); var allies = G.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }).length; if (e && G.curHp(e) <= G.effAtk(u)) return 0; return allies >= 2 ? 1 : (e ? 0 : 1); } }] });
     def({ id: 'Cond', cls: 'thread', kind: 'object', atk: 5, hp: 3, text: 'If 선택 발동 · [강타] 「앞직선3·첫」 적에게 공격력만큼 피해 / [가속] 자기 이번 턴 기본 공격 1회 추가',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onTurnStart', options: [{ label: '강타' }, { label: '가속' }],

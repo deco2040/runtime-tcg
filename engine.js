@@ -491,7 +491,7 @@
     // draw: (config) 선공 1턴차 드로우 스킵 여부. everyone else draws.
     if (!(this._cfg.firstSkipDraw && p === this.firstPlayer && pl.turnsTaken === 1)) this.draw(p, 1);
     // 후공 보정: 후공 첫 턴 시작 시 '동전'(overtime, 이번 턴 액션 +2) 1장 덱 외 지급(멀리건 후라 덱 미오염).
-    if (this._cfg.secondComp && p !== this.firstPlayer && pl.turnsTaken === 1 && pl.hand.length < 10) pl.hand.push('overtime()');
+    if (this._cfg.secondComp && p !== this.firstPlayer && pl.turnsTaken === 1 && pl.hand.length < 10) { pl.hand.push('overtime()'); this.fx({ type: 'draw', player: p, cardId: 'overtime()', overtime: true }); }
     this.note('— P' + p + ' 턴 시작 (turn ' + this.turnNo + ') —');
     // onTurnStart triggers (auto for When; For are user/AI-activated)
     this.fireTurnStart(p);
@@ -691,6 +691,10 @@
     // 무제한 유지(정밀/변위 셋업): strike() suspend() pull() push() memcpy() splice() — CASTRANGE 미등재 = unlimited
   };
   function castSpec(id) { return CASTRANGE[id] || { unlimited: true }; }
+  // 적 = 적 인스턴스 + 적 본체(v13 개정): 「적」을 대상으로 하는 데미지 포인터는 적 본체도 지정 가능(사거리 준수).
+  // 봉쇄·강제이동·약화·버프제거·바운스(lock/halt/purge/inject/pull/push/memcpy/splice/clear/suspend)와
+  // 본체에 무의미한 것(drop=대상 공격력만큼 → 본체 0 / glitch=이동 주체)은 인스턴스 전용 유지.
+  var BODY_DMG_PTR = { 'strike()': 1, 'burst()': 1, 'jolt()': 1, 'free()': 1, 'siphon()': 1, 'chain()': 1, 'kill()': 1, 'ping()': 1, 'assert()': 1, 'throw()': 1, 'catch()': 1 };
   // human-readable cast-range info for the UI (null = 무제한, 오버레이 없음)
   function pointerRangeInfo(id) {
     var c = CARDS[id]; if (!c || c.kind !== 'pointer' || (c.need !== 'enemy' && c.need !== 'cell')) return null;
@@ -716,10 +720,16 @@
     var card = CARDS[cardId];
     if (!card || card.kind !== 'pointer' || (card.need !== 'enemy' && card.need !== 'cell')) return [];
     var self = this, spec = castSpec(cardId), out = [];
-    if (spec.unlimited) { this.enemyObjects(player).forEach(function (u) { var k = unitKey(self, u); if (k) out.push(k); }); return out; }
+    var bodyHit = BODY_DMG_PTR[cardId] && this.enemyBody(player), ebk = bodyHit ? bodyKey(1 - player) : null;
+    if (spec.unlimited) {
+      this.enemyObjects(player).forEach(function (u) { var k = unitKey(self, u); if (k) out.push(k); });
+      if (bodyHit) out.push(ebk);   // 무제한 데미지 포인터: 적 본체도 대상
+      return out;
+    }
     var n = spec.n + this.pointerRangeBonus(player), set = {};
     this.castOrigins(player, spec).forEach(function (ok) { var p = P(ok); set[ok] = 1; square(p[0], p[1], n).forEach(function (ck) { set[ck] = 1; }); });
     this.enemyObjects(player).forEach(function (u) { var k = unitKey(self, u); if (k && set[k]) out.push(k); });
+    if (bodyHit && set[ebk]) out.push(ebk);   // 사거리 내면 적 본체도 데미지 포인터 대상
     return out;
   };
   // every cell within cast range (the reachable zone, occupied or not) — for the UI overlay.
