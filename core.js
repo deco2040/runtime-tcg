@@ -2294,7 +2294,9 @@
   function fireFor(u, idx, ab, opt) {
     if (!G.forReady(u, idx)) { flash('이동/발동할 칸이 없음 — 발동 불가'); return; }
     var extra = {};
-    if (ab.trigger === 'onActive') { var d = G.moveCells(u)[0]; if (d) extra.dest = d; }
+    // onActive 능력(Async/Pivot/Symlink/Dispatch)은 각자 fn 안에서 목적지를 스스로 계산한다
+    // (forwardDest/knightEmpty/전개칸). 여기서 옆칸(moveCells[0])을 강제 주입하면 Dispatch의
+    // 「나이트」 재배치가 옆칸 이동으로 덮여쓰이는 버그가 생기므로 dest 를 주입하지 않는다.
     if (opt !== undefined && opt !== null) extra.opt = opt;   // If 분기 선택
     aFire(u, idx, extra); render();
   }
