@@ -107,26 +107,28 @@
       el('span', { class: 'mono', style: { fontSize: '12px', fontWeight: 700, width: '17px', textAlign: 'right', color: changed ? SKIN.ally : color } }, [String(value)])
     ]);
   }
-  function rangeGridEl(spec, accent) {
+  function rangeGridEl(spec, accent, opts) {
+    opts = opts || {};
+    var cell = opts.cell || 5, lblFs = opts.lblFs || 7;         // 상세보기에서는 opts로 확대
     var lbl = spec.code === 'cast' ? '시전 범위(본체 기준)' : '함수 범위';
     if (spec.kind === 'label') {
       return el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } }, [
-        el('span', { class: 'mono', style: { fontSize: '7px', color: SKIN.faint, letterSpacing: '.12em' } }, [lbl]),
-        el('span', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: SKIN.panelText, padding: '2px 5px', border: '1px solid ' + SKIN.line, background: SKIN.chassisAlt } }, [spec.text])
+        el('span', { class: 'mono', style: { fontSize: lblFs + 'px', color: SKIN.faint, letterSpacing: '.12em' } }, [lbl]),
+        el('span', { class: 'mono', style: { fontSize: (lblFs + 2) + 'px', fontWeight: 700, color: SKIN.panelText, padding: '2px 5px', border: '1px solid ' + SKIN.line, background: SKIN.chassisAlt } }, [spec.text])
       ]);
     }
     var set = {}; spec.cells.forEach(function (c) { set[c[0] + ',' + c[1]] = 1; });
     var oc = 3, orow = spec.originBottom ? 5 : 3;
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,5px)', gridTemplateRows: 'repeat(5,5px)', gap: '1px' } });
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5,' + cell + 'px)', gridTemplateRows: 'repeat(5,' + cell + 'px)', gap: '1px' } });
     for (var r = 1; r <= 5; r++) for (var c = 1; c <= 5; c++) {
-      var dc = c - oc, dr = r - orow, cs = { width: '5px', height: '5px' };
+      var dc = c - oc, dr = r - orow, cs = { width: cell + 'px', height: cell + 'px' };
       if (dc === 0 && dr === 0) cs.background = SKIN.selfPad;
       else if (set[dc + ',' + dr]) cs.background = accent;
       else { cs.background = SKIN.padEmpty; cs.boxShadow = 'inset 0 0 0 1px ' + SKIN.line; }
       grid.appendChild(el('div', { style: cs }));
     }
     return el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } }, [
-      el('span', { class: 'mono', style: { fontSize: '7px', color: SKIN.faint, letterSpacing: '.12em' } }, [lbl]),
+      el('span', { class: 'mono', style: { fontSize: lblFs + 'px', color: SKIN.faint, letterSpacing: '.12em' } }, [lbl]),
       grid
     ]);
   }
@@ -139,8 +141,8 @@
   }
   function ownerColor(owner) { return owner === HUMAN ? SKIN.own : SKIN.enemy; }
 
-  // ===== 칩(PCB) 스킨 + 테마 — 카드_디자인_사양서_v1 =====
-  // 기본(light) = 레트로 PC + PCB 융합(기존 셸 팔레트). dark = 칩 다크 PCB(토글 선택 시).
+  // ===== 창(window) 스킨 + 테마 — 카드_디자인_사양서_v3 =====
+  // 기본(light) = 레트로 OS 창 + PCB 융합(셸 팔레트). dark = 앰버 CRT 인광(토글 선택 시).
   // SKIN 은 활성 테마 토큰을 담는 단일 객체(in-place 스왑) — 기존 SKIN.* 참조 유지.
   var SERIES_COLOR = { attack: '#E24B4A', control: '#378ADD', support: '#7BB528' };
   var SERIES_LABEL = { attack: '공격', control: '통제', support: '지원' };
@@ -312,27 +314,43 @@
     'thread': { t: 'thread · 공격형', d: '공高체低 글래스캐논. 집단 ATK 시너지·근접 압박. process에 강하고 memory에 약함.' },
     'memory': { t: 'memory · 방어형', d: '공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함.' },
     'process': { t: 'process · 유틸형', d: '변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함.' },
-    'generic': { t: 'generic · 무클래스', d: '어느 덱에나 넣는 독립형. 단일 클래스 판정을 깨지 않는다.' },
+    'generic': { t: 'generic · 무클래스', d: '이종 시너지형. 3클래스가 동족 시너지라면 generic은 이종 시너지(다른 클래스를 섞을수록 강함) + 어디서나 작동하는 기본 부품. 참조값: 내 필드 클래스 종류 수(generic 포함, 최대 4).' },
     '본체': { t: '본체', d: '플레이어 거점(HP 40). 0 이하면 패배. 보드 칸이라 인접·사거리에 포함된다.' },
-    '봉쇄': { t: '봉쇄(묶음)', d: '이동 불가 상태. 기본 공격·함수는 가능, 이동만 막힌다.' },
-    '관통': { t: '관통(벽 너머)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 타격.' },
-    '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 타격.' },
-    '분신': { t: '분신(토큰)', d: '덱 밖에서 생성되는 임시 인스턴스.' },
+    '봉쇄': { t: '봉쇄', d: '봉쇄된 인스턴스는 이동·기본 공격·For 능동이 전부 불가. While 지속 오라와 When/If/Once 트리거는 유지된다.' },
+    '이동 불가': { t: '이동 불가', d: '이동만 막는 부분 제한(Cache·Const 자신·ROM). 기본 공격·For·능력은 정상. 봉쇄와 별개.' },
+    '관통': { t: '관통(벽 너머)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 지정·타격(대상 지정 관통). 피해량 수정과는 무관 — 피해감소 무시는 「직격」.' },
+    '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 지정·타격.' },
+    '직격': { t: '직격 · 피해감소 무시', d: '대상의 받는 피해 감소(피해 -N·절반·상한·최소치 보정)를 무시하고 그대로 적용. 차단(막음)과 반사에는 정상 적용.' },
+    '분신': { t: '분신(토큰)', d: '카드가 아닌 효과로 생성된 인스턴스. 생성한 카드의 클래스를 상속한다. 「내 thread 전부」·클래스 종류 수 판정에 포함.' },
     '인스턴스': { t: '인스턴스(오브젝트)', d: '필드 칸에 놓이는 카드. 공격력·체력을 가진다.' },
-    '포인터': { t: '포인터', d: '1회성 주문 카드. 필드에 남지 않고 시전에 액션 1을 쓴다.' },
+    '포인터': { t: '포인터', d: '1회성 주문 카드. 필드에 남지 않고 시전에 액션 1을 쓴다. 기본 사거리 무제한(전역 지정).' },
     '공격력': { t: '공격력(ATK)', d: '함수·기본 공격이 참조하는 피해 수치.' },
     '체력': { t: '체력(HP)', d: '0 이하가 되면 파괴. 피해는 턴을 넘겨 누적된다.' },
-    '회복': { t: '회복', d: '누적된 피해를 줄인다(최대 체력까지).' },
-    '영구': { t: '영구', d: '효과가 해제 없이 지속된다.' },
-    '옆칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(cross1). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
-    '옆 칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(cross1). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
-    '주위': { t: '주위', d: '대각선까지 포함해 둘러싼 8칸 = square(1).' },
+    '회복': { t: '회복', d: '받은 피해를 N만큼 제거한다. 최대 체력 초과 불가.' },
+    '수리': { t: '수리(받은 피해 전부 회복)', d: '받은 피해를 전량 제거(compact()·Snapshot).' },
+    '영구': { t: '영구', d: '지속시간 무표기 버프·디버프는 영구. 「(영구)」 별도 표기는 쓰지 않는다.' },
+    '옆칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
+    '옆 칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
+    '1칸이내': { t: '1칸이내 = 8칸', d: '체비셰프 거리 ≤ 1(중심 제외), 대각 포함 — 둘러싼 8칸. (구 「주위」 흡수)' },
+    '2칸이내': { t: '2칸이내', d: '체비셰프 거리 ≤ 2 블록(중심 제외), 대각 포함.' },
+    '3칸이내': { t: '3칸이내', d: '체비셰프 거리 ≤ 3 블록(중심 제외), 대각 포함.' },
+    '주위': { t: '주위 → 「1칸이내」', d: '대각 포함 둘러싼 8칸 = square(1). 「1칸이내」로 통일됨.' },
+    '나이트': { t: '나이트(도약)', d: '자기 칸 기준 (±1,±2)·(±2,±1) 도약 8칸. 중간 칸의 벽·유닛을 무시(도약). 체스 나이트와 같은 모양.' },
     '밀어내기': { t: '밀어내기(넉백)', d: '대상을 적 진영 방향(시전자 반대편)으로 1칸 이동. 그 칸이 비어 있어야 하며, 벽·유닛·판 끝으로 막혔으면 시전 불가.' },
     '끌어당기기': { t: '끌어당기기', d: '대상을 시전자 본체 방향으로 1칸 이동. 시전자 앞칸이 비어 있어야 하며, 막혔으면 시전 불가.' },
     '1칸이동': { t: '1칸 이동', d: '상하좌우 인접한 빈 칸으로 1칸 옮긴다. 목적 칸이 막혔으면 이동/시전 불가.' },
+    '강제 이동': { t: '강제 이동', d: '효과가 대상의 의사와 무관하게 경로를 따라 옮긴다. 강제이동 트리거(Thrash)와 진입 트리거가 발동.' },
+    '재배치': { t: '재배치(relocate)', d: '위치를 제거한 뒤 새 칸에 재설정. 경로가 없어 이동·진입·강제이동 트리거 전부 비발동(Wormhole).' },
+    '진입 시': { t: '진입 시', d: '해당 범위 칸으로 적이 들어올 때. 자발/강제 이동 공통 발동, 재배치는 비발동.' },
+    '피격 시': { t: '피격 시', d: '출처 불문 모든 피해를 받을 때. 반사류는 가해 인스턴스가 있을 때만 반사(포인터 피해는 반사 대상 없음).' },
+    '공격받을 때': { t: '공격받을 때', d: '기본 공격을 받을 때 한정(Mutex). 능력·포인터 피해에는 비발동.' },
+    '앞직선': { t: '앞직선N', d: '전방 같은 열 광선. N ∈ {숫자, 끝}. 끝=보드 끝까지.' },
     '앞 직선': { t: '앞 직선', d: '적 본체 방향으로 뻗는 직선 사거리.' },
+    '대각': { t: '대각N', d: '4대각 방향으로 각 N칸 뻗는 사거리 = diagonal(N).' },
     '대각선': { t: '대각선', d: '네 대각 방향으로 뻗는 사거리 = diagonal(N).' },
-    '테두리': { t: '테두리', d: '특정 거리의 둘레 칸 = ring(N).' }
+    '홈칸': { t: '홈칸', d: '내 마지막 행(홈row)의 빈 칸. 선언·분신 생성 공통 위치.' },
+    '전개칸': { t: '전개칸', d: '기준 인스턴스 「1칸이내」(8칸) 중 빈 칸. 후보 0칸이면 불발.' },
+    '통로칸': { t: '통로칸', d: '보드 가운데 행2·3의 빈 칸.' }
   };
   var kwtip = null;
   function ensureTip() {
@@ -373,7 +391,8 @@
       } else { buf += text[i]; i++; }
     }
     flush();
-    return nodes;
+    // keep-all 래퍼: 효과문이 렌더되는 모든 곳에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
+    return [el('span', { style: { wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
   }
 
   // ---- animation / fx layer (event-driven; overlays survive full re-renders)
@@ -567,6 +586,7 @@
       else if (ev.kind === 'hp') { txt = (ev.delta > 0 ? '+' : '−') + Math.abs(ev.delta) + ' HP'; col = ev.delta > 0 ? '#3c8a66' : SKIN.enemy; }
       else if (ev.kind === 'zero') { txt = 'ATK 0'; col = SKIN.enemy; }
       else if (ev.kind === 'bind') { txt = '🔒 봉쇄' + (ev.delta ? ' ' + ev.delta + '턴' : ''); col = '#2456a6'; }
+      else if (ev.kind === 'shield') { txt = '🛡 보호막'; col = '#2f7d3f'; }
       else return;
       floatNum(sr, txt, col); ringFx(sr, col); flashTile(sr, hexa(col, .45), 240);
       setActionToast(ev.srcOwner != null ? ev.srcOwner : HUMAN, (ev.srcCard ? cardNm(ev.srcCard) + ' → ' : '') + labelAt(ev.key) + ' ' + txt);
@@ -1171,10 +1191,18 @@
     var u = G.board[sel.key]; if (!u || u.owner !== HUMAN || u.type !== 'object') return null;
     var btns = [];
     CARDS[u.cardId].abilities.forEach(function (ab, idx) {
-      if (ab.kw !== 'For' || !G.canFireFor(u, idx)) return;
+      if ((ab.kw !== 'For' && ab.kw !== 'If') || !G.canFireFor(u, idx)) return;
       var N = ab.forCount || 1, left = N - (u.onceUsed['for' + idx] || 0);
       var ready = G.forReady(u, idx);
-      btns.push(el('button', { style: popBtn(ready ? '#3c8a66' : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab); } : function () { flash('이동/발동할 칸이 없음 — 발동 불가'); } }, ['⚡ 발동 ' + left + '/' + N]));
+      var isIf = ab.kw === 'If';
+      if (isIf && ab.options && ab.options.length) {
+        ab.options.forEach(function (op, oi) {
+          btns.push(el('button', { style: popBtn(ready ? '#4a6bd8' : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, oi); } : function () { flash('발동할 수 없음'); } }, ['◆ ' + op.label]));
+        });
+      } else {
+        var mk = isIf ? '◆ 발동' : ('⚡ 발동 ' + left + '/' + N);
+        btns.push(el('button', { style: popBtn(ready ? (isIf ? '#4a6bd8' : '#3c8a66') : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, isIf ? 0 : undefined); } : function () { flash('이동/발동할 칸이 없음 — 발동 불가'); } }, [mk]));
+      }
     });
     if (G.canBasicAttack(u)) btns.push(el('button', { style: popBtn('#c23c70'), onclick: function () { var t = G.basicAttackTargets(u); if (t.length === 1) { aAttack(u, t[0]); render(); } else flash('빨강 대상을 클릭'); } }, ['⚔ 공격']));
     if (!btns.length) return null; // nothing to do → no popover (move via blue cells still works)
@@ -1280,7 +1308,7 @@
       if (ptr.need === 'enemy' || ptr.need === 'cell') G.castZone(HUMAN, ptr.card.id).forEach(function (k) { if (!H[k]) H[k] = 'zone'; });
       pointerTargets(ptr).forEach(function (k) { H[k] = 'target'; });
     }
-    else if (sel && sel.type === 'hand') { G.declareCells(HUMAN).forEach(function (k) { H[k] = 'declare'; }); }
+    else if (sel && sel.type === 'hand') { G.declareCells(HUMAN, G.players[HUMAN].hand[sel.i]).forEach(function (k) { H[k] = 'declare'; }); }
     else if (sel && sel.type === 'board') {
       var u = G.board[sel.key];
       if (u) {
@@ -1386,6 +1414,7 @@
     var chips = [];
     if (u.atkZero || u.atkZeroUntil > G.turnNo) chips.push(statusChip('ATK0', '#E24B4A'));   // 공격력 0
     if (G.isBound(u)) chips.push(statusChip('🔒봉쇄', '#2456a6'));                              // 이동 불가
+    if (u.blockFull) chips.push(statusChip('🛡보호', '#2f7d3f'));                               // mprotect 보호막(다음 피해 1회 전량 차단)
     if (!chips.length) return null;
     return el('div', { style: {
       position: 'absolute', top: '1px', left: '50%', transform: 'translateX(-50%)', zIndex: 7,
@@ -1417,7 +1446,7 @@
     var atkBadge = myTurn ? (G.canBasicAttack(u) ? '⚔' : (u.attackedTurn === G.turnNo ? '⚔✓' : '')) : '';
     var forN = forRemaining(u);
     // For 발동 가능(내 턴 & 남은 횟수 & 대상 가능) 여부 — 배지 색/펄스로 강조.
-    var forFire = myTurn && CARDS[u.cardId].abilities.some(function (ab, idx) { return ab.kw === 'For' && G.canFireFor(u, idx) && G.forReady(u, idx); });
+    var forFire = myTurn && CARDS[u.cardId].abilities.some(function (ab, idx) { return (ab.kw === 'For' || ab.kw === 'If') && G.canFireFor(u, idx) && G.forReady(u, idx); });
     var badges = el('div', { style: { display: 'flex', alignItems: 'center', gap: '2px', flex: 'none' } }, [
       atkBadge ? el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: G.canBasicAttack(u) ? '#ffe14d' : 'rgba(255,255,255,.6)' } }, [atkBadge]) : null
       // 봉쇄(🔒)는 뷰포트 상단 상태이상 칩(statusChips)으로 크게 표시 — 타이틀바 중복 배지 제거.
@@ -1536,7 +1565,7 @@
     else { W = 150; MINH = 150; VPH = 92; }
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리).
-    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: (mode === 'idle' && !inGame) ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow }, raisedBev());
+    var st = Object.assign({ position: 'relative', width: W + 'px', minHeight: MINH + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '2px', cursor: (mode === 'idle' && !inGame) ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', transition: 'transform .1s', boxShadow: shadow, wordBreak: 'keep-all', overflowWrap: 'break-word' }, raisedBev());
     // 터치: 손패 가로 스크롤은 브라우저(pan-x), 위(필드 방향) 드래그는 우리가 잡음. 데스크톱 hover 리프트엔 영향 없음.
     if (mode === 'play') st.touchAction = 'pan-x';
     if (playable && !seld && !mullSel) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
@@ -1740,23 +1769,23 @@
   function glossaryBox() {
     function line(k) {
       var g = GLOSS[k];
-      return el('div', { style: { display: 'flex', gap: '7px', marginBottom: '3px' } }, [
-        el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.txt, width: '46px', flex: 'none', fontSize: '10px' } }, [k]),
-        el('span', { style: { fontSize: '10px', color: SKIN.panelText, lineHeight: 1.4 } }, [g.d])
+      return el('div', { style: { display: 'flex', gap: '8px', marginBottom: '4px' } }, [
+        el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.txt, width: '50px', flex: 'none', fontSize: '11.5px' } }, [k]),
+        el('span', { style: { fontSize: '11.5px', color: SKIN.panelText, lineHeight: 1.45 } }, [g.d])
       ]);
     }
-    return el('div', { style: { borderTop: '1.5px solid ' + SKIN.line, paddingTop: '8px' } }, [
-      el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.2em', color: SKIN.muted, marginBottom: '6px' } }, ['키워드']),
+    return el('div', { style: { borderTop: '1.5px solid ' + SKIN.line, paddingTop: '9px' } }, [
+      el('div', { class: 'grot', style: { fontSize: '10px', letterSpacing: '.2em', color: SKIN.muted, marginBottom: '7px' } }, ['키워드']),
       line('If'), line('When'), line('Once'), line('While'), line('For'), line('require'),
-      el('div', { style: { display: 'flex', gap: '10px', marginTop: '7px', flexWrap: 'wrap' } }, [
-        el('span', { style: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: SKIN.panelText } }, [
-          el('span', { style: { width: '10px', height: '10px', flex: 'none', background: hexa(SKIN.rangeGold, .5), boxShadow: 'inset 0 0 0 1.5px ' + SKIN.rangeGold } }), '함수 범위'
+      el('div', { style: { display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' } }, [
+        el('span', { style: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', color: SKIN.panelText } }, [
+          el('span', { style: { width: '14px', height: '14px', flex: 'none', background: hexa(SKIN.rangeGold, .5), boxShadow: 'inset 0 0 0 2px ' + SKIN.rangeGold } }), '함수 범위'
         ]),
-        el('span', { style: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: SKIN.panelText } }, [
-          el('span', { class: 'mono', style: { color: '#fff', background: SKIN.enemy, padding: '0 3px', flex: 'none', fontSize: '9px', fontWeight: 700 } }, ['⚔']), '옆칸 = 기본 공격'
+        el('span', { style: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', color: SKIN.panelText } }, [
+          el('span', { class: 'mono', style: { color: '#fff', background: SKIN.enemy, padding: '1px 4px', flex: 'none', fontSize: '10.5px', fontWeight: 700 } }, ['⚔']), '옆칸 = 기본 공격'
         ])
       ]),
-      el('div', { style: { fontSize: '9px', color: SKIN.muted, marginTop: '5px', lineHeight: 1.55 } }, ['🟡 함수 범위 = 능력이 닿는 칸(카드마다 다름) · 🔴 옆칸 = 기본 공격이 닿는 1칸(모든 유닛 공통) · 필드 카드에 커서를 올리면 함수 범위가 보드에 표시됩니다.'])
+      el('div', { style: { fontSize: '10.5px', color: SKIN.muted, marginTop: '6px', lineHeight: 1.6 } }, ['🟡 함수 범위 = 능력이 닿는 칸(카드마다 다름) · 🔴 옆칸 = 기본 공격이 닿는 1칸(모든 유닛 공통) · 필드 카드에 커서를 올리면 함수 범위가 보드에 표시됩니다.'])
     ]);
   }
   function sidePanel() {
@@ -1804,31 +1833,31 @@
     var bu = (pinned && pinned.key && G.board[pinned.key] && G.board[pinned.key].cardId === id) ? G.board[pinned.key] : null;
     var atk = bu ? G.effAtk(bu) : card.atk, hp = bu ? G.curHp(bu) : card.hp, mx = bu ? G.effMaxHp(bu) : card.hp;
     return el('div', {}, [
-      el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 9px', marginBottom: '8px', background: isP ? '#1d1d24' : cl, borderBottom: isP ? '2px solid ' + cl : 'none' } }, [
-        el('span', { style: { fontSize: '13px', color: isP ? cl : '#fff' } }, [isP ? '◆' : GLY[card.cls]]),
-        el('span', { style: { fontSize: '10px', color: isP ? cl : '#fff', letterSpacing: '.1em' } }, [isP ? '포인터 · 1회성' : card.cls]),
-        bu ? el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '8px', color: '#fff', background: ownerColor(bu.owner), padding: '0 4px' } }, [bu.owner === HUMAN ? '내 유닛' : '상대 유닛'])
-           : el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '8px', color: isP ? SKIN.faint : 'rgba(255,255,255,.9)' } }, [isP ? 'POINTER' : 'OBJECT'])
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', marginBottom: '9px', background: isP ? '#1d1d24' : cl, borderBottom: isP ? '2px solid ' + cl : 'none' } }, [
+        el('span', { style: { fontSize: '15px', color: isP ? cl : '#fff' } }, [isP ? '◆' : GLY[card.cls]]),
+        el('span', { style: { fontSize: '12px', color: isP ? cl : '#fff', letterSpacing: '.1em' } }, [isP ? '포인터 · 1회성' : card.cls]),
+        bu ? el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9.5px', color: '#fff', background: ownerColor(bu.owner), padding: '1px 5px' } }, [bu.owner === HUMAN ? '내 유닛' : '상대 유닛'])
+           : el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9.5px', color: isP ? SKIN.faint : 'rgba(255,255,255,.9)' } }, [isP ? 'POINTER' : 'OBJECT'])
       ]),
-      viewportBox(card, 64, { margin: '0', gScale: 0.52 }),
-      el('div', { style: { padding: '9px 2px 0' } }, [
-        el('div', { class: isP ? 'mono' : 'grot', style: { fontWeight: 700, fontSize: '21px', lineHeight: 1, marginBottom: '8px' } }, [card.name]),
-        isP ? null : el('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '7px' } }, [
+      viewportBox(card, 80, { margin: '0', gScale: 0.52 }),
+      el('div', { style: { padding: '10px 2px 0' } }, [
+        el('div', { class: isP ? 'mono' : 'grot', style: { fontWeight: 700, fontSize: '25px', lineHeight: 1, marginBottom: '10px' } }, [card.name]),
+        isP ? null : el('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '9px' } }, [
           statBar('ATK', atk, ATK_MAX, SKIN.heat, bu ? card.atk : null),
           statBar('HP', hp, HP_MAX, SKIN.own)
         ]),
-        (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, marginBottom: '6px' } }, ['피해 누적 ' + (mx - hp) + ' · 최대 ' + mx]) : null,
-        (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.faint, marginBottom: '6px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
-        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.rangeGold, marginBottom: '4px' } }, ['덱당 ' + card.deckLimit + '장 제한']) : null,
-        el('div', { style: { fontSize: '12.5px', color: SKIN.txt, lineHeight: 1.6, marginBottom: '9px' } }, richText(card.text)),
-        (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.own, fontWeight: 700, marginBottom: '8px' } }, ['◆ 시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
-        (isP && card.castCondition) ? el('div', { class: 'mono', style: { fontSize: '10px', color: G.castConditionMet(HUMAN, card) ? SKIN.faint : SKIN.enemy, fontWeight: 700, marginBottom: '8px' } }, [(G.castConditionMet(HUMAN, card) ? '✓' : '⚠') + ' 시전조건 · ' + RT.castCondText(card.castCondition)]) : null,
+        (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.enemy, marginBottom: '7px' } }, ['피해 누적 ' + (mx - hp) + ' · 최대 ' + mx]) : null,
+        (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.faint, marginBottom: '7px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.rangeGold, marginBottom: '5px' } }, ['덱당 ' + card.deckLimit + '장 제한']) : null,
+        el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(card.text)),
+        (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '11.5px', color: SKIN.own, fontWeight: 700, marginBottom: '9px' } }, ['◆ 시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
+        (isP && card.castCondition) ? el('div', { class: 'mono', style: { fontSize: '11.5px', color: G.castConditionMet(HUMAN, card) ? SKIN.faint : SKIN.enemy, fontWeight: 700, marginBottom: '9px' } }, [(G.castConditionMet(HUMAN, card) ? '✓' : '⚠') + ' 시전조건 · ' + RT.castCondText(card.castCondition)]) : null,
         forLeftLines(card, bu),
-        isP ? null : el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' } }, [
+        isP ? null : el('div', { class: 'mono', style: { fontSize: '11.5px', color: SKIN.enemy, fontWeight: 700, marginBottom: '7px', display: 'flex', alignItems: 'center', gap: '5px' } }, [
           el('span', { style: { color: '#fff', background: SKIN.enemy, padding: '0 4px', flex: 'none' } }, ['⚔']),
           '기본 공격 · 옆칸 1칸 (무료·턴1회)'
         ]),
-        rangeGridEl(RT.cardRange(id), cl)
+        rangeGridEl(RT.cardRange(id), cl, { cell: 8, lblFs: 9 })
       ])
     ]);
   }
@@ -1929,7 +1958,7 @@
   // ── 모바일 메뉴 바텀시트(항복 · 기본 룰 설명) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
   //   규칙 설명은 기본 룰(BASICS) + GLOSS(키워드 사전)를 재사용해 보여준다.
   var RULE_ABILITY = ['If', 'When', 'Once', 'While', 'For'];        // 특수능력 발동 방식
-  var RULE_RANGE = ['옆칸', '주위', '앞 직선', '대각선', '테두리', '관통']; // 사거리 키워드
+  var RULE_RANGE = ['옆칸', '1칸이내', '앞직선', '대각', '나이트', '관통', '직격']; // 사거리 키워드 (v6.1)
   // 완전 기본룰 — 처음 보는 사람이 한 판을 굴릴 수 있는 최소 규칙.
   var BASICS = [
     { t: '승리 조건', d: '상대 본체(HP 40)를 0 이하로 만들면 승리. 내 본체가 0 이하면 패배. 본체도 보드 칸이라 인접·사거리에 포함된다.' },
@@ -2109,7 +2138,7 @@
       ptr = null; render(); return;
     }
     if (sel && sel.type === 'hand') {
-      if (G.declareCells(HUMAN).indexOf(key) >= 0) { aDeclare(HUMAN, sel.i, key); sel = null; afterAction(); return; }
+      if (G.declareCells(HUMAN, G.players[HUMAN].hand[sel.i]).indexOf(key) >= 0) { aDeclare(HUMAN, sel.i, key); sel = null; afterAction(); return; }
       if (u && u.owner === HUMAN && u.type === 'object') { sel = { type: 'board', key: key }; render(); return; }
       sel = null; render(); return;
     }
@@ -2127,10 +2156,11 @@
     else { sel = null; render(); }
   }
   function afterAction() { sel = null; ptr = null; pendingPlay = null; if (G.winner !== undefined) { render(); return; } render(); }
-  function fireFor(u, idx, ab) {
+  function fireFor(u, idx, ab, opt) {
     if (!G.forReady(u, idx)) { flash('이동/발동할 칸이 없음 — 발동 불가'); return; }
     var extra = {};
     if (ab.trigger === 'onActive') { var d = G.moveCells(u)[0]; if (d) extra.dest = d; }
+    if (opt !== undefined && opt !== null) extra.opt = opt;
     aFire(u, idx, extra); render();
   }
   function pointerTargets(ptr) {
@@ -2140,6 +2170,7 @@
     else if (need === 'ally') out = ek(G.allyObjects(me));
     else if (need === 'allyThread') out = ek(G.allyObjects(me).filter(function (x) { return cardCls(x) === 'thread'; }));
     else if (need === 'allyProcess') out = ek(G.allyObjects(me).filter(function (x) { return cardCls(x) === 'process'; }));
+    else if (need === 'allyMemory') out = ek(G.allyObjects(me).filter(function (x) { return cardCls(x) === 'memory'; }));
     else if (need === 'allyOrBody') { out = ek(G.allyObjects(me)); out.push(bodyKey(me)); }
     else if (need === 'twoAlly') { out = ek(G.allyObjects(me)).filter(function (k) { return ptr.picks.indexOf(k) < 0; }); }
     // fizzle guard: drop targets the pointer can't actually affect (e.g. rush()/pull() into a blocked cell)
@@ -2237,7 +2268,7 @@
       }
       flash('시전 범위 밖 — 파란 구역 안 빨강 대상에 놓으세요'); sel = ptr = null; render(); return;
     }
-    if (key && G.declareCells(HUMAN).indexOf(key) >= 0) { aDeclare(HUMAN, d.i, key); afterAction(); return; }
+    if (key && G.declareCells(HUMAN, G.players[HUMAN].hand[d.i]).indexOf(key) >= 0) { aDeclare(HUMAN, d.i, key); afterAction(); return; }
     flash('내 본체 행 빈 칸에 놓으세요'); sel = ptr = null; render(); return;
   }
 

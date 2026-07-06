@@ -79,7 +79,7 @@
   function manh(k1, k2) { var a = P(k1), b = P(k2); return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]); }
 
   // ============================================================== GAME
-  var DEFAULT_TURN_CAP = 40; // 50 → 40: HP 40에서도 76% 판이 상한까지 늘어져(루즈) 상한도 하향
+  var DEFAULT_TURN_CAP = 50; // rules v10: 50턴 상한(피로 누적으로 정상 게임은 그 전에 종료, 예외 대비용)
   function Game(opts) {
     opts = opts || {};
     this.rng = makeRng(opts.seed || 12345);
@@ -102,7 +102,7 @@
   }
   function newPlayer(i) {
     return { idx: i, deck: [], hand: [], graveyard: [], destroyedAlly: 0, pointersCast: 0, turnsTaken: 0,
-      deckMeta: null, bodyShield: 0 };
+      deckMeta: null, bodyShield: 0, fatigueNext: 3, deferredActions: 0 };
   }
 
   Game.prototype.emit = function () { for (var i = 0; i < this.listeners.length; i++) try { this.listeners[i](this); } catch (e) {} };
@@ -116,8 +116,8 @@
     var card = CARDS[cardId];
     return { uid: this.uidSeq++, owner: owner, cardId: cardId, type: card.kind === 'pointer' ? 'pointer' : 'object',
       baseAtk: card.atk || 0, baseHp: card.hp || 0, atkMod: 0, hpMod: 0, dmg: 0,
-      atkZero: false, atkZeroUntil: 0, boundUntil: 0, boundPerm: false,
-      onceUsed: {}, summonedTurn: this.turnNo, attackedTurn: -1, flags: {} };
+      atkZero: false, atkZeroUntil: 0, boundUntil: 0, boundPerm: false, blockFull: false, tempAtk: [],
+      onceUsed: {}, summonedTurn: this.turnNo, attackedTurn: -1, bonusAtkTurn: -1, bonusAtk: 0, flags: {} };
   };
   Game.prototype.body = function (owner) { return this.board[bodyKey(owner)]; };
 
@@ -141,6 +141,7 @@
     if (u.cardId === 'Overflow') { a += 2 * this.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; }).length; }
     if (u.cardId === 'Cannon') { a += 2 * this.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'memory'; }).length; }
     if (u.cardId === 'Profiler') { a += this.unitsInShape(u, square, 1).filter(function (x) { return x.owner !== u.owner && x.type === 'object'; }).length; }
+    if (u.cardId === 'Cluster') { a += 2 * this.countBoard(function (x) { return x.owner === u.owner && x.token; }); }
     // neighbor-granted auras
     var hive = this.hivemindActive(u.owner) && cardCls(u) === 'thread';
     var grant = 0;
@@ -162,8 +163,11 @@
       }
     });
     if (this.polymorphActive(u.owner)) a += 1;
+    // 임시 공격력 디버프(inject 등 「-N (N턴)」)
+    if (u.tempAtk && u.tempAtk.length) { var self2 = this; u.tempAtk.forEach(function (t) { if (t.until > self2.turnNo) a -= t.amt; }); }
     return Math.max(0, a);
   };
+  Game.prototype.debuffAtkTurns = function (u, amt, turns) { if (u.type !== 'object') return; u.tempAtk = u.tempAtk || []; u.tempAtk.push({ amt: amt, until: this.turnNo + turns * 2 }); this._statFx(u, 'atk', -amt); };
 
   // ---- board scans
   Game.prototype.boardUnits = function () { var o = [], b = this.board; for (var k in b) if (b.hasOwnProperty(k)) o.push(b[k]); return o; };
@@ -176,7 +180,8 @@
     return cells.map(function (kk) { return self.board[kk]; }).filter(Boolean);
   };
   function unitKey(G, u) { var b = G.board; for (var k in b) if (b.hasOwnProperty(k) && b[k] === u) return k; return null; }
-  function cardCls(u) { return CARDS[u.cardId].cls; }
+  // 분신은 생성한 카드의 클래스를 상속(clsOverride). tokenRules D1=A안.
+  function cardCls(u) { return u.clsOverride || CARDS[u.cardId].cls; }
 
   // ---- aura/deck flags
   Game.prototype.hivemindActive = function (owner) { return this.boardUnits().some(function (x) { return x.owner === owner && x.cardId === 'Hivemind'; }); };
@@ -190,11 +195,17 @@
   };
 
   // ---- binding (movement lock)
+  // 봉쇄(full): 이동·기본 공격·For 전부 불가. boundUntil/perm + 「옆칸」 적 Const 오라.
   Game.prototype.isBound = function (u) {
     if (u.boundPerm) return true;
     if (u.boundUntil > this.turnNo) return true;
-    // While binds from enemy Cache/Const adjacent
-    return this.adj(u).some(function (x) { return x.owner !== u.owner && (x.cardId === 'Cache' || x.cardId === 'Const'); });
+    return this.adj(u).some(function (x) { return x.owner !== u.owner && x.cardId === 'Const'; });
+  };
+  // 이동 잠금(부분): 봉쇄 + 자기 이동 불가(Const·ROM) + 「옆칸」 적 Cache 오라(이동만 막음).
+  Game.prototype.isMoveLocked = function (u) {
+    if (this.isBound(u)) return true;
+    if (u.cardId === 'Const' || u.cardId === 'ROM') return true;
+    return this.adj(u).some(function (x) { return x.owner !== u.owner && x.cardId === 'Cache'; });
   };
 
   // ---- damage / heal / stat
@@ -207,29 +218,54 @@
     this._resolveSeen[key] = true; return true;
   };
 
-  Game.prototype.damageReduction = function (target, amount) {
-    var self = this, amt = amount;
+  // 데미지 파이프라인(rules v10): 기본치 → 증폭(+N) → 감소(-N·절반·상한·최소치) → 차단(막음) → 반사
+  // 「직격」은 감소 단계만 스킵한다. 증폭·차단·반사는 직격에도 정상 작동.
+  Game.prototype.damageAmplify = function (target, amount) {
+    // Debug: 대상의 「옆칸」에 있는 적(Debug) 1장당 받는 피해 +1
+    return amount + this.adj(target).filter(function (x) { return x.owner !== target.owner && x.cardId === 'Debug'; }).length;
+  };
+  Game.prototype.damageReduction = function (target, amount, direct) {
+    var amt = amount;
+    if (direct) return amt < 0 ? 0 : amt;   // 직격: 감소 단계 스킵
     if (target.type === 'body') {
-      // body shields (catch/barrier())
-      var pl = this.players[target.owner];
-      if (pl.bodyShield > 0) { var ab = Math.min(pl.bodyShield, amt); pl.bodyShield -= ab; amt -= ab; }
-      // Barrier adjacent to this body
+      // Firewall adjacent to this body: -2 each
       amt -= 2 * this.adj(target).filter(function (x) { return x.owner === target.owner && x.cardId === 'Firewall'; }).length;
       if (amt < 0) amt = 0;
-      if (this.singletonActive(target.owner)) amt = Math.floor(amt / 2);
-      return amt;
+      if (this.singletonActive(target.owner) && amt > 0) amt = Math.max(0, amt - 2); // Singleton: 본체 받는 피해 -2
+      return amt < 0 ? 0 : amt;
     }
     // object: Heap adjacency -1 each (ally Heaps)
     amt -= this.adj(target).filter(function (x) { return x.owner === target.owner && x.cardId === 'Heap'; }).length;
     if (amt < 0) amt = 0;
-    // Bedrock: my memory units take half
-    if (cardCls(target) === 'memory' && this.bedrockActive(target.owner)) amt = Math.floor(amt / 2);
-    return amt;
+    // Bedrock: 내 memory 받는 피해 -1 (최소 1)
+    if (amt > 0 && cardCls(target) === 'memory' && this.bedrockActive(target.owner)) amt = Math.max(1, amt - 1);
+    // ROM: 받는 피해 상한 2 (감소 계열 — 직격이 무시)
+    if (target.cardId === 'ROM') amt = Math.min(amt, 2);
+    return amt < 0 ? 0 : amt;
+  };
+  // 차단(막음): barrier()=본체 흡수풀(bodyShield), mprotect()=인스턴스 다음 피해 1회 전량 차단
+  Game.prototype.damageBlock = function (target, amount) {
+    var amt = amount;
+    if (target.blockFull) { target.blockFull = false; this.note(CARDS[target.cardId].name + ' 차단(전량 ' + amt + ')'); return 0; }
+    if (target.type === 'body') {
+      var pl = this.players[target.owner];
+      // barrier(): 다음 피해 1회를 최대 N 흡수, 초과분 적용 — 1회성(흡수 후 소멸)
+      if (pl.bodyShield > 0) { var ab = Math.min(pl.bodyShield, amt); pl.bodyShield = 0; amt -= ab; }
+    }
+    return amt < 0 ? 0 : amt;
   };
 
   Game.prototype.deal = function (target, amount, source) {
     if (!target || this.winner !== undefined) return 0;
-    var amt = this.damageReduction(target, amount);
+    var direct = !!(source && source.direct);
+    // Sandbox: 내 본체가 받는 피해를 대신 Sandbox 인스턴스가 받는다(선택 — 엔진은 존재 시 자동 흡수)
+    if (target.type === 'body') {
+      var sb = this.boardUnits().filter(function (x) { return x.owner === target.owner && x.cardId === 'Sandbox'; })[0];
+      if (sb) { target = sb; }
+    }
+    var amt = this.damageAmplify(target, amount);
+    amt = this.damageReduction(target, amt, direct);
+    amt = this.damageBlock(target, amt);
     target.dmg += amt;
     var tkey = target.type === 'body' ? bodyKey(target.owner) : unitKey(this, target);
     if (amt > 0) {
@@ -242,6 +278,11 @@
       return amt;
     }
     this.note(CARDS[target.cardId].name + ' 피해 ' + amt + ' (HP ' + this.curHp(target) + ')');
+    // reflect(): 이번 턴 내 memory 피격 시 피해 절반(올림)을 가해 인스턴스에 반사(받는 피해 유지)
+    if (amt > 0 && cardCls(target) === 'memory' && this.players[target.owner].memReflectTurn === this.turnNo) {
+      var ra = source && source.attacker;
+      if (ra && ra.uid != null && this.board[unitKey(this, ra)]) this.deal(ra, Math.ceil(amt / 2), { attacker: target });
+    }
     // onDamaged triggers (only if it was an attack and survived/while)
     if (source && source.attacker && this.curHp(target) > 0) {
       this.fireDamaged(target, source.attacker);
@@ -272,6 +313,12 @@
     (card.abilities || []).forEach(function (ab) {
       if (ab.trigger === 'onDeath') { self.beginResolve(); ab.fn(self, u, { atKey: k }); self.endResolve(); }
     });
+    // onUnitDeath watchers (Atomic·Journal 등 — 다른 유닛의 파괴를 감시)
+    this.boardUnits().forEach(function (w) {
+      (CARDS[w.cardId].abilities || []).forEach(function (ab) {
+        if (ab.trigger === 'onUnitDeath') { self.beginResolve(); ab.fn(self, w, { dead: u, atKey: k }); self.endResolve(); }
+      });
+    });
   };
 
   Game.prototype.healInst = function (u, amount) {
@@ -285,40 +332,83 @@
   Game.prototype.buffHp = function (u, delta) { if (u.type !== 'object') return; if (!this._clampOnce(u, 'hp')) return; u.hpMod += delta; if (delta) this._statFx(u, 'hp', delta); if (delta < 0 && this.curHp(u) <= 0) this.destroy(u, null); };
   Game.prototype.setAtkZeroPerm = function (u) { if (u.atkZero) return; u.atkZero = true; this._statFx(u, 'zero', 0); };
   Game.prototype.setAtkZeroTurns = function (u, turns) { u.atkZeroUntil = this.turnNo + turns * 2; this._statFx(u, 'zero', 0); };
-  Game.prototype.bind = function (u, turns) { if (turns === 'perm') u.boundPerm = true; else u.boundUntil = this.turnNo + turns * 2; this._statFx(u, 'bind', turns === 'perm' ? 0 : turns); };
+  Game.prototype.bind = function (u, turns) {
+    if (turns === 'perm') u.boundPerm = true; else u.boundUntil = this.turnNo + turns * 2;
+    this._statFx(u, 'bind', turns === 'perm' ? 0 : turns);
+    // Fault: 적이 봉쇄될 때마다 그 적에게 1 피해 (능동 bind 한정)
+    var self = this;
+    this.boardUnits().filter(function (f) { return f.cardId === 'Fault' && f.owner !== u.owner; }).forEach(function (f) { if (self.board[unitKey(self, u)]) self.deal(u, 1, { attacker: f }); });
+  };
+  // 수리(받은 피해 전부 회복) · 차단 부여
+  Game.prototype.repair = function (u) { if (u) this.healInst(u, u.dmg); };
+  // 보호막(mprotect): 다음 피해 1회 전량 차단 + 인스턴스에 시각 표시(shield stat fx → 상태칩 유지)
+  Game.prototype.protect = function (u) { if (!u) return; u.blockFull = true; this._statFx(u, 'shield', 0); };
 
   // ---- queries for targeting
   Game.prototype.enemyObjects = function (owner) { return this.objects().filter(function (u) { return u.owner !== owner; }); };
   Game.prototype.allyObjects = function (owner) { return this.objects().filter(function (u) { return u.owner === owner; }); };
   Game.prototype.enemyBody = function (owner) { return this.body(1 - owner); };
 
-  // ---- forced movement (push/pull/moveTarget)
+  // ---- movement primitives (rules v10 moveVerbs)
+  //  relocate  = 재배치: 위치 제거 후 새 칸에 재설정. 트리거 전부 비발동 (Wormhole·Dispatch).
+  //  teleport  = 이동(자발, 경로 무시): 진입/이동 트리거 발동 (goto·trace·swap·Jump·Symlink).
+  //  forceMove = 강제 이동: 강제이동 트리거(Thrash) + 진입 트리거 발동 (pull·push·glitch·memcpy·jitter·rotate·splice적).
   Game.prototype.relocate = function (u, toKey) {
     var from = unitKey(this, u); if (!from || this.board[toKey]) return false;
     delete this.board[from]; this.board[toKey] = u; return true;
   };
+  // 진입 트리거(Sentinel/Interrupt/Trap = 옆칸). ability.enterRange==='s1' 이면 1칸이내(대각 포함), 그 외 옆칸(직교 인접).
+  Game.prototype.fireEnterTriggers = function (u) {
+    var self = this, k = unitKey(this, u); if (!k) return;
+    this.enemyObjects(u.owner).forEach(function (x) {
+      var xk = unitKey(self, x); if (!xk) return;
+      (CARDS[x.cardId].abilities || []).forEach(function (ab) {
+        if (ab.trigger !== 'onEnterRange') return;
+        var inRange = (ab.enterRange === 's1') ? cheb(xk, k) <= 1 : (manh(xk, k) === 1);
+        if (inRange) { self.beginResolve(); ab.fn(self, x, { mover: u }); self.endResolve(); }
+      });
+    });
+  };
+  // 강제 이동 후처리: Thrash(2 피해) + 진입 트리거
+  Game.prototype.afterForcedMove = function (u) {
+    if (!u) return; var self = this, k = unitKey(this, u); if (!k) return;
+    this.boardUnits().filter(function (t) { return t.cardId === 'Thrash' && t.owner !== u.owner; })
+      .forEach(function (t) { if (self.board[unitKey(self, u)]) self.deal(u, 2, { attacker: t }); });
+    if (this.board[unitKey(this, u)]) this.fireEnterTriggers(u);
+  };
+  Game.prototype.forceMove = function (u, toKey) { if (!this.relocate(u, toKey)) return false; this.fx({ type: 'move', from: null, to: toKey }); this.afterForcedMove(u); return true; };
+  Game.prototype.teleport = function (u, toKey) { var from = unitKey(this, u); if (!this.relocate(u, toKey)) return false; this.fx({ type: 'move', from: from, to: toKey }); if (this.board[unitKey(this, u)]) this.fireEnterTriggers(u); return true; };
   // knockback: move the target one cell AWAY from the caster (toward the caster's enemy edge).
-  // caster's forward (fwd) points at their enemy, so "away from caster" = same as caster's forward.
-  // strict: if that cell is off-board or occupied, nothing happens (caller should gate with castValid).
   Game.prototype.pushAway = function (target, fromOwner) {
     var k = unitKey(this, target); if (!k) return false; var p = P(k);
     var dr = fwd(fromOwner); var dest = K(p[0], p[1] + dr);
-    return (inB(p[0], p[1] + dr) && !this.board[dest]) ? this.relocate(target, dest) : false;
+    return (inB(p[0], p[1] + dr) && !this.board[dest]) ? this.forceMove(target, dest) : false;
   };
   // pull: move the target one cell TOWARD the caster (toward the caster's own home edge = opposite of forward).
   Game.prototype.pullToward = function (target, owner) {
     var k = unitKey(this, target); if (!k) return false; var p = P(k);
     var dr = -fwd(owner); var dest = K(p[0], p[1] + dr);
-    return (inB(p[0], p[1] + dr) && !this.board[dest]) ? this.relocate(target, dest) : false;
+    return (inB(p[0], p[1] + dr) && !this.board[dest]) ? this.forceMove(target, dest) : false;
   };
   // relocate the target to ANY adjacent empty cell — prefer the knockback direction, else any ortho.
-  // this is the flexible "「옆칸」 빈 칸 강제 이동" used by memcpy/Reroute (distinct from strict pushAway).
   Game.prototype.shoveToEmpty = function (target, fromOwner) {
     var k = unitKey(this, target); if (!k) return false; var p = P(k);
     var dr = fwd(fromOwner), dest = K(p[0], p[1] + dr);
-    if (inB(p[0], p[1] + dr) && !this.board[dest]) return this.relocate(target, dest);
+    if (inB(p[0], p[1] + dr) && !this.board[dest]) return this.forceMove(target, dest);
     var self = this, opts = ortho(p[0], p[1]).filter(function (x) { return !self.board[x]; });
-    return opts.length ? this.relocate(target, opts[0]) : false;
+    return opts.length ? this.forceMove(target, opts[0]) : false;
+  };
+  // 전개칸: 기준 인스턴스 「1칸이내」(8칸) 빈 칸 목록. chain() 후방: 대상 뒤(적 진영 방향) 같은 열 첫 적.
+  Game.prototype.deployCells = function (u) { var k = unitKey(this, u); if (!k) return []; var p = P(k), self = this; return around8(p[0], p[1]).filter(function (x) { return !self.board[x]; }); };
+  Game.prototype.chainBackEnemy = function (fromKey, casterOwner) {
+    var p = P(fromKey), dr = fwd(casterOwner);
+    for (var r = p[1] + dr; inB(p[0], r); r += dr) { var t = this.board[K(p[0], r)]; if (t && t.owner !== casterOwner && t.type === 'object') return t; }
+    return null;
+  };
+  // 행동 추가(yield/Sudo): 이번 턴 총 행동은 기본 2 + 추가로 최대 4까지 (rules v10 D5).
+  Game.prototype.grantActions = function (n) {
+    var room = 4 - (this.actionBudget || 2); var give = Math.max(0, Math.min(n, room));
+    this.actionBudget = (this.actionBudget || 2) + give; this.actions += give; return give;
   };
   Game.prototype.firstEmptyHome = function (owner) {
     var r = homeRow(owner);
@@ -327,10 +417,12 @@
     for (var rr = 1; rr <= ROWS; rr++) for (var cc = 1; cc <= COLS; cc++) if (!this.board[K(cc, rr)]) return K(cc, rr);
     return null;
   };
-  Game.prototype.summon = function (owner, cardId, cell) {
+  // opts.cls = 분신이 상속할 클래스(생성 카드 클래스). 지정 시 token 플래그가 붙는다.
+  Game.prototype.summon = function (owner, cardId, cell, opts) {
     if (!cell || this.board[cell]) { cell = this.firstEmptyHome(owner); }
     if (!cell) return null;
     var u = this.makeUnit(owner, cardId); this.board[cell] = u;
+    if (opts && opts.cls) { u.clsOverride = opts.cls; u.token = true; }
     this.note(CARDS[cardId].name + ' 생성 → ' + cell);
     this.fx({ type: 'spawn', key: cell, card: cardId, owner: owner });
     return u;
@@ -357,9 +449,9 @@
     n = n || 1; var pl = this.players[player];
     for (var i = 0; i < n; i++) {
       if (pl.deck.length === 0) {
-        // 덱 소진(피로): 드로우할 카드가 없으면 그 대신 본체가 3 피해. 스톨 방지(구 런타임 과열 대체).
+        // 덱 소진(피로): 드로우할 카드가 없으면 그 대신 본체가 피로 피해. rules v10: 첫 3, 이후 장당 +1 누적(3,4,5,…).
         var fb = this.body(player);
-        if (fb) { fb.dmg += 3; this.note('⚠ 덱 소진(피로) — P' + player + ' 본체 3 피해'); this.fx({ type: 'damage', key: bodyKey(player), amount: 3, fatigue: true }); this.checkWin(); }
+        if (fb) { var fd = pl.fatigueNext; pl.fatigueNext = fd + 1; fb.dmg += fd; this.note('⚠ 덱 소진(피로) — P' + player + ' 본체 ' + fd + ' 피해'); this.fx({ type: 'damage', key: bodyKey(player), amount: fd, fatigue: true }); this.checkWin(); }
         continue;
       }
       var id = pl.deck.shift();
@@ -384,7 +476,9 @@
   Game.prototype.beginTurn = function () {
     var p = this.active, pl = this.players[p];
     this.turnNo++; pl.turnsTaken++;
-    this.actions = 2;
+    // 행동: 기본 2 + 이월(defer) — 총 상한 4 (rules v10 D5). actionBudget = 이번 턴 배정된 총 행동 수.
+    this.actionBudget = Math.min(4, 2 + (pl.deferredActions || 0));
+    this.actions = this.actionBudget; pl.deferredActions = 0;
     this.turnFlags = { pointerCastThisTurn: 0, lambdaBonus: 0, proxyBonus: 0, conduitUsed: false, extraPointer: 0, extraPointerRange: 0, extraActions: 0 };
     this.forUsesThisTurn = {};
     // draw: first player skips turn-1 draw; everyone else draws
@@ -400,19 +494,20 @@
     var self = this;
     this.allyObjects(owner).forEach(function (u) {
       (CARDS[u.cardId].abilities || []).forEach(function (ab) {
-        if (ab.trigger === 'onTurnStart' && (ab.kw === 'When' || ab.kw === 'If')) { self.beginResolve(); ab.fn(self, u, {}); self.endResolve(); }
+        if (ab.trigger === 'onTurnStart' && ab.kw === 'When') { self.beginResolve(); ab.fn(self, u, {}); self.endResolve(); }
       });
     });
   };
 
-  // For-ability activation (free, once/turn each, up to forCount total)
+  // 활성형 능력(선택 발동): For(무료·턴당 forCount회) + If(선택 발동·조건부 분기). 둘 다 동일 회계 사용.
   Game.prototype.forAbilities = function (u) {
-    return (CARDS[u.cardId].abilities || []).filter(function (ab) { return ab.kw === 'For'; });
+    return (CARDS[u.cardId].abilities || []).filter(function (ab) { return ab.kw === 'For' || ab.kw === 'If'; });
   };
   Game.prototype.canFireFor = function (u, abIndex) {
     if (u.owner !== this.active || this.winner !== undefined) return false;
+    if (this.isBound(u)) return false;                // rules v10: 봉쇄 = For 능동도 불가
     var ab = CARDS[u.cardId].abilities[abIndex];
-    if (!ab || ab.kw !== 'For') return false;
+    if (!ab || (ab.kw !== 'For' && ab.kw !== 'If')) return false;
     if (this.forUsesThisTurn[u.uid + ':' + abIndex]) return false;
     u.onceUsed['for' + abIndex] = u.onceUsed['for' + abIndex] || 0;
     if (u.onceUsed['for' + abIndex] >= (ab.forCount || 1)) return false;
@@ -442,18 +537,22 @@
   Game.prototype.canDeclare = function (player, cardId) {
     if (player !== this.active || this.actions < 1) return false;
     var card = CARDS[cardId]; if (!card || card.kind === 'pointer') return false;
-    if (this.declareCells(player).length === 0) return false;
+    if (this.declareCells(player, cardId).length === 0) return false;
     return this.requireMet(player, card.require);
   };
-  Game.prototype.declareCells = function (player) {
+  // 기본 선언 위치 = 홈칸. Affinity: 내 필드에 process 있으면 「통로칸」(행2·3)에도 선언 가능.
+  Game.prototype.declareCells = function (player, cardId) {
     var r = homeRow(player), out = [];
     for (var c = 1; c <= COLS; c++) if (!this.board[K(c, r)]) out.push(K(c, r));
+    if (cardId === 'Affinity' && this.allyObjects(player).some(function (x) { return cardCls(x) === 'process'; })) {
+      for (var rr = 2; rr <= 3; rr++) for (var cc = 1; cc <= COLS; cc++) if (!this.board[K(cc, rr)]) out.push(K(cc, rr));
+    }
     return out;
   };
   Game.prototype.declare = function (player, handIndex, cell) {
     var pl = this.players[player]; var cardId = pl.hand[handIndex];
     if (!this.canDeclare(player, cardId)) return false;
-    if (this.declareCells(player).indexOf(cell) < 0) return false;
+    if (this.declareCells(player, cardId).indexOf(cell) < 0) return false;
     pl.hand.splice(handIndex, 1);
     var u = this.makeUnit(player, cardId); this.board[cell] = u;
     this.actions--;
@@ -470,8 +569,7 @@
   Game.prototype.canMove = function (u, toKey) {
     if (u.owner !== this.active || this.actions < 1) return false;
     if (u.type !== 'object') return false;
-    if (u.cardId === 'Const') return false; // Const can't move
-    if (this.isBound(u)) return false;
+    if (this.isMoveLocked(u)) return false; // 봉쇄 · Const/ROM 자기 이동 불가 · Cache 오라
     return this.moveCells(u).indexOf(toKey) >= 0;
   };
   Game.prototype.moveCells = function (u) {
@@ -487,14 +585,8 @@
     // onMove
     var self = this;
     (CARDS[u.cardId].abilities || []).forEach(function (ab) { if (ab.trigger === 'onMove') { self.beginResolve(); ab.fn(self, u, {}); self.endResolve(); } });
-    // onEnterRange: enemies whose range now includes this unit's approach (Sentinel/Interrupt adjacent)
-    this.adj(u).forEach(function (x) {
-      if (x.owner !== u.owner) {
-        (CARDS[x.cardId].abilities || []).forEach(function (ab) {
-          if (ab.trigger === 'onEnterRange') { self.beginResolve(); ab.fn(self, x, { mover: u }); self.endResolve(); }
-        });
-      }
-    });
+    // onEnterRange: 자발 이동도 진입 트리거 발동 (옆칸 Sentinel/Interrupt/Trap)
+    this.fireEnterTriggers(u);
     this.emit();
     return true;
   };
@@ -513,11 +605,16 @@
     ortho(p[0], p[1]).forEach(function (nk) { var t = self.board[nk]; if (t && t.owner !== u.owner) out.push(nk); });
     return out;
   };
+  // 이번 턴 남은 기본 공격 보너스(Preempt·retry()·Broadcast). 유닛당 턴 1회 + 보너스만큼 추가.
+  Game.prototype.grantBonusAttack = function (u, n) { if (!u || u.type !== 'object') return; if (u.bonusAtkTurn !== this.turnNo) { u.bonusAtkTurn = this.turnNo; u.bonusAtk = 0; } u.bonusAtk += (n || 1); };
+  Game.prototype.hasBonusAttack = function (u) { return u.bonusAtkTurn === this.turnNo && u.bonusAtk > 0; };
   Game.prototype.canBasicAttack = function (u) {
     if (!u || u.owner !== this.active || this.winner !== undefined) return false;
     if (u.type !== 'object') return false;
+    if (this.isBound(u)) return false;                // rules v10: 봉쇄 = 기본 공격도 불가
     if (this.effAtk(u) <= 0) return false;            // ATK 0 / atk-zero'd / walls can't attack
-    if (u.attackedTurn === this.turnNo) return false; // once per turn
+    // rules v11: 선언 즉시 전투 가능(소환멀미 없음). 유닛당 턴 1회 + 보너스 공격만 예외.
+    if (u.attackedTurn === this.turnNo && !this.hasBonusAttack(u)) return false;
     return this.basicAttackTargets(u).length > 0;
   };
   Game.prototype.basicAttack = function (u, targetKey) {
@@ -525,7 +622,8 @@
     if (this.basicAttackTargets(u).indexOf(targetKey) < 0) return false;
     var t = this.board[targetKey], dmg = this.effAtk(u);
     this.note(CARDS[u.cardId].name + ' 공격 → ' + (t.type === 'body' ? '본체' : CARDS[t.cardId].name) + ' (' + dmg + ')');
-    u.attackedTurn = this.turnNo;
+    // 첫 공격이면 attackedTurn 소비, 이미 공격했으면 보너스 1 소비
+    if (u.attackedTurn === this.turnNo && this.hasBonusAttack(u)) u.bonusAtk--; else u.attackedTurn = this.turnNo;
     this.fx({ type: 'attack', from: unitKey(this, u), to: targetKey });
     this.beginResolve();
     this.deal(t, dmg, { attacker: u });
@@ -553,20 +651,42 @@
     else if (code === 'lf4') { for (i = 1; i <= 4; i++) add(c, r + dr * i); }
     else if (code === 'lf2') { for (i = 1; i <= 2; i++) add(c, r + dr * i); }
     else if (code === 'lfEnd') { for (i = 1; i < ROWS; i++) add(c, r + dr * i); }  // 「앞직선끝」 보드 끝까지
+    else if (code === 'kn') out = knight(c, r);
     return out;
   };
 
   // ---- pointers
-  // §8 castRange: a targeted pointer's origin must be the caster's body or one of
-  // their instances; the target must lie within `shape(n)` of that origin. Doc gives
-  // explicit ranges for a few; the rest default to "내 본체/인스턴스 기준 2칸 이내"
-  // so no pointer is a board-wide sniper (the §8 mandate: keep the front line intact).
-  var CASTRANGE = { 'free()': { from: 'body', n: 2 }, 'echo()': { from: 'allyOrBody', n: 3 } };
-  function castSpec(id) { return CASTRANGE[id] || { from: 'allyOrBody', n: 2 }; }
-  // human-readable cast-range info for the UI (null = not a range-gated targeted pointer)
+  // rules v10: 포인터는 기본 사거리 무제한(보드 전역 지정). 텍스트에 사거리·기준점이 명시된
+  // 포인터(free()=내 본체 「2칸이내」)만 기준점 square(n) 로 제한한다. 「포인터 사거리 +N」은
+  // 사거리가 명시된 포인터에만 적용되며 무제한 지정에는 효과가 없다.
+  var CASTRANGE = {
+    // 포병(본체 기준): 적 앞줄까지 · 적 뒷줄·본체는 안전
+    'free()':   { from: 'body', n: 2 },
+    // 기본 데미지/디버프(내 유닛·본체 기준 2칸): 유닛을 전진시키면 적 뒷줄까지 도달
+    'kill()':   { from: 'allyOrBody', n: 2 },
+    'ping()':   { from: 'allyOrBody', n: 2 },
+    'drop()':   { from: 'allyOrBody', n: 2 },
+    'assert()': { from: 'allyOrBody', n: 2 },
+    'throw()':  { from: 'allyOrBody', n: 2 },
+    'catch()':  { from: 'allyOrBody', n: 2 },
+    'clear()':  { from: 'allyOrBody', n: 2 },
+    'halt()':   { from: 'allyOrBody', n: 2 },
+    'burst()':  { from: 'allyOrBody', n: 2 },
+    'jolt()':   { from: 'allyOrBody', n: 2 },
+    'lock()':   { from: 'allyOrBody', n: 2 },
+    'purge()':  { from: 'allyOrBody', n: 2 },
+    'siphon()': { from: 'allyOrBody', n: 2 },
+    'inject()': { from: 'allyOrBody', n: 2 },
+    'chain()':  { from: 'allyOrBody', n: 2 },
+    'glitch()': { from: 'allyOrBody', n: 2 }
+    // 무제한 유지(정밀/변위 셋업): strike() suspend() pull() push() memcpy() splice() — CASTRANGE 미등재 = unlimited
+  };
+  function castSpec(id) { return CASTRANGE[id] || { unlimited: true }; }
+  // human-readable cast-range info for the UI (null = 무제한, 오버레이 없음)
   function pointerRangeInfo(id) {
     var c = CARDS[id]; if (!c || c.kind !== 'pointer' || (c.need !== 'enemy' && c.need !== 'cell')) return null;
-    var s = castSpec(id), fromTxt = s.from === 'body' ? '본체' : (s.from === 'ally' ? '내 유닛' : '내 유닛·본체');
+    var s = castSpec(id); if (s.unlimited) return null;
+    var fromTxt = s.from === 'body' ? '본체' : (s.from === 'ally' ? '내 유닛' : '내 유닛·본체');
     return { from: s.from, n: s.n, text: fromTxt + ' 기준 ' + s.n + '칸 이내' };
   }
   Game.prototype.castOrigins = function (player, spec) {
@@ -575,22 +695,31 @@
     if (spec.from === 'ally' || spec.from === 'allyOrBody') this.allyObjects(player).forEach(function (u) { var k = unitKey(self, u); if (k) origins.push(k); });
     return origins;
   };
+  // 포인터 사거리 보너스: Relay(While +1, 지속) + Lambda(다음 포인터 +2) + Singularity(+3) 합산.
+  // castTargets·castZone(타겟 선정)와 cast()의 rangeBonus(snipe 등 효과 사거리)가 함께 읽는다.
+  Game.prototype.pointerRangeBonus = function (player) {
+    var t = this.turnFlags || {};
+    var b = (t.extraPointerRange || 0) + (t.lambdaBonus || 0);
+    this.allyObjects(player).forEach(function (u) { if (u.cardId === 'Relay') b += 1; });
+    return b;
+  };
   Game.prototype.castTargets = function (player, cardId) {
     var card = CARDS[cardId];
     if (!card || card.kind !== 'pointer' || (card.need !== 'enemy' && card.need !== 'cell')) return [];
-    var spec = castSpec(cardId), n = spec.n + ((this.turnFlags && this.turnFlags.extraPointerRange) || 0);
-    var set = {}, self = this;
+    var self = this, spec = castSpec(cardId), out = [];
+    if (spec.unlimited) { this.enemyObjects(player).forEach(function (u) { var k = unitKey(self, u); if (k) out.push(k); }); return out; }
+    var n = spec.n + this.pointerRangeBonus(player), set = {};
     this.castOrigins(player, spec).forEach(function (ok) { var p = P(ok); set[ok] = 1; square(p[0], p[1], n).forEach(function (ck) { set[ck] = 1; }); });
-    var out = [];
     this.enemyObjects(player).forEach(function (u) { var k = unitKey(self, u); if (k && set[k]) out.push(k); });
     return out;
   };
-  // every cell within cast range (the reachable zone, occupied or not) — for the UI overlay
+  // every cell within cast range (the reachable zone, occupied or not) — for the UI overlay.
+  // 무제한 포인터는 빈 배열 반환 → UI는 전역 지정으로 처리(제한 오버레이 없음).
   Game.prototype.castZone = function (player, cardId) {
     var card = CARDS[cardId];
     if (!card || card.kind !== 'pointer' || (card.need !== 'enemy' && card.need !== 'cell')) return [];
-    var spec = castSpec(cardId), n = spec.n + ((this.turnFlags && this.turnFlags.extraPointerRange) || 0);
-    var set = {};
+    var spec = castSpec(cardId); if (spec.unlimited) return [];
+    var n = spec.n + this.pointerRangeBonus(player), set = {};
     this.castOrigins(player, spec).forEach(function (ok) { var p = P(ok); set[ok] = 1; square(p[0], p[1], n).forEach(function (ck) { set[ck] = 1; }); });
     return Object.keys(set);
   };
@@ -605,6 +734,7 @@
     else if (need === 'ally') out = ek(this.allyObjects(me));
     else if (need === 'allyThread') out = ek(this.allyObjects(me).filter(function (x) { return cardCls(x) === 'thread'; }));
     else if (need === 'allyProcess') out = ek(this.allyObjects(me).filter(function (x) { return cardCls(x) === 'process'; }));
+    else if (need === 'allyMemory') out = ek(this.allyObjects(me).filter(function (x) { return cardCls(x) === 'memory'; }));
     else if (need === 'allyOrBody') { out = ek(this.allyObjects(me)); out.push(bodyKey(me)); }
     else if (need === 'twoAlly') out = ek(this.allyObjects(me));
     else return out; // 'none' — no target
@@ -640,14 +770,15 @@
     this.fx({ type: 'cast', player: player, cardId: cardId, targetKey: targetKey });
 
     // process synergy: extra range from Lambda/Proxy/Singularity
-    var rangeBonus = (this.turnFlags.lambdaBonus || 0) + (this.turnFlags.proxyBonus || 0);
-    this.turnFlags.lambdaBonus = 0; this.turnFlags.proxyBonus = 0;
+    var rangeBonus = this.pointerRangeBonus(player); // Relay(지속) + Lambda(직전 시전분) + Singularity
+    this.turnFlags.lambdaBonus = 0; this.turnFlags.proxyBonus = 0; // Lambda 보너스는 1회성
 
-    // Conduit: first pointer this turn resolves twice
+    // Conduit: first pointer this turn resolves twice · proxy(): 다음 시전 포인터 효과 2회
     var times = 1;
     if (!this.turnFlags.conduitUsed && this.boardUnits().some(function (x) { return x.owner === player && x.cardId === 'Conduit'; })) {
       times = 2; this.turnFlags.conduitUsed = true;
     }
+    if (this.turnFlags.proxyRepeat) { times = Math.max(times, 2); this.turnFlags.proxyRepeat = false; }
     var self = this, target = targetKey ? this.board[targetKey] : null;
     this._castCard = cardId; // so damage/kills this pointer causes are attributed to it
     for (var t = 0; t < times; t++) {
@@ -658,9 +789,8 @@
     this._castCard = null;
     // onPointerCast triggers for my objects (Hook/Pipe/Proxy/Lambda/Singularity already partly handled)
     this.firePointerCast(player, target);
-    // Proxy/Lambda set bonuses for the NEXT pointer
+    // Lambda: 다음 시전 포인터 사거리 +2 (1회성). Relay는 지속형이라 pointerRangeBonus에서 처리.
     this.allyObjects(player).forEach(function (u) {
-      if (u.cardId === 'Relay') self.turnFlags.proxyBonus = 1;
       if (u.cardId === 'Lambda') self.turnFlags.lambdaBonus = 2;
     });
     this.checkWin(); this.emit();
@@ -748,7 +878,8 @@
   var __cardKit = {
     def: def, CARDS: CARDS, COLS: COLS, ROWS: ROWS, K: K, P: P, bestEnemyObj: bestEnemyObj, bodyKey: bodyKey,
     buffAdjThread: buffAdjThread, cardCls: cardCls, cheb: cheb, diagonal: diagonal, dmgAdjEnemies: dmgAdjEnemies,
-    fwd: fwd, inB: inB, line: line, manh: manh, ortho: ortho, square: square, unitKey: unitKey
+    fwd: fwd, inB: inB, line: line, manh: manh, ortho: ortho, square: square, unitKey: unitKey,
+    knight: knight, ring: ring, around8: around8, homeRow: homeRow
   };
   (typeof window !== 'undefined' && window.RT_DEFINE_CARDS ? window.RT_DEFINE_CARDS
     : (typeof RT_DEFINE_CARDS !== 'undefined' ? RT_DEFINE_CARDS : function () {}))(__cardKit);
@@ -798,9 +929,15 @@
     units.forEach(function (u) {
       var abs = g.forAbilities(u);
       for (var i = 0; i < CARDS[u.cardId].abilities.length; i++) {
-        if (CARDS[u.cardId].abilities[i].kw !== 'For') continue;
+        var _ab = CARDS[u.cardId].abilities[i];
+        if (_ab.kw !== 'For' && _ab.kw !== 'If') continue;
+        if (_ab.kw === 'If' && _ab.aiWant && !_ab.aiWant(g, u)) continue;
         var guard = 0;
-        while (g.canFireFor(u, i) && g.forReady(u, i) && guard++ < 5 && g.winner === undefined) g.fireFor(u, i, {});
+        while (g.canFireFor(u, i) && g.forReady(u, i) && guard++ < 5 && g.winner === undefined) {
+          var _ch = {};
+          if (_ab.kw === 'If' && _ab.aiOpt) _ch.opt = _ab.aiOpt(g, u);
+          g.fireFor(u, i, _ch);
+        }
       }
     });
   }
@@ -866,7 +1003,7 @@
   }
   function aiMove(g, me) {
     // advance an object toward enemy body (forward) if it frees an attack lane
-    var objs = g.allyObjects(me).filter(function (u) { return !g.isBound(u) && u.cardId !== 'Const'; });
+    var objs = g.allyObjects(me).filter(function (u) { return !g.isMoveLocked(u); });
     for (var i = 0; i < objs.length; i++) {
       var u = objs[i], k = unitKey(g, u), p = P(k), dest = K(p[0], p[1] + fwd(me));
       if (inB(p[0], p[1] + fwd(me)) && !g.board[dest] && g.actions > 0) {
@@ -946,17 +1083,21 @@
   // lf=line-forward(from self) bf=line-forward(from body) bs=square(from body) prefix b=body-origin.
   var RANGE = {
     Fork: 'x1', Daemon: 'x1', Worker: 's1', Interrupt: 'x1', Overflow: 'x1', Race: 'x1', Burst: 's2', Signal: 'x1', Panic: 'x1', Exec: 's1',
-    Spike: 'lf2', Trap: 'x1', Cursor: 'lf2', Surge: 's1',
+    Spike: 'lf2', Trap: 'x1', Cursor: 'lf3', Surge: 's1', Longjmp: 'lf2',
+    Atomic: 'x1', Join: 'x1', Scheduler: 'move', Pool: 'self', Preempt: 'self', Cluster: 'self', Forkbomb: 's1', Livelock: 'x1', TLS: 'self', Affinity: 'self',
+    Latch: 'x1', Checksum: 'self', Collector: 'self', Canary: 'self', Journal: 'self', Sandbox: 'self', ROM: 'self', Snapshot: 'self',
+    Cron: 'lf2', Honeypot: 's3', Marshal: 'move', Spooler: 'self', Thrash: 'self', Offset: 'kn', Dispatch: 'kn', JIT: 'self', Fault: 'self', Wormhole: 'global',
+    Debug: 'x1', Symlink: 'move', Sudo: 'self', Broadcast: 'allyAll',
     Kernel: 'allyAll', Compile: 'allyAll', Mainframe: 'allyAll', Hivemind: 'allyAll',
     Cache: 'x1', Heap: 'x1', Stack: 'x1', Sentinel: 'x1', Const: 'x1', Watchdog: 'lfEnd', Sweeper: 's2', Persist: 'allyAll', Cannon: 'lfEnd', Overrun: 'self',
     Mutex: 'self', Buffer: 'self', Barrier: 'self', Page: 'self', Lock: 'enemy1', Register: 'enemy1', Pin: 'enemy1', Singleton: 'global', Bedrock: 'self',
-    Goto: 'lf2', Hook: 's1', Snipe: 'd2', Trace: 's1', Callback: 's1', Vector: 'lf3', Probe: 's2', Jump: 'move', Async: 'move',
+    Goto: 'lf2', Hook: 's1', Snipe: 'd2', Trace: 's1', Callback: 's1', Vector: 'lf3', Probe: 's3', Jump: 'move', Async: 'move',
     Pipe: 'self', Proxy: 'self', Lambda: 'self', Singularity: 'self', Conduit: 'self', Inject: 'enemy1', Reroute: 'enemy1', Patch: 'ally1',
-    Echo: 'x1', Token: 'x1', Bit: 'x1', Flag: 'x1', Merge: 'x1', Delete: 'd2', Loop: 'x1', Stub: 'x1', Ping: 's2',
+    Echo: 'x1', Token: 'x1', Bit: 'x1', Flag: 'x1', Merge: 'x1', Delete: 's2', Loop: 'x1', Stub: 'x1', Ping: 's2', Sonar: 's2', Debug: 'x1',
     Cast: 'enemy1', Bool: 'ally1', Overlord: 'global', Polymorph: 'self', Swap: 'move',
     'boost()': 'ally1', 'overclock()': 'allyAll', 'crash()': 's2', 'strike()': 'bf3', 'spawn()': 'self', 'burst()': 's2', 'fork()': 'ally1', 'rush()': 'move', 'amplify()': 'allyAll',
     'free()': 'bs2', 'lock()': 's2', 'restore()': 'ally1', 'barrier()': 'self', 'purge()': 's2', 'reflect()': 'self', 'compact()': 'allyAll', 'wall()': 'self', 'freeze()': 's2', 'fortify()': 'allyAll', 'segfault()': 'self',
-    'memcpy()': 's2', 'goto()': 'move', 'snipe()': 'bf3', 'swap()': 'move', 'inject()': 's2', 'pull()': 's2', 'push()': 's2', 'chain()': 's2', 'proxy()': 'self', 'trace()': 'move',
+    'memcpy()': 'enemy1', 'goto()': 'move', 'snipe()': 'bf3', 'swap()': 'move', 'inject()': 's2', 'pull()': 'enemy1', 'push()': 'enemy1', 'chain()': 's2', 'proxy()': 'self', 'trace()': 'move',
     'kill()': 's2', 'ping()': 's2', 'sync()': 'ally1', 'flush()': 'ax1', 'shift()': 'move', 'drop()': 's2', 'assert()': 's2', 'throw()': 's2', 'wait()': 's2', 'cast()': 'ally1', 'catch()': 'self', 'bind()': 's2', 'echo()': 'far', 'patch()': 'ally1', 'clear()': 's2', 'exit()': 'global', 'malloc()': 'self', 'grep()': 'self', 'yield()': 'self', 'copy()': 'self'
   };
   function relCells(code) {
@@ -971,6 +1112,7 @@
     else if (code === 'lf4' || code === 'bf4') { for (i = 1; i <= 4; i++) out.push([0, -i]); }
     else if (code === 'lf2' || code === 'bf2') { for (i = 1; i <= 2; i++) out.push([0, -i]); }
     else if (code === 'lfEnd') { for (i = 1; i < ROWS; i++) out.push([0, -i]); }
+    else if (code === 'kn') { out = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]]; }
     return out;
   }
   function squareRel(n) { var o = [], dc, dr; for (dc = -n; dc <= n; dc++) for (dr = -n; dr <= n; dr++) if (dc || dr) o.push([dc, dr]); return o; }

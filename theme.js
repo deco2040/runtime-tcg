@@ -10,7 +10,7 @@
       silk: '#34343c', silkDim: '#6b6b75', die: '#c4c5cc', dieHi: '#eceef2',
       txt: '#1d1d24', txtDim: '#6b6b75', statIcon: '#34343c', selfPad: '#9c9da6', buff: '#2f7d3f',
       padEmpty: '#c9cad0', dieGradEnd: '#b6b7bf', chipTop: '#f6f7fa', chipBot: '#cccdd4', scrim: 'rgba(233,234,238,.82)',
-      // v2 창(window) 토큰 — 카드_디자인_사양서_v2 §6.5/§6.4/§6.1
+      // 창(window) 토큰 — 카드_디자인_사양서_v3 §6.4/§6.1
       face: '#d6d3c6', faceHi: '#f0eee6', faceLo: '#6b6a62',
       viewportBg: '#aeb2bd', effBg: '#e6e4da', effTxt: '#3a3a34',
       atkField: '#e6e4da', hpTrack: '#c9c6ba', hpFill: '#6b6a62',

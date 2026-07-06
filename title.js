@@ -35,7 +35,10 @@
 
     // 대형 타이틀(인광 글로우)
     b.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: 'clamp(30px,6.4vw,54px)', letterSpacing: '.16em', lineHeight: 1, color: AMB_HI, textShadow: titleGlow } }, ['RUNTIME']));
-    b.appendChild(el('div', { style: { fontSize: '11px', color: AMB_DIM, marginTop: '7px', marginBottom: '20px', letterSpacing: '.04em' } }, ['turn-based memory-grid TCG  ·  seed cards v4']));
+    b.appendChild(el('div', { style: { fontSize: '11px', color: AMB_DIM, marginTop: '7px', marginBottom: '14px', letterSpacing: '.04em' } }, ['turn-based memory-grid TCG  ·  seed cards v4']));
+
+    // 프로필/게스트 정보 카드
+    b.appendChild(crtProfile());
 
     var presets = (UI.presetKeys && UI.presetKeys()) || Object.keys(DECKS);
     var customs = (UI.customKeys && UI.customKeys()) || [];
@@ -66,18 +69,18 @@
 
     // 실행 버튼
     var startRow = el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '18px' } }, [
-      el('button', { class: 'crt-btn', style: { fontSize: '15px' }, onclick: UI.startMatch }, ['▶ START']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderLobby) UI.renderLobby(); } }, ['🌐 LOBBY']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP']),
-      el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { window.open('cards.html', '_blank', 'noopener'); } }, ['📇 도감'])
+      el('button', { class: 'crt-btn', style: { fontSize: '16px' }, onclick: UI.startMatch }, ['▶ START']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { if (UI.renderLobby) UI.renderLobby(); } }, ['🌐 LOBBY']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); } }, ['👤 계정']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 HELP']),
+      el('button', { class: 'crt-btn ghost', style: { fontSize: '16px' }, onclick: function () { window.open('cards.html', '_blank', 'noopener'); } }, ['📇 도감'])
     ]);
     // 💬 DISCORD — 커뮤니티 서버 초대. config.js 의 RT_DISCORD.invite 가 실제 링크일 때만 노출(미설정 시 숨김).
     var dc = window.RT_DISCORD && window.RT_DISCORD.invite;
     if (dc && dc.indexOf('YOUR-') === -1) {
       startRow.appendChild(el('button', {
-        class: 'crt-btn ghost', style: { fontSize: '15px' },
+        class: 'crt-btn ghost', style: { fontSize: '16px' },
         onclick: function () { window.open(dc, '_blank', 'noopener'); }
       }, ['💬 DISCORD']));
     }
@@ -119,41 +122,68 @@
     return el('a', { href: href, target: '_blank', rel: 'noopener', style: { color: AMB_DIM, textDecoration: 'underline', textUnderlineOffset: '2px', cursor: 'pointer' } }, [label]);
   }
   function crtLabel(t) { return el('div', { style: { fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: '11px', letterSpacing: '.14em', color: AMB, margin: '2px 0 2px' } }, [t]); }
-  function crtChip(label, on, cb) { return el('button', { onclick: cb, class: 'crt-opt' + (on ? ' on' : ''), style: { fontSize: '11px' } }, [label]); }
+  function crtChip(label, on, cb) { return el('button', { onclick: cb, class: 'crt-opt' + (on ? ' on' : ''), style: { fontSize: '12px' } }, [label]); }
+  // 프로필/게스트 정보 카드 — UI.Net(클라우드 프로필) 있으면 그걸, 없으면 로컬 전적. 클릭 시 계정 화면.
+  function crtProfile() {
+    var dark = UI.getTheme() === 'dark';
+    var Net = UI.Net, prof = null, member = false, sess = null;
+    try { if (Net) { prof = Net.profile && Net.profile(); member = Net.isMember && Net.isMember(); sess = Net.session && Net.session(); } } catch (e) {}
+    var nick = (prof && prof.nickname) || (member ? 'USER' : 'GUEST');
+    var w, l, dr, g;
+    if (prof && prof.games != null) { w = prof.wins || 0; l = prof.losses || 0; dr = prof.draws || 0; g = prof.games || 0; }
+    else { var rec = {}; try { rec = JSON.parse(localStorage.getItem('rt_ai_record') || '{}'); } catch (e2) {} w = rec.wins || 0; l = rec.losses || 0; dr = rec.draws || 0; g = (rec.games != null ? rec.games : (w + l + dr)); }
+    var wr = g > 0 ? Math.round(100 * w / g) : 0;
+    var badge = member ? 'MEMBER' : 'GUEST';
+    var ini = ((nick || '?').replace(/[^A-Za-z0-9가-힣]/g, '').slice(0, 2).toUpperCase()) || '::';
+    var box = dark ? 'rgba(255,176,0,.30)' : 'rgba(29,29,36,.22)';
+    var av = el('span', { class: 'grot', style: { flex: 'none', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, color: AMB_HI, border: '1px solid ' + box, letterSpacing: '.02em' } }, [ini]);
+    var line1 = el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' } }, [
+      el('span', { style: { fontSize: '14px', fontWeight: 700, color: AMB_HI, letterSpacing: '.03em' } }, [nick]),
+      el('span', { class: 'mono', style: { fontSize: '9px', color: AMB_DIM, border: '1px solid ' + box, padding: '1px 5px', letterSpacing: '.12em' } }, [badge])
+    ]);
+    var line2 = el('div', { class: 'mono', style: { fontSize: '10px', color: AMB_DIM, marginTop: '3px', letterSpacing: '.04em' } }, [
+      g > 0 ? (w + 'W ' + l + 'L ' + dr + 'D  ·  WIN ' + wr + '%') : 'NO RECORD — 첫 대국을 시작하세요'
+    ]);
+    var cta = el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '10px', color: AMB, alignSelf: 'center', letterSpacing: '.06em', whiteSpace: 'nowrap' } }, [member ? '계정 ▸' : '로그인 ▸']);
+    return el('div', {
+      onclick: function () { if (UI.renderAuth) UI.renderAuth('title'); },
+      style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px', margin: '0 0 20px', border: '1px solid ' + box, cursor: 'pointer' }
+    }, [av, el('div', { style: { minWidth: '0' } }, [line1, line2]), cta]);
+  }
   function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
   // 덱 선택 — 터미널 옵션 타일. GLY(클래스 글리프)로 계열 표시, 선택 시 인버스(호박색 채움).
   function crtDeckGrid(isSel, on, keys) {
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(152px,1fr))', gap: '7px', margin: '8px 0 18px' } });
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(184px,1fr))', gap: '10px', margin: '10px 0 20px' } });
     (keys || Object.keys(DECKS)).forEach(function (k) {
       var d = DECKS[k], on2 = isSel(k), gly = GLY[d.cls] || GLY.generic;
       grid.appendChild(el('button', {
         onclick: function () { on(k); }, class: 'crt-opt' + (on2 ? ' on' : ''),
-        style: { display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }
+        style: { display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', padding: '11px 13px', minHeight: '52px' }
       }, [
-        el('span', { style: { fontSize: '12px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
-        el('span', { style: { fontSize: '10px', opacity: '.72' } }, [d.name.replace(/^\w+ · /, '')])
+        el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
+        el('span', { style: { fontSize: '11px', opacity: '.72' } }, [d.name.replace(/^\w+ · /, '')])
       ]));
     });
     return grid;
   }
   // 커스텀 덱 그리드 — 저장된 자작 덱 타일(선택 + [편집]) + '새 덱 만들기' 타일
   function crtCustomGrid(myDeck, keys, render) {
-    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(152px,1fr))', gap: '7px', margin: '8px 0 18px' } });
+    var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(184px,1fr))', gap: '10px', margin: '10px 0 20px' } });
     keys.forEach(function (k) {
       var d = DECKS[k], on2 = (k === myDeck), gly = GLY[d.cls] || GLY.generic;
       grid.appendChild(el('div', {
         onclick: function () { UI.setMyDeck(k); render(); }, class: 'crt-opt' + (on2 ? ' on' : ''),
-        style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', paddingRight: '26px', cursor: 'pointer' }
+        style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', padding: '11px 30px 11px 13px', minHeight: '52px', cursor: 'pointer' }
       }, [
-        el('span', { style: { fontSize: '12px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
-        el('span', { style: { fontSize: '10px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장']),
-        el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k); }, style: { position: 'absolute', top: '3px', right: '4px', fontSize: '13px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
+        el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '  ') + gly + ' ' + k]),
+        el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장']),
+        el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k); }, style: { position: 'absolute', top: '5px', right: '6px', fontSize: '15px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
       ]));
     });
     // 새 덱 만들기
     grid.appendChild(el('button', {
       onclick: function () { UI.openDeckBuilder(null); }, class: 'crt-opt',
-      style: { display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', justifyContent: 'center', minHeight: '46px', textAlign: 'center', borderStyle: 'dashed' }
+      style: { display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center', justifyContent: 'center', minHeight: '52px', textAlign: 'center', borderStyle: 'dashed' }
     }, [
       el('span', { style: { fontSize: '18px', fontWeight: 700, lineHeight: 1 } }, ['＋']),
       el('span', { style: { fontSize: '10px', letterSpacing: '.06em' } }, ['새 덱 만들기'])
