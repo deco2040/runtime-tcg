@@ -79,7 +79,7 @@
   function manh(k1, k2) { var a = P(k1), b = P(k2); return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]); }
 
   // ============================================================== GAME
-  var DEFAULT_TURN_CAP = 50; // rules v10: 50턴 상한(피로 누적으로 정상 게임은 그 전에 종료, 예외 대비용)
+  var DEFAULT_TURN_CAP = 80; // rules v12: 80턴 상한 — 50은 각자 25드로우 만에 종료돼 피로(덱 소진) 발동 전 HP판정이 되던 문제. 80이면 덱 소진→피로 누적으로 정상 결착.
   function Game(opts) {
     opts = opts || {};
     this.rng = makeRng(opts.seed || 12345);
