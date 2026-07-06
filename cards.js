@@ -302,7 +302,7 @@
     def({ id: 'shift()', cls: 'generic', kind: 'pointer', need: 'ally', text: '아군 1장 「1칸이동」', cast: function (G, p, tk, o) { var u = G.board[tk]; if (!u) return; var dest = (o && o.dest && G.moveCells(u).indexOf(o.dest) >= 0) ? o.dest : (forwardDest(G, u) || G.moveCells(u)[0]); if (dest) G.move(u, dest, true); } });
     def({ id: 'drop()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명에게 그 적의 공격력만큼 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.deal(u, G.effAtk(u), { attacker: { owner: p } }); } });
     def({ id: 'assert()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 3 피해 + 공격력 -1', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; G.deal(u, 3, { attacker: { owner: p } }); if (G.board[tk]) G.buffAtk(u, -1); } });
-    def({ id: 'yield()', cls: 'generic', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 5 }, text: '조건 내 턴 5회+ · 이번 턴 액션 +1', cast: function (G, p) { G.grantActions(1); } });
+    def({ id: 'yield()', cls: 'generic', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 이번 턴 액션 +2', cast: function (G, p) { G.grantActions(2); } });
     def({ id: 'suspend()', cls: 'generic', kind: 'pointer', need: 'enemy', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 적 인스턴스 1장을 소유자의 손으로 되돌림',
       cast: function (G, p, tk) { var u = G.board[tk]; if (!u || u.type !== 'object' || u.token) { if (u && u.token) G.destroy(u, { attacker: { owner: p } }); return; } var k = unitKey(G, u); delete G.board[k]; var opl = G.players[u.owner]; if (opl.hand.length < 10) opl.hand.push(u.cardId); else opl.graveyard.push(u.cardId); G.note(CARDS[u.cardId].name + ' 손으로 되돌림'); } });
     def({ id: 'cast()', cls: 'generic', kind: 'pointer', need: 'ally', text: '내 generic 인스턴스 1장 공격력↔체력 교환',
@@ -317,7 +317,7 @@
     def({ id: 'mend()', cls: 'generic', kind: 'pointer', need: 'ally', text: '아군 1장 「홈칸」 빈 칸으로 이동 + 3 회복', cast: function (G, p, tk) { var u = tk ? G.board[tk] : (woundedAlly(G, p) || G.allyObjects(p)[0]); if (!u) return; var cell = G.firstEmptyHome(p); if (cell && cell !== unitKey(G, u)) G.teleport(u, cell); G.healInst(u, 3); } });
     def({ id: 'halt()', cls: 'generic', kind: 'pointer', need: 'enemy', text: '적 1명 1턴 봉쇄', cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.bind(u, 1); } });
     def({ id: 'log()', cls: 'generic', kind: 'pointer', need: 'none', text: '카드 1장 뽑기, 이번 턴 포인터를 이미 시전했다면 1장 더 뽑기', cast: function (G, p) { G.draw(p, 1); if (G.turnFlags.pointerCastThisTurn > 1) G.draw(p, 1); } });
-    def({ id: 'defer()', cls: 'process', kind: 'pointer', need: 'none', text: '다음 내 턴 액션 +1', cast: function (G, p) { G.players[p].deferredActions = (G.players[p].deferredActions || 0) + 1; } });
+    def({ id: 'defer()', cls: 'process', kind: 'pointer', need: 'none', text: '다음 내 턴 액션 +2', cast: function (G, p) { G.players[p].deferredActions = (G.players[p].deferredActions || 0) + 2; } });
 
     // ============================================================ IF — 선택 발동 능력 카드 (조건부·2분기)
     // kw:'If' = 능동 활성(For와 동일 회계). options=UI 분기 버튼, ch.opt=선택 인덱스, aiOpt=AI 분기.
