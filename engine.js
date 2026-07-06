@@ -99,6 +99,10 @@
     this.turnFlags = {};       // per-turn transient flags for active player
     this._resolveSeen = null;  // §5 clamp guard
     this.forUsesThisTurn = {}; // uid -> bool (For used this player-turn)
+    // 선후공 보정 config(rules v12): 선공 5·후공 5, 선공 1턴차 드로우 스킵 없음.
+    // 80턴 결착(피로) 메타에선 "적게 뽑는 쪽이 늦게 소진→피로 늦음"이라 선공 드로우 스킵이 선공 이점을
+    // 오히려 키웠음(64%). 스킵 제거로 덱중립하게 ~57%로 완화(본체HP 보정은 요새덱 펌핑 부작용이라 미채택).
+    this._cfg = Object.assign({ openFirst: 5, openSecond: 5, firstSkipDraw: false, secondBodyBonus: 0 }, opts);
   }
   function newPlayer(i) {
     return { idx: i, deck: [], hand: [], graveyard: [], destroyedAlly: 0, pointersCast: 0, turnsTaken: 0,
@@ -441,9 +445,11 @@
 
   // ============================================================== TURN LOOP
   Game.prototype.startMatch = function () {
-    // draw 5 each
-    for (var i = 0; i < 2; i++) this.draw(i, 5);
-    this.note('대국 시작 — 선공 P' + this.firstPlayer);
+    // 선후공 보정(rules v12) — config 기반(_cfg). 기본 선공 5·후공 5.
+    this.draw(this.firstPlayer, this._cfg.openFirst);
+    this.draw(1 - this.firstPlayer, this._cfg.openSecond);
+    this.note('대국 시작 — 선공 P' + this.firstPlayer + ' (선공 ' + this._cfg.openFirst + ' / 후공 ' + this._cfg.openSecond + ')');
+    if (this._cfg.secondBodyBonus) { var sb = this.board[bodyKey(1 - this.firstPlayer)]; if (sb) sb.baseHp += this._cfg.secondBodyBonus; }
   };
   Game.prototype.draw = function (player, n) {
     n = n || 1; var pl = this.players[player];
@@ -481,8 +487,8 @@
     this.actions = this.actionBudget; pl.deferredActions = 0;
     this.turnFlags = { pointerCastThisTurn: 0, lambdaBonus: 0, proxyBonus: 0, conduitUsed: false, extraPointer: 0, extraPointerRange: 0, extraActions: 0 };
     this.forUsesThisTurn = {};
-    // draw: first player skips turn-1 draw; everyone else draws
-    if (!(p === this.firstPlayer && pl.turnsTaken === 1)) this.draw(p, 1);
+    // draw: (config) 선공 1턴차 드로우 스킵 여부. everyone else draws.
+    if (!(this._cfg.firstSkipDraw && p === this.firstPlayer && pl.turnsTaken === 1)) this.draw(p, 1);
     this.note('— P' + p + ' 턴 시작 (turn ' + this.turnNo + ') —');
     // onTurnStart triggers (auto for When; For are user/AI-activated)
     this.fireTurnStart(p);
