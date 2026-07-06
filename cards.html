@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RUNTIME TCG — 카드 · 견본 덱 도감</title>
-<meta name="description" content="RUNTIME TCG 전체 카드 일러스트 도감과 견본 덱 10종 상세 구성.">
+<meta name="description" content="RUNTIME TCG 전체 카드 도감과 견본 덱 상세 구성 — 인게임 손패 카드 모습 그대로, 실제 카드풀 자동 연동.">
 <style>
   :root{
     --bg:#dfe1e6; --panel:#f4f5f8; --panel2:#e8eaef; --ink:#1d1d24; --dim:#6b6b75; --line:rgba(29,29,36,.13);
@@ -96,30 +96,20 @@
   .deckmix{font-size:10.5px;color:var(--dim);letter-spacing:.03em;margin:2px 2px 12px;display:flex;flex-wrap:wrap;gap:10px}
   .deckmix b{color:var(--ink);font-weight:600}
 
-  /* card figure (shared) */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:11px}
-  .grid.mini{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:9px}
-  .fig{position:relative;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel);
-    display:flex;flex-direction:column;border-top:2px solid var(--cc)}
-  .fig .art{position:relative;aspect-ratio:1/1;background:var(--imgbg);overflow:hidden}
-  .fig .art img{width:100%;height:100%;display:block}
-  .fig .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--cc);opacity:.5}
-  .fig .cnt{position:absolute;top:5px;right:5px;min-width:22px;text-align:center;font-size:12px;font-weight:700;
-    font-variant-numeric:tabular-nums;background:var(--bg);color:var(--cc);border:1px solid var(--cc);
-    border-radius:6px;padding:1px 6px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-  .fig .kindtag{position:absolute;top:5px;left:5px;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;
-    font-weight:700;padding:1px 5px;border-radius:4px;background:var(--cc);color:var(--bg)}
-  .fig .kindtag.op{background:var(--op)}
-  .fig .kindtag.fn{background:var(--bg);color:var(--cc);border:1px solid var(--cc)}
-  .fig .body{padding:7px 9px 9px;display:flex;flex-direction:column;gap:5px;flex:1}
-  .fig .nm{font-weight:700;font-size:12.5px;color:var(--hi);letter-spacing:.01em;line-height:1.2;word-break:break-word}
-  .fig .nm.fn{color:var(--cc)}
-  .fig .st{display:flex;gap:5px;font-size:10.5px;font-variant-numeric:tabular-nums}
-  .fig .st span{border:1px solid var(--line);border-radius:4px;padding:0 5px}
-  .fig .st .a{color:#e0533a}.fig .st .h{color:#3f9e6b}.fig .st .fnc{color:var(--dim)}
-  .fig .tx{font-size:10.5px;line-height:1.5;color:var(--ink);opacity:.88}
-  .grid.mini .fig .tx{display:none}
-  .fig .req{font-size:9.5px;color:var(--dim);margin-top:auto}
+  /* live card faces — 인게임 손패 카드 모습 그대로 재사용(window.__RT_UI.cardFaceEl) */
+  .cardgrid{display:flex;flex-wrap:wrap;gap:13px;align-items:flex-start}
+  .cardgrid.mini{gap:10px}
+  .figwrap{position:relative;display:inline-flex}
+  .cntbadge{position:absolute;top:-7px;right:-7px;min-width:21px;text-align:center;font-size:12px;font-weight:700;
+    font-variant-numeric:tabular-nums;background:var(--accent);color:var(--bg);border-radius:11px;padding:1px 6px;
+    box-shadow:0 1px 5px rgba(0,0,0,.45);z-index:3;pointer-events:none;letter-spacing:0}
+  .grp{margin-bottom:26px}
+  .grphd{display:flex;align-items:center;gap:9px;margin:0 0 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+  .grphd .gly{font-size:15px}
+  .grphd .cnt{margin-left:auto;font-size:10px;color:var(--dim);letter-spacing:.1em}
+  .empty{color:var(--dim);font-size:12px;padding:8px 2px}
+  .loadfail{color:var(--op);font-size:12.5px;line-height:1.8;padding:14px 2px}
+  .loadfail code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
 
   /* catalog filter */
   .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
@@ -133,25 +123,17 @@
   .search input::placeholder{color:var(--dim)}
   .search input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-  /* data download */
-  .dlnote{font-size:11px;color:var(--dim);letter-spacing:.03em;margin:2px 2px 14px}
-  .dlrow{display:flex;flex-wrap:wrap;gap:10px}
-  .dlbtn{font:inherit;font-size:12.5px;letter-spacing:.03em;padding:11px 16px;border-radius:9px;cursor:pointer;
-    display:inline-flex;align-items:center;gap:8px;min-height:44px;
-    background:var(--panel2);border:1px solid var(--line);color:var(--ink)}
-  .dlbtn .ic{font-size:15px;color:var(--accent)}
-  .dlbtn:hover{border-color:var(--accent);color:var(--hi)}
-  .dlbtn:active{transform:translateY(1px)}
-  .dlbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
-  .grp{margin-bottom:26px}
-  .grphd{display:flex;align-items:center;gap:9px;margin:0 0 11px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
-  .grphd .gly{font-size:15px}
-  .grphd .cnt{margin-left:auto;font-size:10px;color:var(--dim);letter-spacing:.1em}
-  .empty{color:var(--dim);font-size:12px;padding:8px 2px}
-
   .foot{margin-top:38px;padding-top:16px;border-top:1px solid var(--line);font-size:10.5px;color:var(--dim);line-height:1.7;letter-spacing:.03em}
   .foot a{color:var(--accent)}
+
+  /* data download */
+  .dlnote{font-size:11px;color:var(--dim);margin:0 0 12px;letter-spacing:.02em}
+  .dlrow{display:flex;flex-wrap:wrap;gap:9px}
+  .dlbtn{font:inherit;font-size:12px;letter-spacing:.03em;padding:9px 15px;border-radius:8px;cursor:pointer;
+    background:var(--panel2);border:1px solid var(--line);color:var(--ink)}
+  .dlbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .dlbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .dlbtn .ic{margin-right:6px}
 </style>
 </head>
 <body>
@@ -164,7 +146,7 @@
     </div>
     <div class="screen">
       <h1>카드 도감 &amp; 견본 덱<span class="cursor"></span></h1>
-      <div class="sub">RUNTIME TCG · 일러스트 카탈로그 + 견본 덱 10종 상세 · seed cards v6</div>
+      <div class="sub">RUNTIME TCG · 인게임 손패 카드 모습 그대로 · 카드풀·견본 덱 자동 연동(live)</div>
 
       <div class="legend">
         <span><i style="background:var(--thread)"></i>▲ thread</span>
@@ -178,8 +160,8 @@
       <nav class="nav" id="nav"></nav>
 
       <section class="sec" id="download-sec">
-        <div class="seclabel"><h2>▸ 데이터 다운로드 · DOWNLOAD</h2><em>최신 데이터를 JSON 파일로</em></div>
-        <div class="dlnote">게임 룰 · 카드 풀 · 견본 덱을 각각 JSON 파일로 내려받습니다. 모바일에서도 바로 저장할 수 있어요.</div>
+        <div class="seclabel"><h2>▸ 데이터 다운로드 · DOWNLOAD</h2><em>최신 라이브 데이터를 JSON으로</em></div>
+        <div class="dlnote">게임 룰 · 카드 풀 · 견본 덱을 각각 JSON 파일로 내려받습니다(실제 게임 데이터에서 즉석 생성). 모바일에서도 저장됩니다.</div>
         <div class="dlrow">
           <button class="dlbtn" id="dl-rules" type="button"><span class="ic">⬇</span>게임 룰 (JSON)</button>
           <button class="dlbtn" id="dl-cards" type="button"><span class="ic">⬇</span>카드 풀 (JSON)</button>
@@ -188,7 +170,7 @@
       </section>
 
       <section class="sec" id="decks-sec">
-        <div class="seclabel"><h2>▸ 견본 덱 · SAMPLE DECKS</h2><em>각 30장 · 카드를 눌러 접기/펼치기</em></div>
+        <div class="seclabel"><h2>▸ 견본 덱 · SAMPLE DECKS</h2><em>각 30장 · 제목을 눌러 펼치기</em></div>
         <div id="decks"></div>
       </section>
 
@@ -208,314 +190,96 @@
       <div class="foot">
         규칙 요약 — 본체 HP 40 · 턴당 행동 2 · 기본 공격 = 옆칸·무료·1회 · 함수(포인터)/트리거는 무료.<br>
         플레이 &nbsp;→&nbsp; <a href="./index.html">deco2040.github.io/runtime-tcg</a>
-        &nbsp;·&nbsp; 시드 카탈로그 v6 · 일러스트 <span id="artcount">–</span>종 · 토큰/벽(분신) 카드 제외.
+        &nbsp;·&nbsp; 카드·덱은 실제 게임 데이터(cards.js·decks.js)에서 자동 생성 · 일러스트 <span id="artcount">–</span>종 · 토큰/벽(분신) 카드 제외.
       </div>
     </div>
   </div>
 </div>
 
-<script src="art-map.js"></script>
-<script src="decks.js"></script>
+<!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → (RT_NO_BOOT) → sound → theme → core.
+     부트는 막고(RT_NO_BOOT) 실제 카드풀(window.RT.CARDS)과 인게임 손패 카드 렌더러(window.__RT_UI.cardFaceEl)만 사용. -->
+<script src="cards.js?v=70"></script>
+<script src="decks.js?v=70"></script>
+<script src="engine.js?v=70"></script>
+<script src="art-map.js?v=70"></script>
+<script>window.RT_NO_BOOT = true;</script>
+<script src="sound.js?v=70"></script>
+<script src="theme.js?v=70"></script>
+<script src="core.js?v=70"></script>
 <script>
 (function(){
   "use strict";
-  var GLY={thread:"▲",memory:"■",process:"◇",generic:"●",mixed:"◆"};
+  var RT = window.RT, UI = window.__RT_UI;
+  var catalogEl = document.getElementById("catalog");
 
-  // 카드 스탯/효과 텍스트 (시드 v6) : [id, cls, kind(o|f), atk, hp, text, op?, req?]
-  var C=[
-    ["Fiber","thread","o",6,3,"For(2) 「옆칸」 적에게 공격력만큼 피해"],
-    ["Daemon","thread","o",5,4,"선언 시 「옆칸」 내 thread 전부 공격력 +2"],
-    ["Worker","thread","o",4,3,"For(1) 「1칸이내」 적 전부에게 3 피해"],
-    ["Zygote","thread","o",4,2,"파괴 시 「홈칸」에 분신(공2 체2) 생성"],
-    ["Interrupt","thread","o",6,3,"적이 「옆칸」으로 다가오면 공격력만큼 피해"],
-    ["Overflow","thread","o",4,2,"「옆칸」 thread 1장당 공격력 +2",false,"require thread 2+"],
-    ["Race","thread","o",5,3,"「옆칸」에 다른 thread 있으면 공격력 +3"],
-    ["Kernel","thread","o",4,6,"선언 시 내 thread 전부 공격력 +1",false,"require thread 2+"],
-    ["Salvo","thread","o",6,2,"For(1) 「2칸이내」 적 1명에게 공격력만큼 피해"],
-    ["Recursion","thread","o",3,3,"피해받고 생존 시 공격력 +2"],
-    ["Signal","thread","o",4,3,"선언 시 「옆칸」 thread 1장 공격력 +4"],
-    ["Inline","thread","o",5,2,"선언 시 「옆칸」 thread 있으면 자기 공격력 +3"],
-    ["Panic","thread","o",6,2,"파괴 시 「옆칸」 적 전부 5 피해"],
-    ["Exec","thread","o",6,4,"For(2) 「주위」 적 전부에게 공격력만큼 피해"],
-    ["Compile","thread","o",2,4,"선언 시 내 thread 전부 공격력 +2",false,"require thread 3+"],
-    ["Spike","thread","o",7,2,"For(2) 「앞직선2·첫」 적에게 공격력만큼 피해"],
-    ["Surge","thread","o",4,4,"소환 시 「옆칸」 아군 thread 있으면 공격력 +3"],
-    ["boost()","thread","f",0,0,"내 thread 1장 공격력 +4"],
-    ["overclock()","thread","f",0,0,"내 thread 1장 공격력 2배(현재치만큼 증가)"],
-    ["crash()","thread","f",0,0,"적 1명 4 피해, 파괴 시 「옆칸」 3 피해"],
-    ["strike()","thread","f",0,0,"「앞직선3·첫」 적에게 8 피해"],
-    ["spawn()","thread","f",0,0,"「홈칸」에 분신(공5 체2) 생성"],
-    ["burst()","thread","f",0,0,"적 1명에게 (「옆칸」 내 thread 수 ×3) 피해"],
-    ["fork()","thread","f",0,0,"내 thread 1장 절반 능력치로 복제",false,"조건 턴 4회+"],
-    ["rush()","thread","f",0,0,"내 thread 1장 앞으로 1칸 이동"],
-    ["amplify()","thread","f",0,0,"내 thread 전부 공격력 +3",false,"조건 아군 2장 파괴"],
-    ["volt()","thread","f",0,0,"적 1명 6 피해"],
-    ["Mainframe","thread","o",4,4,"선언 시 내 thread 전부 공격력 +4",true,"덱당 1 · require thread 5+"],
-    ["Hivemind","thread","o",3,3,"「옆칸」 아군 강화 효과 전체 적용(상한 +6)",true,"덱당 1 · thread 단일 덱"],
-    ["Cache","memory","o",0,12,"「옆칸」 적 이동 봉쇄"],
-    ["Mutex","memory","o",2,9,"공격받을 때 때린 적에게 3 피해"],
-    ["Heap","memory","o",1,14,"「옆칸」 아군 받는 피해 -1"],
-    ["Stack","memory","o",0,10,"「옆칸」 적 공격력 -2"],
-    ["Semaphore","memory","o",0,8,"For(2) 적 1명 다음 턴까지 봉쇄"],
-    ["Buffer","memory","o",0,11,"체력 5 이하로 피격 시 체력 +4 회복"],
-    ["Sentinel","memory","o",3,8,"적이 「옆칸」으로 다가올 때 3 피해"],
-    ["Firewall","memory","o",0,13,"본체 「옆칸」에 있으면 본체 받는 피해 -2"],
-    ["Const","memory","o",2,10,"이동/변화 불가, 「옆칸」 적 봉쇄"],
-    ["Page","memory","o",1,9,"파괴 시 「홈칸」에 벽(공0 체8) 생성"],
-    ["Register","memory","o",3,7,"For(1) 적 1명 공격력 0"],
-    ["Watchdog","memory","o",3,11,"For(1) 「앞직선끝·첫」 적에게 공격력만큼 피해"],
-    ["Sweeper","memory","o",2,12,"For(1) 「2칸이내」 적 1명 3 피해"],
-    ["Pin","memory","o",1,8,"선언 시 적 1명 영구 봉쇄",false,"require 내 턴 3회+"],
-    ["Persist","memory","o",0,12,"다른 내 memory 전부 체력 +2"],
-    ["Ward","memory","o",0,13,"피격 시 가해 인스턴스에 2 반사"],
-    ["Trap","memory","o",1,11,"「옆칸」에 적 진입 시 4 피해"],
-    ["Cannon","memory","o",2,11,"「옆칸」 memory 1장당 공격력 +2 · For(1) 「앞직선끝」 공격력만큼",false,"require 내 턴 6회+"],
-    ["Overrun","memory","o",4,9,"선언 시 적 본체에 (내 memory 수 ×2) 피해",false,"require memory 3+"],
-    ["free()","memory","f",0,0,"본체 「2칸이내」 적 1명 6 피해"],
-    ["lock()","memory","f",0,0,"적 1명 2턴 봉쇄"],
-    ["restore()","memory","f",0,0,"아군/본체 체력 +6 회복"],
-    ["barrier()","memory","f",0,0,"본체 다음 피해 10 막음"],
-    ["purge()","memory","f",0,0,"적 1명 공격력 영구 0"],
-    ["reflect()","memory","f",0,0,"이번 턴 내 memory 받는 피해 절반 반사"],
-    ["compact()","memory","f",0,0,"내 memory 전부 받은 피해 전부 회복(수리)"],
-    ["wall()","memory","f",0,0,"「통로칸」에 벽(공0 체10) 생성"],
-    ["freeze()","memory","f",0,0,"내 인스턴스 「2칸이내」 적 전부 1턴 봉쇄"],
-    ["fortify()","memory","f",0,0,"내 memory 전부 체력 +4",false,"조건 memory 2+"],
-    ["siphon()","memory","f",0,0,"적 1명 4 피해 + 내 본체 4 회복"],
-    ["segfault()","memory","f",0,0,"적 본체 8 피해",false,"조건 내 턴 7회+"],
-    ["Singleton","memory","o",6,20,"선언 시 적 전부 6 피해 · 본체 받는 피해 절반",true,"덱당 1 · require 턴 10+ 또는 memory 4+"],
-    ["Bedrock","memory","o",0,15,"내 memory 받는 피해 절반",true,"덱당 1 · memory 단일 덱"],
-    ["Longjmp","process","o",5,6,"For(1) 「앞직선2·첫」 적(벽 너머) 공격력만큼"],
-    ["Hook","process","o",3,6,"포인터 시전 시 「1칸이내」 적 1명 2 피해"],
-    ["Pipe","process","o",4,5,"포인터 시전 시 맞은 대상 추가 2 피해"],
-    ["Relay","process","o",3,6,"포인터 시전 시 사거리 +1"],
-    ["Raycast","process","o",6,5,"For(1) 「대각2」 적 1명 공격력만큼"],
-    ["Jump","process","o",5,5,"For(2) 「2칸이내」 빈 칸으로 점프(벽·유닛 무시)"],
-    ["Exploit","process","o",4,5,"선언 시 적 1명 공격력 -3"],
-    ["Reroute","process","o",3,6,"For(1) 적 1명 「옆칸」 빈 칸으로 강제 이동",false,"require 내 턴 4회+"],
-    ["Profiler","process","o",2,6,"「1칸이내」 적 수만큼 공격력 증가"],
-    ["Probe","process","o",4,5,"For(1) 「2칸이내」 가장 먼 적 1명 공격력만큼"],
-    ["Async","process","o",4,5,"For(1) 턴 중 자기 「1칸이동」"],
-    ["Callback","process","o",3,5,"파괴 시 「1칸이내」 적 1명 5 피해"],
-    ["Hotfix","process","o",3,7,"For(1) 아군 1장 체력 +3"],
-    ["Vector","process","o",6,5,"For(1) 「앞직선3·전부」 공격력만큼",false,"require process 2+"],
-    ["Lambda","process","o",4,5,"포인터 시전 시 다음 포인터 사거리 +2"],
-    ["Cursor","process","o",4,4,"For(1) 「앞직선2·첫」 적에게 공격력만큼"],
-    ["memcpy()","process","f",0,0,"적 1명을 「옆칸」 빈 칸으로 강제 이동",false,"조건 내 턴 5회+"],
-    ["goto()","process","f",0,0,"내 process 1장 「2칸이내」 빈 칸 순간이동",false,"조건 내 턴 4회+"],
-    ["snipe()","process","f",0,0,"「앞직선3·첫」 적 7 피해"],
-    ["swap()","process","f",0,0,"내 인스턴스 2장 위치 교환"],
-    ["inject()","process","f",0,0,"적 1명 공격력 -4 영구"],
-    ["pull()","process","f",0,0,"적 1명을 내 본체 쪽으로 끌어당김"],
-    ["push()","process","f",0,0,"적 1명을 적 진영 쪽으로 밀어냄"],
-    ["chain()","process","f",0,0,"지정 적과 뒤 직선 적 각 4 피해"],
-    ["proxy()","process","f",0,0,"다음 포인터 한 번 더 발동",false,"조건 내 턴 6회+"],
-    ["trace()","process","f",0,0,"내 process 1장 적 근처 점프 + 그 적 2 피해"],
-    ["glitch()","process","f",0,0,"적 1명 4 피해 후 적 진영 쪽으로 밀어내기"],
-    ["Singularity","process","o",5,6,"선언 시 포인터 1장 무소모 추가 시전 + 사거리 +3",true,"덱당 1 · require 포인터 6+ 시전"],
-    ["Conduit","process","o",4,5,"턴당 첫 포인터 효과 2회",true,"덱당 1 · process 단일 덱"],
-    ["Ripple","generic","o",3,4,"선언 시 「옆칸」 적 2 피해"],
-    ["Token","generic","o",2,3,"파괴 시 「옆칸」 적 2 피해"],
-    ["Bit","generic","o",1,2,"For(3) 「옆칸」 적 공격력만큼"],
-    ["Byte","generic","o",4,4,"능력 없음(표준 스탯)"],
-    ["Flag","generic","o",2,5,"「옆칸」 아군 공격력 +1"],
-    ["Var","generic","o",3,4,"턴 시작 시 자기 공격력 +1"],
-    ["Value","generic","o",5,3,"능력 없음(공격형)"],
-    ["Coerce","generic","o",3,3,"선언 시 적 1명 공격력 -1"],
-    ["Int","generic","o",4,5,"능력 없음(단단)"],
-    ["Bool","generic","o",2,3,"선언 시 아군 1장 체력 +2"],
-    ["Replica","generic","o",3,3,"선언 시 자기 공격력 +2"],
-    ["Merge","generic","o",4,4,"파괴 시 「옆칸」 적 4 피해"],
-    ["Delete","generic","o",5,2,"For(1) 「대각2」 적 1명 공격력만큼"],
-    ["Pivot","generic","o",3,4,"For(1) 턴 중 자기 「옆칸」 빈 칸 1칸이동"],
-    ["Sonar","generic","o",2,4,"For(2) 「2칸이내」 적 1명 2 피해"],
-    ["Loop","generic","o",3,5,"For(2) 「옆칸」 적 공격력만큼"],
-    ["Stub","generic","o",1,6,"「옆칸」 적 공격력 -1"],
-    ["Null","generic","o",0,5,"능력 없음(벽)"],
-    ["Noop","generic","o",2,4,"능력 없음"],
-    ["Idle","generic","o",0,7,"능력 없음(큰 벽)"],
-    ["malloc()","generic","f",0,0,"「홈칸」에 분신(공2 체3) 생성"],
-    ["kill()","generic","f",0,0,"적 1명 5 피해"],
-    ["ping()","generic","f",0,0,"적 1명 2 피해 + 카드 1장 뽑기"],
-    ["sync()","generic","f",0,0,"내 인스턴스 전부 체력 +3 회복"],
-    ["flush()","generic","f",0,0,"내 인스턴스 「옆칸」 적 전부 3 피해"],
-    ["shift()","generic","f",0,0,"아군 1장 1칸 이동"],
-    ["drop()","generic","f",0,0,"적 1명에게 그 적의 공격력만큼 피해"],
-    ["assert()","generic","f",0,0,"적 1명 3 피해 + 공격력 -1"],
-    ["grep()","generic","f",0,0,"카드 1장 뽑기"],
-    ["yield()","generic","f",0,0,"이번 턴 행동 +1",false,"조건 내 턴 5회+"],
-    ["wait()","generic","f",0,0,"적 1명 1턴 봉쇄"],
-    ["cast()","generic","f",0,0,"아군 1장 공격력 +3"],
-    ["throw()","generic","f",0,0,"적 1명 4 피해, 「옆칸」 2 피해"],
-    ["catch()","generic","f",0,0,"적 1명 4 피해, 처치 시 본체 체력 +4"],
-    ["bind()","generic","f",0,0,"적 전부 1턴 봉쇄",false,"조건 내 턴 4회+"],
-    ["echo()","generic","f",0,0,"떨어진 칸 1개 3 피해"],
-    ["patch()","generic","f",0,0,"아군 1장 체력 +3, 공격력 +1"],
-    ["clear()","generic","f",0,0,"적 1명 1턴 공격력 0"],
-    ["copy()","generic","f",0,0,"손의 generic 1장 복사"],
-    ["exit()","generic","f",0,0,"모든 적 3 피해",false,"조건 본체 HP 18 이하"],
-    ["mend()","generic","f",0,0,"아군/본체 체력 +5 회복"],
-    ["Overlord","generic","o",8,8,"선언 시 적 본체 10 피해 · For(3) 적 1명 공격력만큼",true,"덱당 1 · require 턴 8+ · 본체 28+"],
-    ["Polymorph","generic","o",4,4,"단일 클래스 덱이면 내 인스턴스 전부 공/체 +1",true,"덱당 1"]
-  ];
-  var META={};C.forEach(function(r){META[r[0]]={id:r[0],cls:r[1],kind:r[2],atk:r[3],hp:r[4],tx:r[5],op:!!r[6],req:r[7]||""};});
-
-  // ---------- 게임 룰 (다운로드용) ----------
-  // 원문 출처 = core.js 의 BASICS(기본 룰) + GLOSS(능력·사거리 키워드) + engine.js 상수.
-  //   도감은 core.js 를 로드하지 않으므로 최신 룰 텍스트를 여기 그대로 이식한다.
-  //   ⚠ core.js 의 BASICS/GLOSS 가 바뀌면 이 블록도 함께 갱신할 것(단일 출처 아님).
-  var RULES={
-    version:"seed rules v6",
-    core:{bodyHp:40,board:{cols:5,rows:4},actionsPerTurn:2,handCap:10,turnCap:40,fatiguePerCard:3,
-      classCycle:["thread","process","memory"]},
-    basics:[
-      {t:"승리 조건",d:"상대 본체(HP 40)를 0 이하로 만들면 승리. 내 본체가 0 이하면 패배. 본체도 보드 칸이라 인접·사거리에 포함된다."},
-      {t:"턴 진행",d:"두 플레이어가 번갈아 턴을 가진다. 내 턴에 손패에서 카드를 내거나(선언) 유닛을 움직이고 공격한 뒤, [턴 종료]로 넘긴다. 턴 시작 때 카드 1장을 뽑는다."},
-      {t:"액션 2개 / 턴",d:"내 턴마다 액션 2개(상단 「액션」 핍). 선언(카드 배치)·이동·포인터 시전은 각각 액션 1을 소비한다. 액션이 0이면 더 이상 소비 행동을 할 수 없다."},
-      {t:"무료 행동 (액션 소비 X)",d:"기본 공격, For(N) 능동 능력, When·If·Once 트리거는 액션을 쓰지 않는다. 그래서 액션이 0이어도 기본 공격은 가능하다."},
-      {t:"기본 공격",d:"모든 유닛은 옆칸(상하좌우 1칸)의 적을 공격할 수 있다. 무료이며 유닛당 턴 1회. 자신의 공격력(ATK)만큼 피해를 준다. 보드의 빨강 ⚔ 칸이 닿는 범위다."},
-      {t:"인스턴스 vs 포인터",d:"인스턴스(유닛)는 필드에 남아 ATK/HP를 가지고 매 턴 싸운다. 포인터는 1회성 주문 — 시전에 액션 1을 쓰고 즉시 효과만 내고 사라진다."},
-      {t:"함수(능력) 사거리",d:"유닛의 함수/능력이 닿는 칸은 카드마다 다르다(보드의 노랑 칸). 아래 「사거리 키워드」의 모양을 참고. 필드 카드에 커서를 올리면 보드에 범위가 표시된다."},
-      {t:"피해 · 파괴",d:"HP가 0 이하가 되면 파괴된다. 피해는 턴을 넘겨 누적되며, 회복 효과로만 줄어든다."}
-    ],
-    classes:[
-      {cls:"thread",t:"thread · 공격형",d:"공高체低 글래스캐논. 집단 ATK 시너지·근접 압박. process에 강하고 memory에 약함."},
-      {cls:"memory",t:"memory · 방어형",d:"공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함."},
-      {cls:"process",t:"process · 유틸형",d:"변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함."},
-      {cls:"generic",t:"generic · 무클래스",d:"어느 덱에나 넣는 독립형. 단일 클래스 판정을 깨지 않는다."}
-    ],
-    abilityKeywords:[
-      {kw:"If",t:"If · 선택 발동",d:"조건이 맞을 때, 내가 원하면 골라서 발동(횟수 제한 없음)."},
-      {kw:"When",t:"When · 자동 발동",d:"조건이 맞을 때마다 강제로 자동 발동."},
-      {kw:"Once",t:"Once · 1회 발동",d:"조건이 맞으면 게임 중 딱 한 번만 발동."},
-      {kw:"While",t:"While · 지속 효과",d:"조건이 유지되는 동안 계속 적용되는 상시 효과."},
-      {kw:"For",t:"For(N) · 능동·턴1회",d:"내 턴마다 1번 직접 발동, 게임 전체에서 총 N번까지. 발동은 무료(액션 소비 X)."}
-    ],
-    rangeKeywords:[
-      {kw:"옆칸",t:"옆칸 = 기본 공격 범위",d:"상하좌우로 붙은 4칸(cross1). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸."},
-      {kw:"주위",t:"주위",d:"대각선까지 포함해 둘러싼 8칸 = square(1)."},
-      {kw:"앞 직선",t:"앞 직선",d:"적 본체 방향으로 뻗는 직선 사거리."},
-      {kw:"대각선",t:"대각선",d:"네 대각 방향으로 뻗는 사거리 = diagonal(N)."},
-      {kw:"테두리",t:"테두리",d:"특정 거리의 둘레 칸 = ring(N)."},
-      {kw:"관통",t:"관통(벽 너머)",d:"중간의 벽·유닛을 무시하고 직선상의 대상을 타격."}
-    ]
-  };
-
-  // ---------- 다운로드 (JSON) ----------
-  // 앵커 방식(dev.html 패턴 이식). Android=즉시 저장, iOS Safari=새 탭 미리보기(공유→파일에 저장).
-  function downloadBlob(blob,name){
-    var u=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(function(){URL.revokeObjectURL(u);},4000);
-  }
-  function downloadJSON(obj,name){
-    downloadBlob(new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}),name);
-  }
-  function buildRulesJSON(){
-    var r={};for(var k in RULES){if(RULES.hasOwnProperty(k))r[k]=RULES[k];}
-    r.generatedFrom="core.js BASICS/GLOSS · engine.js";
-    return r;
-  }
-  function buildCardsJSON(){
-    return {version:"seed cards v6",count:C.length,cards:C.map(function(r){
-      return {id:r[0],cls:r[1],kind:r[2]==="f"?"function":"object",atk:r[3],hp:r[4],
-        text:r[5],op:!!r[6],require:r[7]||""};
-    })};
-  }
-  function buildDecksJSON(){
-    var RDx=window.RT_DECKS||{},out=[];
-    ORDER.forEach(function(k){
-      var d=RDx[k];if(!d)return;
-      var counts={},seq=[];
-      d.list.forEach(function(id){if(counts[id]==null){counts[id]=0;seq.push(id);}counts[id]++;});
-      out.push({key:k,name:d.name||k,cls:d.cls||"generic",total:d.list.length,
-        cards:seq.map(function(id){return {id:id,count:counts[id]};})});
-    });
-    return {version:"seed decks v6",count:out.length,decks:out};
+  // 게임 스크립트가 안 실려서 렌더러가 없으면(예: file:// 직접 열기) 안내.
+  if(!RT || !RT.CARDS || !UI || !UI.cardFaceEl){
+    catalogEl.innerHTML =
+      '<div class="loadfail">게임 스크립트를 불러오지 못했습니다.<br>'+
+      '로컬 서버(예: <code>python -m http.server</code>)에서 열거나, 배포된 사이트에서 확인하세요.</div>';
+    return;
   }
 
-  var ART=window.RT_ART||{};
-  document.getElementById("artcount").textContent=Object.keys(ART).length;
-  function art(id){var a=ART[id];if(!a)return null;if(typeof a==="string")return{src:a,pos:"50% 50%",fit:"cover"};return{src:a.src,pos:a.pos||"50% 50%",fit:a.fit||"cover"};}
-  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
-
-  // 일러스트 카드 타일 (count 있으면 덱 뷰용 미니 배지)
-  function fig(id,count){
-    var m=META[id];if(!m)return"";
-    var a=art(id);
-    var img=a?'<img loading="lazy" src="'+esc(a.src)+'" alt="'+esc(id)+'" style="object-fit:'+a.fit+';object-position:'+a.pos+'" onerror="this.parentNode.innerHTML=\'<div class=&quot;ph&quot;>'+GLY[m.cls]+'</div>\'">':'<div class="ph">'+GLY[m.cls]+'</div>';
-    var tag=m.op?'<span class="kindtag op">OP</span>':(m.kind==="f"?'<span class="kindtag fn">fn</span>':'<span class="kindtag">'+m.cls.slice(0,3)+'</span>');
-    var badge=count?'<span class="cnt">×'+count+'</span>':'';
-    var st=m.kind==="f"?'<div class="st"><span class="fnc">함수</span></div>':'<div class="st"><span class="a">'+m.atk+'⚔</span><span class="h">'+m.hp+'❤</span></div>';
-    return '<div class="fig" style="--cc:var(--'+m.cls+')">'+
-      '<div class="art">'+img+tag+badge+'</div>'+
-      '<div class="body"><div class="nm'+(m.kind==="f"?" fn":"")+'">'+esc(id)+'</div>'+st+
-      '<div class="tx">'+esc(m.tx)+'</div>'+
-      (m.req?'<div class="req">⚙ '+esc(m.req)+'</div>':'')+
-      '</div></div>';
-  }
-
-  // ---------- 견본 덱 (사이트 decks.js 직접 사용) ----------
-  var RD=window.RT_DECKS||{};
-  var ORDER=["T1","T2","T3","M1","M2","P1","P2","N1","X1","C1"];
-  var navHtml='';
-  var decksHtml='';
-  ORDER.forEach(function(k){
-    var d=RD[k];if(!d)return;
-    var cls=d.cls||"generic";
-    // 확장 리스트 → 첫 등장 순 카운트
-    var counts={},seq=[];
-    d.list.forEach(function(id){if(counts[id]==null){counts[id]=0;seq.push(id);}counts[id]++;});
-    var tot=d.list.length;
-    // 클래스 구성 요약
-    var byCls={};seq.forEach(function(id){var c=(META[id]||{}).cls||"?";byCls[c]=(byCls[c]||0)+counts[id];});
-    var kinds={o:0,f:0};seq.forEach(function(id){kinds[(META[id]||{}).kind==="f"?"f":"o"]+=counts[id];});
-    var mixTxt=Object.keys(byCls).map(function(c){return '<b>'+GLY[c]+' '+c+'</b> '+byCls[c];}).join("　")+
-      '　·　<b>인스턴스</b> '+kinds.o+' / <b>함수</b> '+kinds.f;
-    var name=(d.name||k).replace(/^\w+\s·\s/,"");
-    navHtml+='<a href="#deck-'+k+'">'+k+'</a>';
-    var tiles=seq.map(function(id){return fig(id,counts[id]);}).join("");
-    decksHtml+='<details class="deckblk" id="deck-'+k+'" style="--dc:var(--'+cls+')" open>'+
-      '<summary><span class="gly">'+GLY[cls]+'</span><span class="k">'+k+'</span>'+
-      '<span class="nm">'+esc(name)+'</span><span class="ct">'+tot+'장 · '+seq.length+'종</span>'+
-      '<span class="chev">▶</span></summary>'+
-      '<div class="deckwrap"><div class="deckmix">'+mixTxt+'</div>'+
-      '<div class="grid mini">'+tiles+'</div></div></details>';
+  var CARDS = RT.CARDS;
+  var DECKS = window.RT_DECKS || RT.DECKS || {};
+  var ART = window.RT_ART || {};
+  var GLY = {thread:"▲",memory:"■",process:"◇",generic:"●",mixed:"◆",none:"▦"};
+  var catOrder = ["thread","memory","process","generic"];
+  // 토큰/벽(분신) 등 소환 전용 카드는 도감/덱 타일에서 제외.
+  var DENY = {Token1:1,Token2:1,Token21:1,Token2b:1,Token5:1,Wall5:1,Wall8:1,Wall10:1};
+  var allIds = Object.keys(CARDS).filter(function(id){
+    var c = CARDS[id]; return c && !DENY[id] && (c.kind==="object"||c.kind==="pointer");
   });
-  document.getElementById("decks").innerHTML=decksHtml;
-  document.getElementById("nav").innerHTML=
-    '<a class="wide" href="#download-sec">▸ 데이터 다운로드</a>'+
-    navHtml+'<a class="wide" href="#catalog-sec">▸ 카드 도감 전체</a>';
 
-  // ---------- 다운로드 버튼 배선 ----------
-  document.getElementById("dl-rules").addEventListener("click",function(){downloadJSON(buildRulesJSON(),"runtime-tcg-rules.json");});
-  document.getElementById("dl-cards").addEventListener("click",function(){downloadJSON(buildCardsJSON(),"runtime-tcg-cards.json");});
-  document.getElementById("dl-decks").addEventListener("click",function(){downloadJSON(buildDecksJSON(),"runtime-tcg-decks.json");});
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  // 인게임 손패 카드 모습 그대로의 DOM 노드. compact=true → 모바일 미니 손패.
+  function faceNode(id,compact){ var n=null; try{ n=UI.cardFaceEl(id,{mode:"idle",compact:!!compact}); }catch(e){} return n; }
 
-  // ---------- 카드 도감 ----------
-  var totCards=C.length,fnCount=C.filter(function(r){return r[2]==="f";}).length;
-  document.getElementById("catcount").textContent=totCards+"종 · 인스턴스 "+(totCards-fnCount)+" / 함수 "+fnCount;
-  var catOrder=["thread","memory","process","generic"];
+  // ---------- theme (인게임 SKIN 과 동기화) ----------
+  var themeMode = (function(){ try{ return localStorage.getItem("rt_theme")||""; }catch(e){ return ""; } })();
+  if(themeMode!=="dark"&&themeMode!=="light") themeMode = matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+  function applyTheme(m){
+    themeMode = m;
+    if(UI.setTheme) UI.setTheme(m); else if(UI.applyTheme) UI.applyTheme(m);
+    document.documentElement.setAttribute("data-theme",m);
+    try{ localStorage.setItem("rt_theme",m); }catch(e){}
+  }
+  applyTheme(themeMode);
+
+  // ---------- counts ----------
+  document.getElementById("artcount").textContent = Object.keys(ART).length;
+  var fnCount = allIds.filter(function(id){return CARDS[id].kind==="pointer";}).length;
+  document.getElementById("catcount").textContent =
+    allIds.length+"종 · 인스턴스 "+(allIds.length-fnCount)+" / 함수 "+fnCount;
+
+  // ---------- 카드 도감 (실제 카드풀 자동 연동) ----------
   var state={f:"all",q:""};
   function drawCat(){
-    var q=state.q.trim().toLowerCase(),html="";
+    var q=state.q.trim().toLowerCase();
+    catalogEl.textContent="";
+    var any=false;
     catOrder.forEach(function(cls){
-      if(state.f!=="all"&&state.f!==cls)return;
-      var rows=C.filter(function(r){
-        if(r[1]!==cls)return false;
-        if(!q)return true;
-        return r[0].toLowerCase().indexOf(q)>=0||r[5].toLowerCase().indexOf(q)>=0;
+      if(state.f!=="all"&&state.f!==cls) return;
+      var rows=allIds.filter(function(id){
+        var c=CARDS[id]; if(c.cls!==cls) return false;
+        if(!q) return true;
+        return id.toLowerCase().indexOf(q)>=0 || String(c.text||"").toLowerCase().indexOf(q)>=0;
       });
-      if(!rows.length)return;
-      html+='<div class="grp"><div class="grphd" style="color:var(--'+cls+')">'+
-        '<span class="gly">'+GLY[cls]+'</span>'+cls+'<span class="cnt">'+rows.length+'종</span></div>'+
-        '<div class="grid">'+rows.map(function(r){return fig(r[0]);}).join("")+'</div></div>';
+      if(!rows.length) return;
+      any=true;
+      var grp=document.createElement("div"); grp.className="grp";
+      var hd=document.createElement("div"); hd.className="grphd"; hd.style.color="var(--"+cls+")";
+      hd.innerHTML='<span class="gly">'+GLY[cls]+"</span>"+cls+'<span class="cnt">'+rows.length+"종</span>";
+      grp.appendChild(hd);
+      var g=document.createElement("div"); g.className="cardgrid";
+      rows.forEach(function(id){ var n=faceNode(id,false); if(n) g.appendChild(n); });
+      grp.appendChild(g); catalogEl.appendChild(grp);
     });
-    document.getElementById("catalog").innerHTML=html||'<div class="empty">검색 결과가 없습니다.</div>';
+    if(!any) catalogEl.innerHTML='<div class="empty">검색 결과가 없습니다.</div>';
   }
   Array.prototype.forEach.call(document.querySelectorAll(".fbtn"),function(b){
     var f=b.getAttribute("data-f");
-    if(f!=="all"){b.style.setProperty("--fg","var(--"+f+")");b.style.setProperty("--fbg","var(--"+f+"-bg)");}
+    if(f!=="all"){ b.style.setProperty("--fg","var(--"+f+")"); b.style.setProperty("--fbg","var(--"+f+"-bg)"); }
     b.addEventListener("click",function(){
       state.f=f;
       Array.prototype.forEach.call(document.querySelectorAll(".fbtn"),function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});
@@ -525,11 +289,88 @@
   document.getElementById("q").addEventListener("input",function(e){state.q=e.target.value;drawCat();});
   drawCat();
 
-  // ---------- theme ----------
+  // ---------- 견본 덱 (실제 decks.js 자동 연동 · 전체 16종) ----------
+  var ORDER=["T1","T2","T3","T4","M1","M2","M3","P1","P2","P3","N1","N2","X1","X2","X3","C1"];
+  var decksHost=document.getElementById("decks");
+  var navHtml="";
+  var openDecks=[];
+  ORDER.forEach(function(k){
+    var d=DECKS[k]; if(!d||!d.list) return;
+    var cls=d.cls||"generic";
+    // 확장 리스트 → 첫 등장 순 카운트
+    var counts={},seq=[];
+    d.list.forEach(function(id){ if(counts[id]==null){counts[id]=0;seq.push(id);} counts[id]++; });
+    var tot=d.list.length;
+    // 클래스/종류 구성 요약
+    var byCls={}; seq.forEach(function(id){ var c=(CARDS[id]||{}).cls||"?"; byCls[c]=(byCls[c]||0)+counts[id]; });
+    var kinds={o:0,f:0}; seq.forEach(function(id){ kinds[(CARDS[id]||{}).kind==="pointer"?"f":"o"]+=counts[id]; });
+    var mixTxt=Object.keys(byCls).map(function(c){return "<b>"+(GLY[c]||"?")+" "+c+"</b> "+byCls[c];}).join("　")+
+      "　·　<b>인스턴스</b> "+kinds.o+" / <b>함수</b> "+kinds.f;
+    var name=(d.name||k).replace(/^\w+\s·\s/,"");
+    navHtml+='<a href="#deck-'+k+'">'+k+"</a>";
+
+    var det=document.createElement("details"); det.className="deckblk"; det.id="deck-"+k;
+    det.style.setProperty("--dc","var(--"+cls+")");
+    det.innerHTML='<summary><span class="gly">'+GLY[cls]+'</span><span class="k">'+k+"</span>"+
+      '<span class="nm">'+esc(name)+'</span><span class="ct">'+tot+"장 · "+seq.length+"종</span>"+
+      '<span class="chev">▶</span></summary>'+
+      '<div class="deckwrap"><div class="deckmix">'+mixTxt+'</div><div class="cardgrid mini"></div></div>';
+
+    // 카드 타일은 처음 펼칠 때(또는 테마 변경 시) 렌더 — 초기 로드 가볍게.
+    det._render=function(){
+      var g=det.querySelector(".cardgrid.mini"); if(!g) return;
+      g.textContent="";
+      seq.forEach(function(id){
+        var w=document.createElement("div"); w.className="figwrap";
+        var n=faceNode(id,true); if(n) w.appendChild(n);
+        if(counts[id]>1){ var b=document.createElement("span"); b.className="cntbadge"; b.textContent="×"+counts[id]; w.appendChild(b); }
+        g.appendChild(w);
+      });
+    };
+    det.addEventListener("toggle",function(){
+      if(det.open && !det._rendered){ det._rendered=true; det._render(); }
+    });
+    openDecks.push(det);
+    decksHost.appendChild(det);
+  });
+  document.getElementById("nav").innerHTML=navHtml+'<a class="wide" href="#download-sec">▸ 데이터 다운로드</a>'+'<a class="wide" href="#catalog-sec">▸ 카드 도감 전체</a>';
+
+  // ---------- 데이터 다운로드 (라이브 RT.CARDS / RT.DECKS 에서 즉석 생성) ----------
+  function downloadJSON(obj,name){
+    var blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+    var u=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(u);},1500);
+  }
+  function buildCardsJSON(){
+    var out=[];
+    allIds.forEach(function(id){ var c=CARDS[id];
+      out.push({id:id,cls:c.cls,kind:c.kind,atk:c.atk||0,hp:c.hp||0,text:c.text||"",op:c.deckLimit===1?true:false}); });
+    return {game:"RUNTIME TCG",kind:"cards",version:"live",count:out.length,cards:out};
+  }
+  function buildDecksJSON(){
+    var out=[];
+    ORDER.forEach(function(k){ var d=DECKS[k]; if(!d||!d.list) return;
+      var counts={},seq=[]; d.list.forEach(function(id){ if(counts[id]==null){counts[id]=0;seq.push(id);} counts[id]++; });
+      out.push({key:k,name:d.name||k,cls:d.cls||"generic",size:d.list.length,cards:seq.map(function(id){return [id,counts[id]];})}); });
+    return {game:"RUNTIME TCG",kind:"decks",version:"live",count:out.length,decks:out};
+  }
+  function buildRulesJSON(){
+    return {game:"RUNTIME TCG",kind:"rules",version:"live",
+      bodyHP:40, actionsPerTurn:2, turnCap:(RT.DEFAULT_TURN_CAP||50),
+      basics:["기본 공격 = 옆칸 인접·무료·턴 1회","함수(포인터)/트리거 발동은 액션 무소비","턴당 액션 2 = 선언/시전에 소비","본체 HP 40 → 0이면 패배"],
+      keywords:{Once:"조건 충족 1회 자동 발동",While:"지속(상시) 효과",When:"트리거 시 자동 발동",For:"능동 발동 · 턴당 forCount회 · 무료",If:"선택 발동 — 조건 충족 시 원할 때 골라 발동(분기 선택 가능)"}};
+  }
+  document.getElementById("dl-rules").addEventListener("click",function(){downloadJSON(buildRulesJSON(),"runtime-tcg-rules.json");});
+  document.getElementById("dl-cards").addEventListener("click",function(){downloadJSON(buildCardsJSON(),"runtime-tcg-cards.json");});
+  document.getElementById("dl-decks").addEventListener("click",function(){downloadJSON(buildDecksJSON(),"runtime-tcg-decks.json");});
+
+  // ---------- theme 토글 ----------
+  // SKIN 은 살아있는 공유 객체라 기존 카드 노드는 저절로 재도색되지 않음 → 재생성 필요.
   document.getElementById("themebtn").addEventListener("click",function(){
-    var cur=document.documentElement.getAttribute("data-theme");
-    if(!cur)cur=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
-    document.documentElement.setAttribute("data-theme",cur==="dark"?"light":"dark");
+    applyTheme(themeMode==="dark"?"light":"dark");
+    drawCat();
+    openDecks.forEach(function(det){ if(det.open && det._rendered) det._render(); });
   });
 })();
 </script>
