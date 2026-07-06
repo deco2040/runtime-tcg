@@ -136,9 +136,8 @@
   .dlbtn .ic{margin-right:6px}
 
   /* ---------- 모바일 반응형 ----------
-     카드 내부 디자인은 데스크톱과 100% 동일(core.js cardFaceEl 렌더러 그대로).
-     고정 px 카드라, 화면 폭에 맞춰 zoom 으로 페이스를 축소 → 레이아웃 박스까지 줄어
-     flex-wrap 이 한 줄에 2~3장씩 재배치한다. (미니/축약형으로 스왑하지 않음) */
+     모바일에선 카탈로그·덱 카드 모두 작은 미니 사이즈(94×124)로 통일해 한 줄에 여러 장 보이게 하고,
+     카드를 탭하면 데스크톱 풀카드를 크게 띄운다(아래 showBig). 데스크톱은 카탈로그 풀카드 유지. */
   @media (max-width:640px){
     .wrap{padding:14px 11px 72px}
     .screen{padding:18px 13px}
@@ -147,22 +146,19 @@
     .nav a{font-size:11px;padding:4px 9px}
     .filters{gap:7px}
     .search{flex:1 1 130px}
-    .cardgrid{gap:10px}
+    .cardgrid{gap:9px;justify-content:flex-start}
     .cardgrid.mini{gap:8px}
-    /* 카탈로그 풀카드: 데스크톱 158px 그대로 → 폰에서만 zoom 축소 */
-    #catalog .cardgrid > *{zoom:.68}
     .grp{margin-bottom:20px}
     .deckwrap{padding:4px 9px 13px}
     .deckblk>summary{padding:11px 12px;gap:9px}
     .deckblk>summary .k{font-size:15px}
     .deckblk>summary .nm{font-size:11px}
-    /* 덱 아코디언 미니카드도 좁은 화면에서 조금 더 조밀하게 */
-    .cardgrid.mini .figwrap{zoom:.94}
   }
-  @media (max-width:400px){
-    #catalog .cardgrid > *{zoom:.6}
-    .cardgrid.mini .figwrap{zoom:.86}
-  }
+  /* 미니 카드 탭 → 확대 미리보기 힌트 */
+  .cardgrid.mini .figwrap, #catalog .figwrap{cursor:zoom-in}
+  /* 큰 카드 미리보기 오버레이(탭하면 닫힘) */
+  #bigback{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.62);padding:16px;cursor:zoom-out}
 </style>
 </head>
 <body>
@@ -227,14 +223,14 @@
 
 <!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → (RT_NO_BOOT) → sound → theme → core.
      부트는 막고(RT_NO_BOOT) 실제 카드풀(window.RT.CARDS)과 인게임 손패 카드 렌더러(window.__RT_UI.cardFaceEl)만 사용. -->
-<script src="cards.js?v=75"></script>
-<script src="decks.js?v=75"></script>
-<script src="engine.js?v=75"></script>
-<script src="art-map.js?v=75"></script>
+<script src="cards.js?v=76"></script>
+<script src="decks.js?v=76"></script>
+<script src="engine.js?v=76"></script>
+<script src="art-map.js?v=76"></script>
 <script>window.RT_NO_BOOT = true;</script>
-<script src="sound.js?v=75"></script>
-<script src="theme.js?v=75"></script>
-<script src="core.js?v=75"></script>
+<script src="sound.js?v=76"></script>
+<script src="theme.js?v=76"></script>
+<script src="core.js?v=76"></script>
 <script>
 (function(){
   "use strict";
@@ -263,6 +259,27 @@
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
   // 인게임 손패 카드 모습 그대로의 DOM 노드. compact=true → 모바일 미니 손패.
   function faceNode(id,compact){ var n=null; try{ n=UI.cardFaceEl(id,{mode:"idle",compact:!!compact}); }catch(e){} return n; }
+  function isMobile(){ try{ return matchMedia("(max-width:640px)").matches; }catch(e){ return false; } }
+
+  // ---- 큰 카드 미리보기: 미니 카드 탭 시 데스크톱 풀카드를 화면 중앙에 크게(탭하면 닫힘) ----
+  var _bigBack=null;
+  function hideBig(){ if(_bigBack&&_bigBack.parentNode) _bigBack.parentNode.removeChild(_bigBack); _bigBack=null; }
+  function showBig(id){
+    var n=faceNode(id,false); if(!n) return;   // 풀 데스크톱 카드 페이스
+    hideBig();
+    n.style.pointerEvents="none";
+    var vw=window.innerWidth||360, vh=window.innerHeight||640;
+    var sc=Math.min(2.0,(vh*0.82)/220,(vw*0.92)/158); if(sc<1) sc=1;
+    var wrap=document.createElement("div");
+    wrap.style.cssText="transform:scale("+sc+");filter:drop-shadow(0 16px 40px rgba(0,0,0,.6))";
+    wrap.appendChild(n);
+    var back=document.createElement("div"); back.id="bigback"; back.appendChild(wrap);
+    back.addEventListener("click",hideBig);
+    document.body.appendChild(back); _bigBack=back;
+  }
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") hideBig(); });
+  // 미니 카드 노드를 탭-확대 가능한 래퍼로 감싼다(내부 노드 이벤트는 죽이고 래퍼가 처리).
+  function tapToZoom(w,id){ w.style.cursor="zoom-in"; w.addEventListener("click",function(){ showBig(id); }); }
 
   // ---------- theme (인게임 SKIN 과 동기화) ----------
   var themeMode = (function(){ try{ return localStorage.getItem("rt_theme")||""; }catch(e){ return ""; } })();
@@ -300,8 +317,14 @@
       var hd=document.createElement("div"); hd.className="grphd"; hd.style.color="var(--"+cls+")";
       hd.innerHTML='<span class="gly">'+GLY[cls]+"</span>"+cls+'<span class="cnt">'+rows.length+"종</span>";
       grp.appendChild(hd);
-      var g=document.createElement("div"); g.className="cardgrid";
-      rows.forEach(function(id){ var n=faceNode(id,false); if(n) g.appendChild(n); });
+      // 모바일: 미니 카드로 통일(한 줄에 여러 장) + 탭 시 큰 카드. 데스크톱: 기존 풀카드 그대로.
+      var mob=isMobile();
+      var g=document.createElement("div"); g.className="cardgrid"+(mob?" mini":"");
+      rows.forEach(function(id){
+        var n=faceNode(id,mob); if(!n) return;
+        if(mob){ n.style.pointerEvents="none"; var w=document.createElement("div"); w.className="figwrap"; w.appendChild(n); tapToZoom(w,id); g.appendChild(w); }
+        else g.appendChild(n);
+      });
       grp.appendChild(g); catalogEl.appendChild(grp);
     });
     if(!any) catalogEl.innerHTML='<div class="empty">검색 결과가 없습니다.</div>';
@@ -351,8 +374,9 @@
       g.textContent="";
       seq.forEach(function(id){
         var w=document.createElement("div"); w.className="figwrap";
-        var n=faceNode(id,true); if(n) w.appendChild(n);
+        var n=faceNode(id,true); if(n){ n.style.pointerEvents="none"; w.appendChild(n); }
         if(counts[id]>1){ var b=document.createElement("span"); b.className="cntbadge"; b.textContent="×"+counts[id]; w.appendChild(b); }
+        tapToZoom(w,id);   // 탭 → 큰 데스크톱 카드
         g.appendChild(w);
       });
     };

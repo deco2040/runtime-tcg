@@ -59,7 +59,7 @@
     if (app) app.style.maxWidth = 'min(97vw, 1560px)';   // 편집 화면은 전폭을 넓게 — 카드가 크고 텍스트가 또렷하게
     UI.render();
   }
-  function closeBuilder() { active = false; bDeck = null; hideCardTip(); if (app) app.style.maxWidth = '1180px'; }
+  function closeBuilder() { active = false; bDeck = null; hideCardTip(); hideBigDB(); if (app) app.style.maxWidth = '1180px'; }
   function bCancel() { closeBuilder(); UI.renderTitle(); }
   function bSave() {
     var name = (bDeck.name || '').trim();
@@ -149,8 +149,8 @@
       tabs.appendChild(el('button', { onclick: function () { bFilter = t[0]; _scrollPool = 0; UI.render(); }, class: 'crt-opt' + (bFilter === t[0] ? ' on' : ''), style: { fontSize: '13px', padding: '8px 13px' } }, [t[1]]));
     });
     col.appendChild(tabs);
-    var sc = poolScale(), mob = isMobileDB();
-    var grid = el('div', { id: 'db-pool', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(' + Math.round(FACE_W * sc + (mob ? 8 : 20)) + 'px,1fr))', gap: mob ? '10px 8px' : '16px 14px', maxHeight: '72vh', overflowY: 'auto', padding: '4px 2px' } });
+    var mob = isMobileDB();
+    var grid = el('div', { id: 'db-pool', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(' + (mob ? 102 : Math.round(FACE_W * poolScale() + 20)) + 'px,1fr))', gap: mob ? '10px 8px' : '16px 14px', maxHeight: '72vh', overflowY: 'auto', padding: '4px 2px' } });
     var lastCls = null;
     deckPool().forEach(function (id) {
       var c = CARDS[id];
@@ -226,12 +226,15 @@
     var readTxt = dark ? '#f6e3ba' : '#1d1d24';
     var subTxt = dark ? '#c9a86a' : '#4a4a52';
 
-    var sc = poolScale();
-    var stripW = Math.round(FACE_W * sc);
-    var faceRaw = faceFor(id, false) || el('div', { class: 'grot', style: { width: '158px', minHeight: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + cl, color: readTxt, padding: '8px', textAlign: 'center', textShadow: 'none' } }, [c.name]);
-    var face = scaledFace(faceRaw, sc);
+    // 모바일: 미니 카드로 통일(작게·여러 장) + 🔍 탭 시 큰 데스크톱 카드. 데스크톱: 기존 확대(1.32) 카드.
+    var mob = isMobileDB();
+    var stripW = mob ? 94 : Math.round(FACE_W * poolScale());
+    var faceRaw = faceFor(id, mob) || el('div', { class: 'grot', style: { width: '158px', minHeight: '96px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + cl, color: readTxt, padding: '8px', textAlign: 'center', textShadow: 'none' } }, [c.name]);
+    var face = mob ? faceRaw : scaledFace(faceRaw, poolScale());
     var faceBox = el('div', { style: { position: 'relative', display: 'flex', justifyContent: 'center' } }, [face]);
     if (cnt > 0) faceBox.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '23px', textAlign: 'center', fontSize: '13px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '12px', padding: '2px 7px', boxShadow: '0 1px 5px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + cnt]));
+    // 모바일 미니는 효과문이 안 보이므로 🔍 로 큰 카드 확인(탭=추가와 겹치지 않게 stopPropagation).
+    if (mob) faceBox.appendChild(el('button', { title: '크게 보기', onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', top: '-7px', left: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
     // 단일 클래스(◈) 배지는 카드 페이스 자체에 이미 표시되므로 중복 태그 생략(요청)
 
     var strip = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', width: stripW + 'px', maxWidth: '100%' } }, [
@@ -302,6 +305,19 @@
     if (top + h > vh - 8) top = vh - h - 8;
     if (top < 8) top = 8;
     t.style.left = left + 'px'; t.style.top = top + 'px';
+  }
+
+  // 모바일 🔍 탭 → 데스크톱 풀카드를 화면 중앙에 크게(탭하면 닫힘). showCardFace(호버 툴팁)와 별개.
+  var _dbBig = null;
+  function hideBigDB() { if (_dbBig && _dbBig.parentNode) _dbBig.parentNode.removeChild(_dbBig); _dbBig = null; }
+  function showBigDB(id) {
+    var raw = faceFor(id, false); if (!raw) return;
+    hideBigDB();
+    var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
+    var scl = Math.min(2.0, (vh * 0.82) / FACE_H, (vw * 0.92) / FACE_W); if (scl < 1) scl = 1;
+    var node = scaledFace(raw, scl); node.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
+    _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [node]);
+    if (document.body) document.body.appendChild(_dbBig);
   }
 
   function builderDeckList(dark) {
