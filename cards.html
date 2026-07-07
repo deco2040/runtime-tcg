@@ -303,8 +303,10 @@
       var g=document.createElement("div"); g.className="cardgrid"+(mob?" mini":"");
       rows.forEach(function(id){
         var n=faceNode(id,mob); if(!n) return;
-        if(mob){ n.style.pointerEvents="none"; var w=document.createElement("div"); w.className="figwrap"; w.appendChild(n); tapToZoom(w,id); g.appendChild(w); }
-        else g.appendChild(n);
+        // 모바일·데스크톱 모두: 카드를 래퍼로 감싸 클릭(탭) 시 큰 카드로 확대.
+        n.style.pointerEvents="none";
+        var w=document.createElement("div"); w.className="figwrap"; w.appendChild(n);
+        tapToZoom(w,id); g.appendChild(w);
       });
       grp.appendChild(g); catalogEl.appendChild(grp);
     });
