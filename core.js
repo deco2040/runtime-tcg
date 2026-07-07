@@ -1350,8 +1350,8 @@
     // 포인터 시전 안내(짧게)
     if (ptr) wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.enemy, padding: '3px 10px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisSunk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' } }, ['◆ ' + ptr.card.name + ' 시전 — 빨강 대상 선택']));
 
-    // ── 필드(중앙) — 화면 폭을 꽉 채우는 보드 ──
-    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px calc(4px + ' + SAR + ') 4px calc(4px + ' + SAL + ')' } }, [boardEl(true)]));
+    // ── 필드(중앙) — 화면 폭을 꽉 채우는 보드. 세로 패딩을 얇게 해 필드를 최대한 크게 ──
+    wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px calc(4px + ' + SAR + ') 2px calc(4px + ' + SAL + ')' } }, [boardEl(true)]));
 
     // ── 하단: (1) 나 스탯 바 — 상단 AI 바와 대칭(HP·덱·묘지·손패). 컨트롤은 분리해 줄바꿈 방지 ──
     wrap.appendChild(statBarH(HUMAN, { style: { borderTop: '1px solid ' + SKIN.ink, paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
@@ -2048,7 +2048,7 @@
     var card = CARDS[id], isP = card.kind === 'pointer';
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
-    var W = 100, H = 152, cl = CLS[card.cls] || CLS.generic;
+    var W = 100, H = 134, cl = CLS[card.cls] || CLS.generic;   // 패 높이 축소 → 그만큼 필드(보드)가 커진다(모바일).
     var st = Object.assign({ position: 'relative', width: W + 'px', height: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x', transition: 'transform .08s ease' }, raisedBev());
     if (playable && !seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
     if (seld) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + SKIN.faceLo; st.transform = 'translateY(-6px)'; }
