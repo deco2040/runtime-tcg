@@ -393,6 +393,27 @@
           display: none !important;
         } /* 상단 고정 음소거/테마 버튼 숨김 — 화면 정리 */
       }
+      /* 폰(≤560px): CRT 셸 여백·모서리·버튼 밀도 축소 — 온라인/타이틀/리더보드/매치메이킹 등 crt 화면 공통 개선 */
+      @media (max-width: 560px) {
+        .crt-monitor {
+          padding: 7px;
+          border-radius: 10px;
+          box-shadow:
+            inset 2px 2px 0 var(--housing-hi),
+            inset -2px -2px 0 rgba(0, 0, 0, 0.28),
+            3px 3px 0 rgba(0, 0, 0, 0.22);
+        }
+        .crt-screen {
+          padding: 12px 11px;
+          border-radius: 8px;
+        }
+        .crt-btn {
+          padding: 12px 16px;
+        }
+        .crt-opt {
+          padding: 8px 10px;
+        }
+      }
       /* =====================================================================
      레트로 컴퓨터 스킨 — 타이틀 모니터(.crt-monitor) + 전역 CRT 오버레이.
      다크 = 앰버 인광 CRT(어두운 방), 라이트 = 베이지 컴퓨터 + 페이퍼 화이트 화면(주광).
@@ -618,24 +639,25 @@
       style="max-width: 1180px; margin: 0 auto; padding: clamp(3px, 0.5vw, 7px)"
     ></div>
     <!-- v 쿼리로 캐시 무효화 — 배포 때마다 숫자를 올리면 브라우저/CDN 캐시가 즉시 갱신됨 -->
-    <script src="cards.js?v=78"></script>
-    <script src="decks.js?v=78"></script>
-    <script src="engine.js?v=78"></script>
-    <script src="art-map.js?v=78"></script>
+    <script src="cards.js?v=80"></script>
+    <script src="decks.js?v=80"></script>
+    <script src="engine.js?v=80"></script>
+    <script src="art-map.js?v=80"></script>
     <!-- ui.js 를 화면별 모듈로 분리(2026-07): 독립(sound/theme) → core(상태+매치+보드+AI) → 화면(title/tutorial/deckbuilder).
      로드 순서 중요: sound/theme 가 core 보다 먼저(UI.Sound/UI.SKIN 준비), 화면 모듈은 core 뒤(공유 헬퍼 준비). -->
-    <script src="sound.js?v=78"></script>
-    <script src="theme.js?v=78"></script>
+    <script src="sound.js?v=80"></script>
+    <script src="theme.js?v=80"></script>
     <!-- 멀티플레이 기반: config(백엔드 설정) → net(Supabase 클라이언트/게스트 인증) -->
-    <script src="config.js?v=78"></script>
-    <script src="net.js?v=78"></script>
-    <script src="core.js?v=79"></script>
-    <script src="title.js?v=78"></script>
-    <script src="tutorial.js?v=79"></script>
-    <script src="deckbuilder.js?v=78"></script>
-    <!-- 로비(기능 1) · 계정(기능 3) · 매치메이킹/커스텀(기능 2·6) -->
-    <script src="lobby.js?v=78"></script>
-    <script src="auth.js?v=78"></script>
-    <script src="online.js?v=78"></script>
+    <script src="config.js?v=80"></script>
+    <script src="net.js?v=80"></script>
+    <script src="core.js?v=80"></script>
+    <script src="title.js?v=80"></script>
+    <script src="tutorial.js?v=80"></script>
+    <script src="deckbuilder.js?v=80"></script>
+    <!-- 로비(기능 1) · 계정(기능 3) · 매치메이킹/커스텀(기능 2·6) · 리더보드(온라인 랭킹) -->
+    <script src="lobby.js?v=80"></script>
+    <script src="auth.js?v=80"></script>
+    <script src="online.js?v=80"></script>
+    <script src="leaderboard.js?v=80"></script>
   </body>
 </html>

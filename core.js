@@ -12,6 +12,19 @@
   var bodyKey = RT.bodyKey;
   var CLS = { thread: '#d8472b', memory: '#2456a6', process: '#c8951b', generic: '#6b6b75', mixed: '#8a6fb0', none: '#1d1d24' };
   var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
+  // 전투 연출용 클래스 팔레트 — 타격 시 클래스별 색/파티클 모양/시그니처 이펙트를 결정.
+  // col=주광, spark=파편·스파크, ring=충격파 링, shape=파편 모양(dot/shard/crystal/block).
+  var FX_CLASS = {
+    thread: { col: '#ff5a3c', spark: '#ffb03c', ring: '#ff5a3c', shape: 'shard' },   // 어그로 — 참격/불꽃
+    memory: { col: '#3f7bd6', spark: '#8fd0ff', ring: '#2456a6', shape: 'crystal' },  // 방어/반사 — 크리스탈 파쇄
+    process: { col: '#e0a92e', spark: '#ffe08a', ring: '#c8951b', shape: 'block' },   // 변칙 — 디지털 글리치
+    generic: { col: '#ff8a5c', spark: '#ffd34d', ring: '#ffd34d', shape: 'dot' },     // 무색 — 정제 기본
+    mixed: { col: '#b07fe0', spark: '#e0c8ff', ring: '#8a6fb0', shape: 'crystal' }     // 혼합 — 프리즘
+  };
+  function fxClass(cls) { return FX_CLASS[cls] || FX_CLASS.generic; }
+  // 저사양·접근성: 화려한 신규 프리미티브(참격선·글리치·별폭발·빔·잔광)를 생략. 숫자·기본 플래시는 유지.
+  var REDUCE = false;
+  try { REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
   // RUNTIME WEATHER — 게임마다 1종 지정(engine G.weather). 발동 턴 문구는 엔진 상수(8ply·4ply주기)와 일치.
   var WEATHER_INFO = {
     clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '특이 효과 없음 — 표준 런타임.' },
@@ -610,6 +623,69 @@
       anim(p, [{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px)) scale(.2)', opacity: 0 }], { duration: 380 + Math.random() * 260, easing: 'cubic-bezier(.2,.6,.3,1)' });
     })();
   }
+  // 클래스별 파편 버스트 — shape 로 모양 분기(dot=원형·shard=길쭉·crystal=마름모·block=사각).
+  function shardsShaped(rect, color, shape, n, power) {
+    if (!rect) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    for (var i = 0; i < n; i++) (function () {
+      var sz = 3 + Math.random() * 4 * power;
+      var css = { position: 'fixed', left: cx + 'px', top: cy + 'px', width: sz + 'px', height: sz + 'px', background: color, zIndex: 90, boxShadow: '0 0 6px ' + color };
+      if (shape === 'block') { css.borderRadius = '0'; }
+      else if (shape === 'shard') { css.width = (sz * 0.42) + 'px'; css.height = (sz * 2.1) + 'px'; css.borderRadius = '1px'; }
+      else if (shape === 'crystal') { css.borderRadius = '0'; }
+      else { css.borderRadius = '50%'; }
+      var p = el('div', { style: css }); fxLayer().appendChild(p);
+      var ang = Math.random() * Math.PI * 2, dist = (28 + Math.random() * 42) * power, dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist;
+      var rot = shape === 'shard' ? (ang * 180 / Math.PI + 90) : (shape === 'crystal' ? 45 : Math.random() * 180);
+      var rot2 = rot + (shape === 'block' ? 130 : 40);
+      anim(p, [{ transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) scale(1)', opacity: 1 }, { transform: 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px)) rotate(' + rot2 + 'deg) scale(.2)', opacity: 0 }], { duration: 380 + Math.random() * 260, easing: 'cubic-bezier(.2,.6,.3,1)' });
+    })();
+  }
+  // thread 근접 참격선 — 데미지 tier(1~3)만큼 교차 슬래시.
+  function slashStreak(rect, color, tier) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    var count = tier >= 3 ? 3 : tier >= 2 ? 2 : 1, len = rect.width * 1.7;
+    for (var i = 0; i < count; i++) (function (i) {
+      var ang = (-38 + i * 34 + (Math.random() * 10 - 5));
+      var n = el('div', { style: { position: 'fixed', left: cx + 'px', top: cy + 'px', width: len + 'px', height: '3px', background: 'linear-gradient(90deg,transparent,' + color + ',transparent)', transformOrigin: 'center', zIndex: 91, boxShadow: '0 0 8px ' + color, borderRadius: '2px' } });
+      fxLayer().appendChild(n);
+      var base = 'translate(-50%,-50%) rotate(' + ang + 'deg)';
+      anim(n, [{ transform: base + ' scaleX(0)', opacity: 0 }, { transform: base + ' scaleX(1)', opacity: 1, offset: .3 }, { transform: base + ' scaleX(1)', opacity: 0 }], { duration: 250 + i * 40, easing: 'ease-out' });
+    })(i);
+  }
+  // process 디지털 글리치 — RGB 스플릿 사각 + 스텝 지터.
+  function glitchTint(rect, color) {
+    if (!rect || REDUCE) return;
+    ['#00e5ff', '#ff2fb0'].forEach(function (c, i) {
+      var off = i ? 5 : -5;
+      var n = el('div', { style: { position: 'fixed', left: (rect.left + off) + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px', background: c, mixBlendMode: 'screen', opacity: '.5', zIndex: 89, borderRadius: '3px' } });
+      fxLayer().appendChild(n);
+      anim(n, [{ opacity: .5, transform: 'translateX(0)' }, { opacity: .42, transform: 'translateX(' + (off * 2) + 'px)', offset: .4 }, { opacity: 0, transform: 'translateX(0)' }], { duration: 230, easing: 'steps(3)' });
+    });
+  }
+  // 고데미지 별폭발 — tier3 강타 순간의 방사형 스타버스트.
+  function impactStar(rect, color) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    var n = el('div', { style: { position: 'fixed', left: cx + 'px', top: cy + 'px', width: '82px', height: '82px', background: color, clipPath: 'polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%)', zIndex: 90, opacity: '.92', filter: 'blur(.4px)' } });
+    fxLayer().appendChild(n);
+    anim(n, [{ transform: 'translate(-50%,-50%) scale(.2) rotate(0deg)', opacity: .95 }, { transform: 'translate(-50%,-50%) scale(1.1) rotate(18deg)', opacity: .9, offset: .3 }, { transform: 'translate(-50%,-50%) scale(1.55) rotate(32deg)', opacity: 0 }], { duration: 420, easing: 'cubic-bezier(.2,.7,.3,1)' });
+  }
+  // 사거리(원거리·함수범위) 낙하 빔 — 대상 위에서 내리꽂히는 광선(근접과 시각 구분).
+  function beamIn(rect, color) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    var n = el('div', { style: { position: 'fixed', left: cx + 'px', top: (cy - 168) + 'px', width: '4px', height: '168px', background: 'linear-gradient(180deg,transparent,' + color + ')', transformOrigin: 'bottom', zIndex: 89, boxShadow: '0 0 12px ' + color } });
+    fxLayer().appendChild(n);
+    anim(n, [{ transform: 'translate(-50%,-40px) scaleY(.3)', opacity: 0 }, { transform: 'translate(-50%,0) scaleY(1)', opacity: 1, offset: .4 }, { transform: 'translate(-50%,0) scaleY(1)', opacity: 0 }], { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)' });
+  }
+  // 근접 돌진 경로 잔광 — 공격 유닛→대상 60% 지점까지 색 궤적.
+  function attackTrail(fromKey, toKey, color) {
+    if (REDUCE) return; var fr = rectOf(fromKey), tr = rectOf(toKey); if (!fr || !tr) return;
+    var fcx = fr.left + fr.width / 2, fcy = fr.top + fr.height / 2, tcx = tr.left + tr.width / 2, tcy = tr.top + tr.height / 2;
+    var dx = tcx - fcx, dy = tcy - fcy, len = Math.sqrt(dx * dx + dy * dy) * 0.6, ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    var n = el('div', { style: { position: 'fixed', left: fcx + 'px', top: fcy + 'px', width: len + 'px', height: '6px', background: 'linear-gradient(90deg,transparent,' + color + ')', transformOrigin: 'left center', zIndex: 90, opacity: '.8', boxShadow: '0 0 10px ' + color, borderRadius: '3px' } });
+    fxLayer().appendChild(n);
+    var base = 'translate(0,-50%) rotate(' + ang + 'deg)';
+    anim(n, [{ transform: base + ' scaleX(0)', opacity: .85 }, { transform: base + ' scaleX(1)', opacity: .6, offset: .5 }, { transform: base + ' scaleX(1)', opacity: 0 }], { duration: 300, easing: 'ease-out' });
+  }
   function punchNum(rect, txt, size, color) {
     if (!rect) return; var n = el('div', { class: 'grot', style: { position: 'fixed', left: (rect.left + rect.width / 2) + 'px', top: (rect.top + rect.height / 2) + 'px', transform: 'translate(-50%,-50%)', color: color, fontWeight: 800, fontSize: size + 'px', letterSpacing: '.02em', textShadow: '0 0 3px #000,0 2px 0 #000,2px 0 0 #000,-2px 0 0 #000,0 -2px 0 #000,2px 2px 0 #000,-2px 2px 0 #000', zIndex: 92, whiteSpace: 'nowrap' } }, [txt]);
     fxLayer().appendChild(n); anim(n, [{ transform: 'translate(-50%,-50%) scale(.2)', opacity: 0 }, { transform: 'translate(-50%,-65%) scale(1.45)', opacity: 1, offset: .18 }, { transform: 'translate(-50%,-80%) scale(1)', opacity: 1, offset: .42 }, { transform: 'translate(-50%,-150%) scale(.95)', opacity: 0 }], { duration: 1000, easing: 'cubic-bezier(.2,.7,.3,1)' });
@@ -700,25 +776,40 @@
     var a = anim(tag, [{ opacity: 0, transform: 'translateX(-50%) translateY(6px)' }, { opacity: 1, transform: 'translateX(-50%) translateY(0)', offset: 0.25 }, { opacity: 1, offset: 0.7 }, { opacity: 0, transform: 'translateX(-50%) translateY(-6px)' }], { duration: 900, easing: 'ease-out' });
     if (a && 'onfinish' in a) a.onfinish = rm; else setTimeout(rm, 950);
   }
-  // 피해 명중 순간 = 모든 연출을 한 번에 (타격감)
-  function doImpact(key, amount, isBody) {
-    var rect = rectOf(key), heavy = isBody || amount >= 5, power = isBody ? 2 : Math.min(2, 0.7 + amount * 0.18);
+  // 피해 명중 순간 = 모든 연출을 한 번에 (타격감). opts={atkCls,via} 로 클래스·사거리별 시그니처 분기.
+  function doImpact(key, amount, isBody, opts) {
+    opts = opts || {};
+    var f = fxClass(opts.atkCls), via = opts.via || 'basic';
+    var rect = rectOf(key), heavy = isBody || amount >= 5, power = isBody ? 2 : Math.min(2.2, 0.7 + amount * 0.18);
+    var tier = isBody ? 3 : (amount >= 7 ? 3 : amount >= 4 ? 2 : 1);   // 데미지 단계
+    var cls = opts.atkCls || 'generic';
     if (rect) {
-      flashTile(rect, isBody ? 'rgba(255,140,100,.95)' : 'rgba(255,255,255,.9)', heavy ? 200 : 150);
-      shockwave(rect, isBody ? '#ff5a3c' : '#ffd34d', heavy ? 1.6 : 1);
-      shards(rect, isBody ? '#ff7a4c' : (amount >= 5 ? '#ffd34d' : '#d8472b'), heavy ? 16 : Math.max(6, amount * 3), power);
+      flashTile(rect, isBody ? 'rgba(255,140,100,.95)' : hexa(f.col, .9), heavy ? 200 : 150);
+      shockwave(rect, isBody ? '#ff5a3c' : f.ring, heavy ? 1.6 : 1);
+      shardsShaped(rect, isBody ? '#ff7a4c' : f.spark, isBody ? 'dot' : f.shape, heavy ? 16 : Math.max(6, amount * 3), power);
+      // 클래스 시그니처
+      if (!isBody && cls === 'thread' && via === 'basic') slashStreak(rect, f.col, tier);
+      else if (!isBody && cls === 'memory') ringFx(rect, f.ring);
+      else if (!isBody && cls === 'process') glitchTint(rect, f.spark);
+      // 사거리(원거리·함수범위) 강조 — 근접이 아닌 능력/포인터 피해엔 낙하 빔
+      if (via === 'ability') beamIn(rect, f.ring);
       squashTile(key);
+      if (tier >= 3) impactStar(rect, isBody ? '#ff5a3c' : f.col);   // 강타 별폭발
       var sz = isBody ? 42 : (amount >= 7 ? 36 : amount >= 4 ? 30 : 23);
-      punchNum(rect, '−' + amount, sz, isBody ? '#ff5a3c' : (amount >= 5 ? '#ffe14d' : '#ff8a5c'));
+      punchNum(rect, '−' + amount, sz, isBody ? '#ff5a3c' : (amount >= 5 ? f.spark : f.col));
     }
-    if (isBody) Sound.bodyhit(); else if (amount >= 6) Sound.crit(); else Sound.hit();
+    // 효과음 — 클래스별 타격음(폴백=기존). 본체·크리티컬은 기존 강조음 유지.
+    if (isBody) Sound.bodyhit();
+    else if (amount >= 6) { (Sound.crit || function () {})(); }
+    else { var sf = Sound['hit' + (cls.charAt(0).toUpperCase() + cls.slice(1))]; (sf || Sound.hit)(); }
     screenShake(heavy ? 2 : 1); hitstop(heavy ? 70 : 42);
   }
   function handleFx(ev) {
     if (!ev) return;
     if (ev.type === 'damage') {
       var d = impactDelay; impactDelay = 0; var bodyHit = isBodyKey(ev.key), key = ev.key, amt = ev.amount;
-      setTimeout(function () { doImpact(key, amt, bodyHit); }, d);
+      var op = { atkCls: ev.atkCls, via: ev.via };
+      setTimeout(function () { doImpact(key, amt, bodyHit, op); }, d);
       scheduleFxClear();
       if (ev.fatigue) {
         fatigueFx(key, amt);
@@ -728,7 +819,7 @@
       }
     }
     else if (ev.type === 'heal') { floatNum(rectOf(ev.key), '+' + ev.amount, '#3c8a66'); ringFx(rectOf(ev.key), '#3c8a66'); Sound.heal(); pushFeed({ actor: G.board[ev.key] ? G.board[ev.key].owner : undefined, icon: '＋', kind: 'heal', card: cardAtId(ev.key), text: labelAt(ev.key) + ' +' + ev.amount + ' 회복' }); }
-    else if (ev.type === 'attack') { setImpactDelay(180); lungeClone(ev.from, ev.to); Sound.whoosh(); }
+    else if (ev.type === 'attack') { setImpactDelay(180); lungeClone(ev.from, ev.to); attackTrail(ev.from, ev.to, fxClass(ev.cls).col); Sound.whoosh(); }
     else if (ev.type === 'weather') { weatherTickFx(ev.weather); }
     else if (ev.type === 'cast') { if (ev.player === HUMAN && pendingPlay) { cardFly(pendingPlay.rect, ev.targetKey || bodyKey(ev.player), CLS[(CARDS[ev.cardId] || {}).cls] || CLS.generic, cardNm(ev.cardId)); pendingPlay = null; } if (ev.player !== HUMAN) revealCard(ev.cardId, ev.player); var tr = ev.targetKey ? rectOf(ev.targetKey) : null; if (tr) { setImpactDelay(185); orb(rectOf(bodyKey(ev.player)), tr, '#3f7bd6', 185); ringFx(tr, '#2456a6'); } Sound.cast(); setActionToast(ev.player, '◆ ' + cardNm(ev.cardId) + ' 시전'); pushFeed({ actor: ev.player, icon: '◆', kind: 'cast', card: ev.cardId, text: cardNm(ev.cardId) + ' 시전' + (ev.targetKey ? ' → ' + labelAt(ev.targetKey) : '') }); }
     else if (ev.type === 'move') { var u = G.board[ev.to]; travel(rectOf(ev.from), rectOf(ev.to), GLY[(u && cardCls(u)) || 'generic'] || '◆', '#1d1d24', 16); Sound.move(); }
@@ -1096,6 +1187,7 @@
     if (!G) {
       if (UI.isAuthActive && UI.isAuthActive()) { UI.redrawAuth(); return; }
       if (UI.isMatchmakingActive && UI.isMatchmakingActive()) { UI.redrawMatchmaking(); return; }
+      if (UI.isLeaderboardActive && UI.isLeaderboardActive()) { UI.redrawLeaderboard(); return; }
       if (UI.isLobbyActive && UI.isLobbyActive()) { UI.redrawLobby(); return; }
       if (UI.isBuilderActive && UI.isBuilderActive()) UI.renderDeckBuilder(); else UI.renderTitle(); return;
     }
@@ -1914,7 +2006,7 @@
     var card = CARDS[id], isP = card.kind === 'pointer';
     var playable = mode === 'play' ? (isP ? G.canCast(HUMAN, id) : G.canDeclare(HUMAN, id)) : false;
     var seld = (mode === 'play' && sel && sel.type === 'hand' && sel.i === i) || (ptr && ptr.i === i);
-    var W = 94, H = 124, cl = CLS[card.cls] || CLS.generic;
+    var W = 100, H = 152, cl = CLS[card.cls] || CLS.generic;
     var st = Object.assign({ position: 'relative', width: W + 'px', height: H + 'px', display: 'flex', flexDirection: 'column', background: SKIN.face, padding: '1px', cursor: mode === 'idle' ? 'default' : 'pointer', overflow: 'hidden', flex: 'none', boxShadow: '0 2px 5px rgba(0,0,0,.4)', touchAction: 'pan-x', transition: 'transform .08s ease' }, raisedBev());
     if (playable && !seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
     if (seld) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + SKIN.faceLo; st.transform = 'translateY(-6px)'; }
@@ -1926,15 +2018,19 @@
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
     // 아트가 가운데 빈 공간을 채우도록 flex:1 (카드가 알차게 보이게)
-    var art = el('div', { style: Object.assign({ position: 'relative', flex: '1 1 auto', minHeight: '22px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
-      el('span', { style: { fontSize: 'clamp(38px,15vw,60px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic]),
+    var art = el('div', { style: Object.assign({ position: 'relative', flex: '1 1 auto', minHeight: '18px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
+      el('span', { style: { fontSize: 'clamp(30px,12vw,50px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic]),
       artLayer(card)
     ]);
+    // 효과 요약 — 롱프레스 없이 손패에서 바로 효과 인지(모바일 P5). 넘치면 fitHand 가 폰트 자동 축소.
+    var effTxt = effectOnly(card.text);
+    var effEl = effTxt ? el('div', { 'data-fit': '1', 'data-fit-fs': 7.5, style: { flex: 'none', margin: '0 2px 1px', padding: '2px 3px', fontSize: '7.5px', lineHeight: 1.26, color: SKIN.effTxt, background: SKIN.effBg, height: '28px', overflow: 'hidden', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, richText(effTxt)) : null;
     return el('button', props, [
       // 상단(타이틀바)을 키우고 이름 줄바꿈 허용 → 전체 이름이 한번에 보이게
       winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '3px 4px', wrap: true, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : null }),
       art,
-      isP ? el('div', { class: 'mono', style: { flex: 'none', textAlign: 'center', fontSize: '9px', fontWeight: 700, color: '#d8472b', background: SKIN.effBg, padding: '3px 0', margin: '0 2px 2px', whiteSpace: 'nowrap', overflow: 'hidden' } }, ['◆ 드래그 시전'])
+      effEl,
+      isP ? el('div', { class: 'mono', style: { flex: 'none', textAlign: 'center', fontSize: '9px', fontWeight: 700, color: '#d8472b', background: SKIN.effBg, padding: '2px 0', margin: '0 2px 2px', whiteSpace: 'nowrap', overflow: 'hidden' } }, ['◆ 드래그 시전'])
           : statusStrip(card.atk, card.hp, card.hp, { atkW: 32, fs: 13, icoPx: 11, margin: '0 2px 2px' })
     ]);
   }

@@ -288,7 +288,7 @@
     var tkey = target.type === 'body' ? bodyKey(target.owner) : unitKey(this, target);
     if (amt > 0) {
       var at = source && source.attacker;
-      this.fx({ type: 'damage', key: tkey, amount: amt, srcOwner: at ? at.owner : undefined, srcCard: at && at.cardId ? at.cardId : (at ? this._castCard : undefined) });
+      this.fx({ type: 'damage', key: tkey, amount: amt, srcOwner: at ? at.owner : undefined, srcCard: at && at.cardId ? at.cardId : (at ? this._castCard : undefined), atkCls: at ? cardCls(at) : undefined, via: (source && source.via) ? source.via : (at ? 'ability' : 'system') });
     }
     if (target.type === 'body') {
       this.note('본체 피해 ' + amt + ' → P' + target.owner + ' (HP ' + this.curHp(target) + ')');
@@ -665,9 +665,9 @@
     this.note(CARDS[u.cardId].name + ' 공격 → ' + (t.type === 'body' ? '본체' : CARDS[t.cardId].name) + ' (' + dmg + ')');
     // 첫 공격이면 attackedTurn 소비, 이미 공격했으면 보너스 1 소비
     if (u.attackedTurn === this.turnNo && this.hasBonusAttack(u)) u.bonusAtk--; else u.attackedTurn = this.turnNo;
-    this.fx({ type: 'attack', from: unitKey(this, u), to: targetKey });
+    this.fx({ type: 'attack', from: unitKey(this, u), to: targetKey, cls: cardCls(u), dmg: dmg, via: 'basic' });
     this.beginResolve();
-    this.deal(t, dmg, { attacker: u });
+    this.deal(t, dmg, { attacker: u, via: 'basic' });
     this.endResolve();
     this.emit();
     return true;

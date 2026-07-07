@@ -28,6 +28,10 @@
       isOn: function () { return enabled; },
       toggle: function () { enabled = !enabled; if (enabled) resume(); return enabled; },
       hit: guard(function () { tone({ f: 210, f2: 70, type: 'sawtooth', a: 0.004, d: 0.14, peak: 0.32 }); noise({ d: 0.1, freq: 900, peak: 0.22, filter: 'lowpass', q: 0.7 }); }),
+      // 클래스별 타격음 — thread=금속 참격(고역 슬래시), memory=유리질(밝은 링), process=디지털 잽(스퀘어 하강)
+      hitThread: guard(function () { tone({ f: 320, f2: 90, type: 'sawtooth', a: 0.003, d: 0.12, peak: 0.28 }); noise({ d: 0.11, freq: 2600, peak: 0.2, filter: 'highpass', q: 0.8, curve: 1.4 }); }),
+      hitMemory: guard(function () { tone({ f: 180, f2: 60, type: 'triangle', a: 0.004, d: 0.13, peak: 0.24 }); tone({ f: 1560, type: 'triangle', a: 0.003, d: 0.1, peak: 0.12, delay: 0.02 }); noise({ d: 0.09, freq: 3200, peak: 0.12, filter: 'bandpass', q: 3 }); }),
+      hitProcess: guard(function () { tone({ f: 620, f2: 120, type: 'square', a: 0.003, d: 0.1, peak: 0.22 }); tone({ f: 240, f2: 80, type: 'square', a: 0.003, d: 0.12, peak: 0.16, delay: 0.02 }); noise({ d: 0.07, freq: 1500, peak: 0.16, filter: 'bandpass', q: 1.4 }); }),
       bodyhit: guard(function () { tone({ f: 130, f2: 42, type: 'sawtooth', a: 0.004, d: 0.26, peak: 0.4 }); tone({ f: 62, f2: 38, type: 'sine', a: 0.005, d: 0.3, peak: 0.34 }); noise({ d: 0.18, freq: 600, peak: 0.3, filter: 'lowpass', q: 0.6 }); }),
       cast: guard(function () { tone({ f: 480, f2: 1180, type: 'sawtooth', a: 0.01, d: 0.2, peak: 0.16, detune: 6 }); tone({ f: 484, f2: 1190, type: 'sawtooth', a: 0.01, d: 0.2, peak: 0.16, detune: -6 }); tone({ f: 1600, f2: 2600, type: 'triangle', a: 0.005, d: 0.16, peak: 0.1, delay: 0.04 }); }),
       attack: guard(function () { tone({ f: 760, f2: 180, type: 'square', a: 0.004, d: 0.12, peak: 0.2 }); noise({ d: 0.08, freq: 1700, peak: 0.14 }); }),

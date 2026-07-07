@@ -493,7 +493,16 @@
       },
       style: { flex: '1 1 160px', fontSize: '14px', textAlign: 'center', opacity: on ? '1' : '.5', cursor: on ? 'pointer' : 'default' },
     }, ['🔒 커스텀 매치']);
-    return el('div', { style: { display: 'flex', gap: '9px', flexWrap: 'wrap', marginTop: '2px' } }, [mk, cs]);
+    // 리더보드 — 백엔드 미설정이어도 진입 가능(오프라인 안내 표시). 항상 활성.
+    var lb = el('button', {
+      class: 'crt-btn ghost',
+      onclick: function () {
+        if (UI.Sound) UI.Sound.ui();
+        if (UI.renderLeaderboard) goTo(UI.renderLeaderboard);
+      },
+      style: { flex: '1 1 160px', fontSize: '14px', textAlign: 'center' },
+    }, ['🏆 리더보드']);
+    return el('div', { style: { display: 'flex', gap: '9px', flexWrap: 'wrap', marginTop: '2px' } }, [mk, cs, lb]);
   }
 
   // ─────────────────────────────────────────── 채팅 사이드 패널
