@@ -274,7 +274,7 @@
     var bg = CLS[card.cls] || CLS.generic, kids = [];
     if (o.led != null) kids.push(ledDot(o.led, o.ledPx));
     if (o.icon !== false) kids.push(appIcon(card, o.iconPx));
-    var nameSt = { flex: 1, minWidth: 0, fontSize: (o.nameFs || 9) + 'px', fontWeight: 600, color: '#fff', letterSpacing: '.02em' };
+    var nameSt = { flex: 1, minWidth: 0, fontSize: (o.nameFs || 9) + 'px', fontWeight: 700, color: '#fff', letterSpacing: '.02em' };
     if (o.wrap) { nameSt.whiteSpace = 'normal'; nameSt.lineHeight = 1.05; nameSt.wordBreak = 'break-word'; } // 전체 이름 표시(줄바꿈 허용)
     else { nameSt.whiteSpace = 'nowrap'; nameSt.overflow = 'hidden'; nameSt.textOverflow = 'ellipsis'; }
     kids.push(el('span', { class: 'mono', style: nameSt }, [o.name != null ? o.name : card.name]));
@@ -338,7 +338,7 @@
     if (COMPACT) {
       return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
         el('span', { class: 'mono', style: { display: 'inline-block', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em', marginBottom: '2px' } }, [spec.label]),
-        el('div', { style: { fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+        el('div', { style: { fontWeight: 500, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
       ]);
     }
     // 데스크톱: 선언조건 태그(✓+라벨칩)를 float:left → 조건문이 태그 옆에서 이어지고, 길어지면 태그 밑에서부터 카드 전체 폭으로 이어져 꽉 채워진다. 조건문 텍스트는 중앙 정렬(태그는 float 라 좌측 고정). 라벨칩만 굵게, 본문은 일반 굵기.
@@ -347,7 +347,7 @@
         el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
         el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
       ]),
-      el('span', { style: { fontWeight: 400, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
+      el('span', { style: { fontWeight: 500, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
       el('div', { style: { clear: 'both' } })
     ]);
   }
@@ -565,14 +565,15 @@
         if (isMode) style = { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
         else if (DMG_TRIGGER[m]) style = Object.assign({}, chip, { background: '#c8791f' });        // 피격 시/후 = 앰버칩
         else if (ATTACK_KW[m]) style = { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 };
-        else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 600 };
+        else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 700 };
         nodes.push(el('span', { 'data-kwchip': '1', style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip, onclick: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]) }, [label]));
         i += m.length;
       } else { buf += text[i]; i++; }
     }
     flush();
     // keep-all 래퍼: 효과문이 렌더되는 모든 곳(손패·보드·툴팁·미리보기)에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
-    return [el('span', { style: { wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
+    // fontWeight 500: CRT 필터 + 축소 폰트에서 본문 가독성 확보(전체 카드 굵기 상향). 키워드 칩은 자체 700 유지.
+    return [el('span', { style: { fontWeight: 500, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
   }
 
   // ---- animation / fx layer (event-driven; overlays survive full re-renders)
