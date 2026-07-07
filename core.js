@@ -388,7 +388,9 @@
   // 뷰포트 위에 덮는 일러스트 이미지 레이어(글리프를 가림). 로드 실패 시 스스로 제거 → 글리프 폴백 노출.
   function artLayer(card) {
     var a = cardArt(card); if (!a) return null;
-    return el('img', { src: a.src, alt: '', style: { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: a.fit, objectPosition: a.pos, display: 'block' }, onerror: function () { if (this.parentNode) this.parentNode.removeChild(this); } });
+    var ist = { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: a.fit, objectPosition: a.pos, display: 'block' };
+    if (a.fit === 'contain') ist.background = '#000'; // 전체맞춤 시 일러스트 밖 여백을 검은색으로
+    return el('img', { src: a.src, alt: '', style: ist, onerror: function () { if (this.parentNode) this.parentNode.removeChild(this); } });
   }
   // 뷰포트 = 콘텐츠 영역(일러스트). 일러스트 있으면 이미지, 없으면 클래스 틴트 글리프.
   function viewportBox(card, hgt, opts) {
