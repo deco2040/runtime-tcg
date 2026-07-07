@@ -424,18 +424,20 @@
         backBtn(p),
       ]));
     } else {
-      // search
-      b.appendChild(el('div', { style: { fontSize: '15px', color: p.amb, fontWeight: 700, margin: '10px 0 4px' } }, [
-        (status || '상대를 찾는 중…'),
-        el('span', { class: 'crt-cursor' }),
-      ]));
-      b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, marginBottom: '18px' } }, [
-        '내 덱 ▸ ',
-        el('b', { style: { color: p.hi } }, [myDeckKey() || '(없음)']),
-        ' · 상대가 들어오면 자동으로 매칭됩니다.',
-      ]));
-      b.appendChild(navRow(p, [
-        el('button', { class: 'crt-btn ghost', onclick: leave, style: { fontSize: '13px' } }, ['취소']),
+      // search — 상대 대기 화면(디자인 중앙 정렬, #1)
+      b.appendChild(el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 0 8px' } }, [
+        el('div', { style: { fontSize: '15px', color: p.amb, fontWeight: 700, margin: '10px 0 4px' } }, [
+          (status || '상대를 찾는 중…'),
+          el('span', { class: 'crt-cursor' }),
+        ]),
+        el('div', { style: { fontSize: '12px', color: p.dim, marginBottom: '18px', maxWidth: '360px', lineHeight: 1.6 } }, [
+          '내 덱 ▸ ',
+          el('b', { style: { color: p.hi } }, [myDeckKey() || '(없음)']),
+          ' · 상대가 들어오면 자동으로 매칭됩니다.',
+        ]),
+        el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
+          el('button', { class: 'crt-btn ghost', onclick: leave, style: { fontSize: '13px' } }, ['취소']),
+        ]),
       ]));
     }
 

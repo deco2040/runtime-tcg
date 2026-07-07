@@ -144,6 +144,8 @@
     // 새로 그린 스크롤 영역에 이전 스크롤 위치 복원
     var np = document.getElementById('db-pool'); if (np) np.scrollTop = _scrollPool;
     var nd = document.getElementById('db-decklist'); if (nd) nd.scrollTop = _scrollDeck;
+    // 카드풀 긴 효과문(Singleton 등) 데스크톱 잘림 방지 — 인게임 손패와 동일하게 넘치면 폰트 자동 축소.
+    if (UI.fitCards) requestAnimationFrame(function () { try { UI.fitCards(); } catch (e) {} });
   }
 
   function crtLabel(t) { return el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', letterSpacing: '.1em', color: AMB, margin: '2px 0 9px', textShadow: 'none' } }, [t]); }
@@ -232,7 +234,7 @@
   }
 
   // 카드 풀 타일 — 인게임 손패 카드 모습 그대로 + 보유수량 배지 + 추가/제거 컨트롤 스트립.
-  // 카드 클릭 = 1장 추가, 스트립의 − = 1장 제거. 유니크(덱당1)는 카드 타이틀바 금박 젬으로 표시됨.
+  // 카드 클릭 = 1장 추가, 스트립의 − = 1장 제거. OP 카드(덱당 1장 제한)는 카드 타이틀바 금박 젬으로 표시됨.
   function poolTile(id, dark) {
     var c = CARDS[id], cl = CLS[c.cls] || CLS.generic, cnt = bCount(id), lim = bLimit(id);
     var full = cnt >= lim || bDeck.list.length >= 30;
@@ -248,7 +250,7 @@
     if (cnt > 0) faceBox.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '23px', textAlign: 'center', fontSize: '13px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '12px', padding: '2px 7px', boxShadow: '0 1px 5px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + cnt]));
     // 모바일 미니는 효과문이 안 보이므로 🔍 로 큰 카드 확인(탭=추가와 겹치지 않게 stopPropagation).
     if (mob) faceBox.appendChild(el('button', { title: '크게 보기', onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', top: '-7px', left: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
-    // 단일 클래스(◈) 배지는 카드 페이스 자체에 이미 표시되므로 중복 태그 생략(요청)
+    // 클래스 단일 카드(◈) 배지는 카드 페이스 자체에 이미 표시되므로 중복 태그 생략(요청)
 
     var strip = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', width: stripW + 'px', maxWidth: '100%' } }, [
       cnt > 0 ? el('button', { title: '1장 제거', onclick: function (e) { e.stopPropagation(); bRemove(id); }, class: 'grot', style: { fontSize: '13px', fontWeight: 700, lineHeight: 1, padding: '2px 9px', color: readTxt, background: 'transparent', border: '1.5px solid ' + (dark ? 'rgba(255,176,0,.6)' : 'rgba(29,29,36,.45)'), cursor: 'pointer', textShadow: 'none' } }, ['−']) : null,
@@ -271,8 +273,8 @@
     var lim = bLimit(id), oneOnly = lim === 1, singleNeed = c.deckRule ? String(c.deckRule).replace('Single', '') : null;
     var readTxt = dark ? '#f6e3ba' : '#1d1d24';
     var badges = [];
-    if (oneOnly) badges.push(poolBadge('① 1장', '#e0a11f', '#1d1d24'));
-    if (singleNeed) badges.push(poolBadge('◈ ' + singleNeed + ' 단일', CLS[singleNeed] || '#8a6fb0', '#fff'));
+    if (oneOnly) badges.push(poolBadge('OP 카드', '#e0a11f', '#1d1d24', '덱당 1장 제한'));
+    if (singleNeed) badges.push(poolBadge('◈ ' + singleNeed + ' 클래스 단일', CLS[singleNeed] || '#8a6fb0', '#fff'));
     var title = el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 8px', background: cl, color: '#fff', textShadow: 'none' } }, [
       el('span', { style: { fontSize: '14px', flex: 'none' } }, [isP ? '◆' : (GLY[c.cls] || GLY.generic)]),
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '14px', flex: 1, minWidth: 0 } }, [c.name]),
@@ -354,7 +356,7 @@
       var c = CARDS[id], cl = CLS[c.cls] || CLS.generic;
       var face = faceFor(id, true) || el('div', { class: 'grot', style: { width: '94px', minHeight: '64px', border: '1px solid ' + cl, color: readTxt, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', textAlign: 'center', fontSize: '10px', textShadow: 'none' } }, [c.name]);
       var w = el('div', {
-        onclick: function () { bRemove(id); }, title: c.name + ' · 클릭 시 1장 제거',
+        onclick: function () { bRemove(id); },
         onmouseenter: function () { showCardFace(id, w, dark); },
         onmouseleave: hideCardTip,
         style: { position: 'relative', display: 'inline-flex', cursor: 'pointer' }

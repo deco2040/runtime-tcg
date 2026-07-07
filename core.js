@@ -143,7 +143,7 @@
     (kids || []).forEach(function (c) { if (c == null || c === false) return; e.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c); });
     return e;
   }
-  function clear() { while (app.firstChild) app.removeChild(app.firstChild); }
+  function clear() { hideCardBig(); while (app.firstChild) app.removeChild(app.firstChild); }
   function flash(m) { toast = m; clearTimeout(toastT); toastT = setTimeout(function () { toast = null; render(); }, 1600); render(); }
   function titlebar(t) {
     return el('div', { class: 'titlebar' }, [el('span', { class: 'dot' }), el('span', { class: 't' }, [t]), el('span', { class: 'dot' })]);
@@ -263,10 +263,10 @@
   function ledDot(owner, sz) { return el('span', { style: { width: (sz || 8) + 'px', height: (sz || 8) + 'px', flex: 'none', borderRadius: '50%', background: OWNER_LED[owner], border: '1px solid rgba(0,0,0,.45)', boxShadow: '0 0 0 1px rgba(255,255,255,.6), 0 0 4px ' + hexa(OWNER_LED[owner], .9) } }); }
   // 앱아이콘 = 계열(무채색 글리프). 타이틀바 좌측.
   function appIcon(card, sz) { sz = sz || 13; return el('span', { title: '계열 ' + SERIES_LABEL[deriveSeries(card)], style: { width: sz + 'px', height: sz + 'px', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.28)' } }, [seriesIcon(card, Math.round(sz * 0.72), '#fff')]); }
-  // OP(덱당 N=유니크) 표식 = 타이틀바 우상단 입체 금색 젬 칩 ◆ (⚔옆칸 자리 활용). 솔리드 금색이라 어떤 클래스색 위에서도 확실히 튄다.
+  // OP 카드(덱당 N=덱당 1장 제한) 표식 = 타이틀바 우상단 입체 금색 젬 칩 ◆ (⚔옆칸 자리 활용). 솔리드 금색이라 어떤 클래스색 위에서도 확실히 튄다.
   function opBadge(px) {
     px = px || 14;
-    return el('span', { class: 'mono', title: '덱당 1장 — 유니크(제한) 카드', style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: px + 'px', height: px + 'px', color: '#3a2600', fontSize: Math.round(px * 0.68) + 'px', fontWeight: 900, lineHeight: 1, background: 'linear-gradient(180deg,#ffe7a0,' + SKIN.gold + ' 58%,#b9820f)', border: '1px solid rgba(0,0,0,.5)', borderRadius: '2px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.55)' } }, ['◆']);
+    return el('span', { class: 'mono', title: 'OP 카드 · 덱당 1장 제한', style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: px + 'px', height: px + 'px', color: '#3a2600', fontSize: Math.round(px * 0.68) + 'px', fontWeight: 900, lineHeight: 1, background: 'linear-gradient(180deg,#ffe7a0,' + SKIN.gold + ' 58%,#b9820f)', border: '1px solid rgba(0,0,0,.5)', borderRadius: '2px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.55)' } }, ['◆']);
   }
   // 타이틀바 = 클래스색 배경 + [LED?][앱아이콘?][이름][배지?][우측컨트롤 · OP젬?]. 적=빗금(비활성 창).
   function winTitlebar(card, o) {
@@ -348,7 +348,7 @@
       el('span', { style: { minWidth: 0, flex: 1, fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
     ]);
   }
-  // 단일 클래스 덱 전용 카드(deckRule) 표식 — 효과문에서 뗀 'XX 단일 덱' 정보를 클래스색 칩으로 별도 표시(구분용).
+  // 클래스 단일 카드(deckRule) 표식 — 효과문에서 뗀 'XX 단일 덱' 정보를 클래스색 칩으로 별도 표시(구분용).
   function deckRuleLabel(card) {
     if (!card || !card.deckRule) return null;
     var m = /^([a-z]+)Single$/.exec(card.deckRule);
@@ -358,8 +358,8 @@
     var cls = deckRuleLabel(card); if (!cls) return null;
     opts = opts || {};
     var cl = CLS[cls] || CLS.generic, gly = GLY[cls] || '';
-    return el('div', { class: 'mono', title: cls + ' 단일 클래스 덱에서만 넣을 수 있는 카드', style: { display: 'flex', alignItems: 'center', margin: opts.margin || '3px 2px 0', fontSize: (opts.fs || 8) + 'px', lineHeight: 1.3 } }, [
-      el('span', { style: { flex: 'none', fontWeight: 700, color: '#fff', background: cl, padding: '0 5px', borderRadius: '2px', letterSpacing: '.02em', border: '1px solid rgba(0,0,0,.3)' } }, [gly + ' ' + cls + ' 단일 덱'])
+    return el('div', { class: 'mono', title: cls + ' 클래스 단일 카드 · ' + cls + ' 단일 클래스 덱 전용', style: { display: 'flex', alignItems: 'center', margin: opts.margin || '3px 2px 0', fontSize: (opts.fs || 8) + 'px', lineHeight: 1.3 } }, [
+      el('span', { style: { flex: 'none', fontWeight: 700, color: '#fff', background: cl, padding: '0 5px', borderRadius: '2px', letterSpacing: '.02em', border: '1px solid rgba(0,0,0,.3)' } }, [gly + ' ' + cls + ' 클래스 단일'])
     ]);
   }
   // 사거리 그리드 = 뷰포트 우하단 코너 오버레이(이슈 5: 타이틀바 과밀 해소). 불투명 다크 박스 배킹 + 밝은 셀로
@@ -371,7 +371,7 @@
     if (spec.kind === 'grid' && (!spec.cells || !spec.cells.length)) return null;
     return el('div', { title: '사거리', style: { position: 'absolute', right: '2px', bottom: '2px', zIndex: 5, display: 'flex', alignItems: 'center', padding: '2px 3px', background: 'rgba(12,10,6,.92)', border: '1px solid rgba(255,255,255,.4)', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0,0,0,.7)' } }, [rangeCtrl(spec, 3.2, { opaque: true })]);
   }
-  // 유니크 카드 프레임 금색 악센트 — 상태 boxShadow 앞에 inset 링 + 내부 글로우를 덧대 항상 표시(젬과 함께 은은히 강조).
+  // OP 카드 프레임 금색 악센트 — 상태 boxShadow 앞에 inset 링 + 내부 글로우를 덧대 항상 표시(젬과 함께 은은히 강조).
   function goldFrame(card, shadow) {
     if (!card || !card.deckLimit) return shadow;
     return 'inset 0 0 0 2px ' + SKIN.gold + ', inset 0 0 7px ' + hexa(SKIN.gold, .55) + (shadow ? ', ' + shadow : '');
@@ -569,6 +569,25 @@
   var cardTip = null;
   function ensureCardTip() { if (!cardTip) { cardTip = el('div', { style: { position: 'fixed', zIndex: 120, width: '208px', background: SKIN.chassis, color: SKIN.txt, border: '1.5px solid ' + SKIN.ink, boxShadow: '4px 4px 0 rgba(0,0,0,.4)', display: 'none', pointerEvents: 'none', overflow: 'hidden' } }); document.body.appendChild(cardTip); } return cardTip; }
   function hideCardTip() { if (cardTip) cardTip.style.display = 'none'; }
+  // 덱트래커 호버(#4) — 작은 정보 팁 대신 실제 손패 카드 페이스(확대 일러 포함 풀 레이아웃)를 행 오른쪽에 크게 띄운다.
+  var _bigTip = null;
+  function ensureBigTip() { if (_bigTip) return _bigTip; _bigTip = el('div', { style: { position: 'fixed', zIndex: 99999, pointerEvents: 'none', display: 'none', left: '0', top: '0' } }); if (document.body) document.body.appendChild(_bigTip); return _bigTip; }
+  function fullFaceNode(id) { var sc = COMPACT; COMPACT = false; try { return handCardEl(id, 0, 'idle'); } catch (e) { return null; } finally { COMPACT = sc; } }
+  function hideCardBig() { if (_bigTip) _bigTip.style.display = 'none'; }
+  function showCardBig(rect, id) {
+    if (!id || !CARDS[id]) { hideCardBig(); return; }
+    var face = fullFaceNode(id); if (!face) { hideCardBig(); return; }
+    var t = ensureBigTip(); t.innerHTML = '';
+    var SC = 1.5, FW = 158, FH = 220, w = Math.round(FW * SC), h = Math.round(FH * SC);
+    var inner = el('div', { style: { transform: 'scale(' + SC + ')', transformOrigin: 'top left' } }, [face]);
+    var box = el('div', { style: { width: w + 'px', height: h + 'px', filter: 'drop-shadow(0 12px 30px rgba(0,0,0,.6))' } }, [inner]);
+    t.appendChild(box); t.style.display = 'block';
+    var vw = window.innerWidth || 1200, vh = window.innerHeight || 800, gap = 12;
+    var left = rect.right + gap; if (left + w > vw - 8) left = rect.left - w - gap; if (left < 8) left = 8;   // 기본은 행 오른쪽
+    var top = rect.top + rect.height / 2 - h / 2; if (top + h > vh - 8) top = vh - h - 8; if (top < 8) top = 8;
+    t.style.left = left + 'px'; t.style.top = top + 'px';
+    fitHand(box);   // 긴 효과문 잘림 방지(인게임 손패와 동일)
+  }
   function showCardTip(rect, id, unit) {
     if (!id || !CARDS[id]) { hideCardTip(); return; }
     var t = ensureCardTip(); t.innerHTML = ''; t.appendChild(cardTipContent(id, unit)); t.style.display = 'block';
@@ -594,7 +613,7 @@
         condLine(condSpec(card), { fs: 9, margin: '0 0 5px' }),
         deckRuleLine(card, { fs: 9, margin: '0 0 5px' }),
         isP ? null : el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, fontWeight: 700, marginBottom: '5px' } }, ['⚔ 기본 공격 · 옆칸 1칸']),
-        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ 덱당 ' + card.deckLimit + '장 — 유니크']) : null,
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ OP 카드 · 덱당 ' + card.deckLimit + '장']) : null,
         rangeGridEl(RT.cardRange(id), cl)
       ])
     ]);
@@ -1203,9 +1222,9 @@
   // =================================================================== MATCH
   // 렌더 후 보정: 효과문([data-fit])이 고정 높이 패널을 넘치면(=잘림) 폰트를 단계적으로 축소해 전문이 보이게 한다.
   // 카드 크기는 통일(이슈 3) 유지하면서, 유독 긴 소수 카드만 폰트를 줄여 '잘림 없음'을 보장(사용자 요구).
-  function fitHand() {
+  function fitHand(root) {
     try {
-      var nodes = app.querySelectorAll('[data-fit]');
+      var nodes = (root || app).querySelectorAll('[data-fit]');
       for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i], fs = parseFloat(n.getAttribute('data-fit-fs')) || parseFloat(n.style.fontSize) || 9.5, guard = 0;
         while (n.scrollHeight > n.clientHeight + 1 && fs > 6.5 && guard++ < 14) { fs -= 0.5; n.style.fontSize = fs + 'px'; }
@@ -1417,9 +1436,10 @@
 
     // 배경(블러 · 상호작용 차단) — 실제 게임 화면 레이아웃. 세로 중앙 정렬, 넘치면 크롭.
     // 딜 배출점(deckslot-HUMAN)·코인 기준(#board)이 여기 존재해 애니메이션 좌표가 실제 필드에 정확히 맞음.
-    var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', filter: 'blur(3px)', transform: 'scale(1.02)', pointerEvents: 'none' } });
+    // 상단 정렬·무스케일 + main 을 #app(max-width 1180·중앙) 과 동일 폭/위치로 복제 → 블러 배경이 실게임과 같은 비율·크기(#7).
+    var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden', filter: 'blur(3px)', transform: 'none', pointerEvents: 'none' } });
     // renderMatch 데스크톱 레이아웃과 정렬(gap 8px · 좌측 덱트래커 컬럼 포함 · left gap 2px) — 블러 배경이 실게임과 일치하도록.
-    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%' } });
+    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1180px', margin: '0 auto' } });
     var left = el('div', { style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl(false, deskBoardMaxW()));
@@ -1691,7 +1711,7 @@
     // 손패는 카드 내용(포인터·2줄 효과문)에 따라 가변 → 최악치로 잡아 어떤 패에서도 스크롤이 안 나게 한다.
     // 보드 외 세로 크롬(상단바+디스펜서2+손패+컨트롤+갭). 손패 헤드룸 제거(호버 확대는 fixed 승격) + 열/메인 갭 축소로
     // 이전(410)보다 더 낮춤 → 남는 세로를 전부 보드에 준다(데스크톱은 넘쳐도 클리핑 아닌 페이지 스크롤이라 안전).
-    var chrome = 380 + (tutorial ? 48 : 0);
+    var chrome = 398 + (tutorial ? 48 : 0);
     var boardH = Math.max(150, Math.min(600, vh - chrome)); // 세로가 남으면 최대 600px까지 보드로 채움(기존 512 상향), 좁으면 축소
     return Math.round(Math.min(760, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 760)
   }
@@ -1989,7 +2009,7 @@
     if (playable && !seld && !mullSel) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px #7BB528, 0 3px 7px rgba(0,0,0,.5)';
     if (seld || mullSel) { st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 4px ' + (mullSel ? '#c23c70' : SKIN.faceLo); st.transform = 'translateY(-6px)'; }
     if (mode === 'play' && !playable) st.opacity = .5;
-    st.boxShadow = goldFrame(card, st.boxShadow);   // 유니크(덱당 N) 카드 = 금색 inset 프레임(이슈 1)
+    st.boxShadow = goldFrame(card, st.boxShadow);   // OP 카드(덱당 N) = 금색 inset 프레임(이슈 1)
     // 드래그 중인 카드 = 손패에서 '빠져나간' 빈 슬롯(흐림+눌린 자국). 실제 카드는 고스트로 커서를 따라간다.
     if (mode === 'play' && drag && drag.moved && drag.i === i) { st.opacity = .2; st.transform = 'translateY(3px) scale(.96)'; st.boxShadow = 'inset 0 0 0 2px ' + hexa(SKIN.ink, .3); }
     var props = { style: st };
@@ -2057,7 +2077,7 @@
     if (mode === 'play' && !playable) st.opacity = .5;
     // 드래그 중인 카드는 손패에서 자리를 비운 것처럼 흐리게(하스스톤식 '집어든' 느낌)
     if (mode === 'play' && drag && drag.moved && drag.i === i) { st.opacity = .28; st.transform = 'translateY(2px)'; st.boxShadow = 'inset 0 0 0 2px ' + hexa(SKIN.ink, .3); }
-    st.boxShadow = goldFrame(card, st.boxShadow);   // 유니크(덱당 N) 금색 프레임(이슈 1)
+    st.boxShadow = goldFrame(card, st.boxShadow);   // OP 카드(덱당 N) 금색 프레임(이슈 1)
     var props = { style: st };
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
@@ -2282,8 +2302,8 @@
       var out = left <= 0;
       var row = el('div', {
         onclick: function () { pinned = { id: id }; refreshInspector(); if (Sound.ui) Sound.ui(); },
-        onmouseenter: function (e) { showCardTip(e.currentTarget.getBoundingClientRect(), id, null); },
-        onmouseleave: hideCardTip,
+        onmouseenter: function (e) { showCardBig(e.currentTarget.getBoundingClientRect(), id); },
+        onmouseleave: hideCardBig,
         title: c.name,
         style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 5px', cursor: 'pointer', borderLeft: '2px solid ' + cl, background: out ? 'transparent' : hexa(cl, 0.08), opacity: out ? 0.4 : 1, borderRadius: '2px' }
       }, [
@@ -2364,7 +2384,7 @@
         ]),
         (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.enemy, marginBottom: '7px' } }, ['피해 누적 ' + (mx - hp) + ' · 최대 ' + mx]) : null,
         (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.faint, marginBottom: '7px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
-        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ 덱당 ' + card.deckLimit + '장 — 유니크(제한)']) : null,
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ OP 카드 · 덱당 ' + card.deckLimit + '장 제한']) : null,
         el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(effectOnly(card.text))),
         (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '11.5px', color: SKIN.own, fontWeight: 700, marginBottom: '9px' } }, ['◆ 시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
         condLine(condSpec(card), { fs: 11.5, margin: '0 0 9px' }),
@@ -2947,6 +2967,8 @@
       catch (e) { return null; }
       finally { COMPACT = sc; G = sg; sel = ss; ptr = sp; }
     },
+    // 긴 효과문([data-fit]) 자동 축소 — 덱빌더 등 app 밖 렌더 후 잘림 방지용(root 생략 시 app 전체).
+    fitCards: function (root) { fitHand(root); },
     // 테마 토큰(SKIN) 스왑 — dev.html 라이트/다크 미리보기용. 재렌더는 호출측 책임.
     setTheme: function (mode) { UI.applyTheme(mode === 'dark' ? 'dark' : 'light'); },
     getTheme: function () { return UI.getTheme(); }

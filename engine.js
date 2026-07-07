@@ -531,7 +531,7 @@
     this.forUsesThisTurn = {};
     // draw: (config) 선공 1턴차 드로우 스킵 여부. everyone else draws.
     if (!(this._cfg.firstSkipDraw && p === this.firstPlayer && pl.turnsTaken === 1)) this.draw(p, 1);
-    // 후공 보정: 후공 첫 턴 시작 시 '동전'(overtime, 이번 턴 액션 +2) 1장 덱 외 지급(멀리건 후라 덱 미오염).
+    // 후공 보정: 후공 첫 턴 시작 시 '동전'(overtime, 이번 턴 액션 +3) 1장 덱 외 지급(멀리건 후라 덱 미오염).
     if (this._cfg.secondComp && p !== this.firstPlayer && pl.turnsTaken === 1 && pl.hand.length < 10) { pl.hand.push('overtime()'); this.fx({ type: 'draw', player: p, cardId: 'overtime()', overtime: true }); }
     this.note('— P' + p + ' 턴 시작 (turn ' + this.turnNo + ') —');
     // onTurnStart triggers (auto for When; For are user/AI-activated)
