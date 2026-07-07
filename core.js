@@ -334,6 +334,13 @@
     opts = opts || {};
     if (!spec) return null;
     var fs = opts.fs || 8, g = spec.label === '선언 조건' ? GLOSS['require'] : GLOSS['시전 조건'];
+    // 모바일 한정: ✓/⚠ 이모지 제거 + 라벨칩을 한 줄에 두고, 조건문을 그 아래에서 전체 폭으로 이어 채운다(좁은 카드 잘림 방지). 충족/미충족은 칩 배경색으로만 표시.
+    if (COMPACT) {
+      return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
+        el('span', { class: 'mono', style: { display: 'inline-block', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em', marginBottom: '2px' } }, [spec.label]),
+        el('div', { style: { fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+      ]);
+    }
     // 조건문은 여러 줄이어도 짤리지 않게 줄바꿈 허용(flex-start 정렬). 라벨칩만 굵게, 조건문 본문은 일반 굵기(피드백: 두꺼워 읽기 힘듦).
     return el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '3px', margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
       el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
