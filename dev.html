@@ -507,6 +507,7 @@
 
       // 인터랙티브 프레이밍 박스(데스크톱 뷰포트 비율) — 클릭=초점
       var fb = document.createElement('div'); fb.className = 'framebox';
+      if (e.fit === 'contain') fb.style.background = '#000';
       var fimg = document.createElement('img'); fimg.src = dispSrc(e.src); fimg.style.objectFit = e.fit; fimg.style.objectPosition = e.pos;
       var focus = document.createElement('div'); focus.className = 'focus';
       var pm = /(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/.exec(e.pos) || [0,50,50];
@@ -599,7 +600,7 @@
       var box = document.createElement('div'); box.className = 'crop';
       var b = document.createElement('div'); b.className = 'box'; b.style.width = spec[1] + 'px'; b.style.height = spec[2] + 'px';
       b.innerHTML = '<div class="gly" style="color:' + col + '">' + (GLY[c.cls] || GLY.generic) + '</div>';
-      if (e) { var im = document.createElement('img'); im.src = dispSrc(e.src); im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); b.classList.add('broken'); }; b.appendChild(im); }
+      if (e) { if (e.fit === 'contain') b.style.background = '#000'; var im = document.createElement('img'); im.src = dispSrc(e.src); im.style.objectFit = e.fit; im.style.objectPosition = e.pos; im.onerror = function () { im.remove(); b.classList.add('broken'); }; b.appendChild(im); }
       box.appendChild(b);
       var cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = spec[0];
       box.appendChild(cap); wrap.appendChild(box);
