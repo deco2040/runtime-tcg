@@ -199,7 +199,7 @@
   };
   function unitKey(G, u) { var b = G.board; for (var k in b) if (b.hasOwnProperty(k) && b[k] === u) return k; return null; }
   // 분신은 생성한 카드의 클래스를 상속(clsOverride). tokenRules D1=A안.
-  function cardCls(u) { return u.clsOverride || CARDS[u.cardId].cls; }
+  function cardCls(u) { return u ? (u.clsOverride || (CARDS[u.cardId] ? CARDS[u.cardId].cls : undefined)) : undefined; }
 
   // ---- aura/deck flags
   Game.prototype.hivemindActive = function (owner) { return this.boardUnits().some(function (x) { return x.owner === owner && x.cardId === 'Hivemind'; }); };
@@ -288,7 +288,11 @@
     var tkey = target.type === 'body' ? bodyKey(target.owner) : unitKey(this, target);
     if (amt > 0) {
       var at = source && source.attacker;
-      this.fx({ type: 'damage', key: tkey, amount: amt, srcOwner: at ? at.owner : undefined, srcCard: at && at.cardId ? at.cardId : (at ? this._castCard : undefined), atkCls: at ? cardCls(at) : undefined, via: (source && source.via) ? source.via : (at ? 'ability' : 'system') });
+      // 시전 데미지는 attacker 를 { owner } 합성 객체로만 넘기는 카드가 많다(cardId 없음).
+      // → 연출 클래스는 실제 공격 유닛이 있으면 그 클래스, 없으면 시전 카드(_castCard)의 클래스로 폴백(무방비 cardCls 접근 금지).
+      var srcCardId = at && at.cardId ? at.cardId : (at ? this._castCard : undefined);
+      var atkCls = (at && at.cardId) ? cardCls(at) : (CARDS[srcCardId] ? CARDS[srcCardId].cls : undefined);
+      this.fx({ type: 'damage', key: tkey, amount: amt, srcOwner: at ? at.owner : undefined, srcCard: srcCardId, atkCls: atkCls, via: (source && source.via) ? source.via : (at ? 'ability' : 'system') });
     }
     if (target.type === 'body') {
       this.note('본체 피해 ' + amt + ' → P' + target.owner + ' (HP ' + this.curHp(target) + ')');

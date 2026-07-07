@@ -2771,8 +2771,19 @@
     var tick = function () {
       if (G.winner !== undefined) { aiThinking = false; render(); return; }
       aiRevealPause = false;
-      var did = RT.ai.step(G);
-      render(); // 이 안에서 카드 시전이 있었다면 revealCard 가 aiRevealPause 를 세운다
+      var did;
+      try {
+        did = RT.ai.step(G);
+        render(); // 이 안에서 카드 시전이 있었다면 revealCard 가 aiRevealPause 를 세운다
+      } catch (e) {
+        // AI 스텝/렌더 중 예외가 나면 자기 재예약 setTimeout 루프가 죽어 AI가 턴을 넘기지 못하고
+        // 영구 정지(하드락)한다. 어떤 예외가 나든 이번 턴을 안전하게 종료해 사람에게 턴을 넘긴다.
+        try { console.error('[AI] step/render 예외 — 턴 강제 종료:', e); } catch (_) {}
+        try { G.endTurn(); } catch (_) {}
+        aiThinking = false;
+        try { render(); } catch (_) {}
+        return;
+      }
       if (!did) { G.endTurn(); aiThinking = false; render(); return; }
       aiTimer = setTimeout(tick, aiRevealPause ? AI_REVEAL_MS : AI_STEP_MS);
     };
