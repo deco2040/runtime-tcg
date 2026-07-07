@@ -195,8 +195,7 @@
 
       <div class="foot">
         규칙 요약 — 본체 HP 40 · 턴당 행동 2 · 기본 공격 = 옆칸·무료·1회 · 함수(포인터)/트리거는 무료.<br>
-        플레이 &nbsp;→&nbsp; <a href="./index.html">deco2040.github.io/runtime-tcg</a>
-        &nbsp;·&nbsp; 카드·덱은 실제 게임 데이터(cards.js·decks.js)에서 자동 생성 · 일러스트 <span id="artcount">–</span>종 · 토큰/벽(분신) 카드 제외.
+        플레이 &nbsp;→&nbsp; <a href="https://runtimetcg.com">runtimetcg.com</a>
       </div>
     </div>
   </div>
@@ -204,14 +203,14 @@
 
 <!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → (RT_NO_BOOT) → sound → theme → core.
      부트는 막고(RT_NO_BOOT) 실제 카드풀(window.RT.CARDS)과 인게임 손패 카드 렌더러(window.__RT_UI.cardFaceEl)만 사용. -->
-<script src="cards.js?v=84"></script>
-<script src="decks.js?v=77"></script>
-<script src="engine.js?v=85"></script>
-<script src="art-map.js?v=84"></script>
+<script src="cards.js?v=85"></script>
+<script src="decks.js?v=78"></script>
+<script src="engine.js?v=86"></script>
+<script src="art-map.js?v=85"></script>
 <script>window.RT_NO_BOOT = true;</script>
-<script src="sound.js?v=77"></script>
-<script src="theme.js?v=77"></script>
-<script src="core.js?v=99"></script>
+<script src="sound.js?v=78"></script>
+<script src="theme.js?v=78"></script>
+<script src="core.js?v=100"></script>
 <script>
 (function(){
   "use strict";
@@ -274,7 +273,6 @@
   applyTheme(themeMode);
 
   // ---------- counts ----------
-  document.getElementById("artcount").textContent = Object.keys(ART).length;
   var fnCount = allIds.filter(function(id){return CARDS[id].kind==="pointer";}).length;
   document.getElementById("catcount").textContent =
     allIds.length+"종 · 인스턴스 "+(allIds.length-fnCount)+" / 함수 "+fnCount;
