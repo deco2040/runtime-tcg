@@ -26,14 +26,46 @@
   var bothReady = false;
   var matchStarted = false;
   var discTimer = null;
+  var ghostTimer = null; // 유령 방(응답 없는 호스트) 감지 타이머 — 자동매칭 게스트 입장 시
   var oppProfile = null; // 상대 프로필(전적/승률) — 대국 전 카드용(기능 4)
   var matchedSfx = false; // 매칭 성사 효과음 1회만 재생(redraw 중복 방지)
 
   // phase 를 matched 로 전환하며 성사 효과음을 1회 재생(경로: 자동매칭/코드조인/호스트감지 공통)
   function toMatched() {
+    disarmGhostCheck(); // 실접속 확인됨 — 유령 감시 해제
     phase = 'matched';
     status = '';
     if (!matchedSfx) { matchedSfx = true; if (UI.Sound) UI.Sound.match(); }
+  }
+
+  // 유령 방 감지 — 자동매칭에서 열린 방(호스트)에 게스트로 붙었는데 DB 상 full 이어도
+  // 호스트가 실제로는 접속 중이 아닐 수 있다(탭 닫힘/크래시로 남은 stale open 방).
+  // presence 가 6초 안에 2명에 도달하지 못하면 유령으로 판단 → 방 폐기 후 자동 재탐색.
+  function armGhostCheck() {
+    if (ghostTimer) return;
+    ghostTimer = setTimeout(function () {
+      ghostTimer = null;
+      if (!active || matchStarted || mode !== 'auto') return;
+      var n = roomCh ? Object.keys(roomCh.presenceState() || {}).length : 0;
+      if (n < 2) recycleGhost();
+    }, 6000);
+  }
+  function disarmGhostCheck() { if (ghostTimer) { clearTimeout(ghostTimer); ghostTimer = null; } }
+
+  // 유령 방에서 나가 새 방으로 재탐색(내가 호스트가 되어 다시 대기)
+  function recycleGhost() {
+    try {
+      if (room && UI.Net && UI.Net.client && UI.Net.client()) {
+        UI.Net.client().rpc('leave_room', { p_id: room.id });
+      }
+    } catch (e) {}
+    unsub();
+    room = null;
+    matchedSfx = false;
+    phase = 'search';
+    status = '상대를 찾는 중…';
+    redraw();
+    findMatch();
   }
 
   // 대국 중 상대 presence 가 사라지면(탭 닫힘/크래시) 유예 후 이탈 처리(끊김→승리)
@@ -63,6 +95,7 @@
   }
 
   function enter() {
+    disarmGhostCheck();
     active = true;
     mode = 'auto';
     phase = 'search';
@@ -153,6 +186,7 @@
   }
 
   function cleanup() {
+    disarmGhostCheck();
     try {
       if (room && UI.Net && UI.Net.client && UI.Net.client()) {
         UI.Net.client().rpc('leave_room', { p_id: room.id });
@@ -210,7 +244,11 @@
             // 양쪽 모두 방 채널에 즉시 입장 — presence 로 페어링을 감지(postgres_changes 미의존).
             joinRoomChannel();
             if (room.status === 'full') {
-              toMatched();
+              // 기존 방에 게스트로 입장 — DB 상 full 이어도 호스트 실접속을 presence 로 확인한 뒤
+              // 매치를 확정한다(유령 방 즉시 매칭 방지). presence 2 도달 시 sync 에서 toMatched,
+              // 6초 내 미도달이면 armGhostCheck 가 폐기 후 재탐색.
+              status = '상대 확인 중…';
+              armGhostCheck();
             } else {
               status = '상대를 기다리는 중…';
             }
@@ -240,8 +278,11 @@
         }
         if (!active) return;
         bothReady = n >= 2;
-        if (n >= 2 && phase !== 'matched') refetchRoom();
-        else redraw();
+        if (n >= 2) {
+          disarmGhostCheck(); // 상대 실접속 확인 — 유령 판정 취소
+          if (phase !== 'matched') refetchRoom();
+          else redraw();
+        } else redraw();
       })
       // 대전 시작 신호(호스트 → 게스트) + 대전 행동 릴레이(2b). active 와 무관하게 처리.
       .on('broadcast', { event: 'begin' }, function () {
@@ -310,6 +351,7 @@
     teardown: function () {
       matchStarted = false;
       disarmDisc();
+      disarmGhostCheck();
       cleanup();
     },
   };
@@ -491,6 +533,7 @@
     return el('button', { class: 'crt-btn ghost', onclick: leave, style: { fontSize: '13px' } }, ['◂ 뒤로']);
   }
   function retry() {
+    disarmGhostCheck();
     unsub();
     status = '';
     room = null;
