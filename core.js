@@ -341,13 +341,14 @@
         el('div', { style: { fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
       ]);
     }
-    // 데스크톱: [✓ 라벨칩]을 첫 줄에 두고 줄바꿈 후, 조건문을 그 아래에서 카드 전체 폭으로 꽉 채운다(요청: 태그 줄바꿈 후 텍스트 풀폭). 라벨칩만 굵게, 조건문 본문은 일반 굵기.
+    // 데스크톱: 선언조건 태그(✓+라벨칩)를 float:left → 조건문이 태그 옆에서 이어지고, 길어지면 태그 밑에서부터 카드 전체 폭으로 이어져 꽉 채워진다(요청). 라벨칩만 굵게, 본문은 일반 굵기.
     return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
-      el('div', { style: { display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '2px' } }, [
+      el('span', { style: { 'float': 'left', display: 'inline-flex', alignItems: 'center', gap: '3px', marginRight: '5px' } }, [
         el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
         el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
       ]),
-      el('div', { style: { fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+      el('span', { style: { fontWeight: 400, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
+      el('div', { style: { clear: 'both' } })
     ]);
   }
   // 클래스 단일 카드(deckRule) 표식 — 효과문에서 뗀 'XX 단일 덱' 정보를 클래스색 칩으로 별도 표시(구분용).
