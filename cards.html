@@ -241,6 +241,23 @@
   function faceNode(id,compact){ var n=null; try{ n=UI.cardFaceEl(id,{mode:"idle",compact:!!compact}); }catch(e){} return n; }
   function isMobile(){ try{ return matchMedia("(max-width:640px)").matches; }catch(e){ return false; } }
 
+  // ---- 카드 표시 배율(표준): 커스텀 카드 페이지(덱빌더)와 동일 —
+  //   데스크톱은 손패 카드(158×220)를 1.32배 확대해 텍스트 띄어쓰기·줄바꿈이 여유롭게 보이게 한다.
+  //   transform 은 레이아웃 크기를 안 바꾸므로 겉박스 크기를 확대분만큼 직접 잡아 이웃과 겹치지 않게(origin=top center).
+  var FACE_W=158, FACE_H=220;
+  function poolScale(){ return isMobile()?1:1.32; }
+  function scaledFace(node,sc){
+    if(!node) return node;
+    if(!sc||sc===1) return node;
+    var inner=document.createElement("div");
+    inner.style.cssText="transform:scale("+sc+");transform-origin:top center;flex:none";
+    inner.appendChild(node);
+    var box=document.createElement("div");
+    box.style.cssText="width:"+Math.round(FACE_W*sc)+"px;height:"+Math.round(FACE_H*sc)+"px;display:flex;justify-content:center;flex:none";
+    box.appendChild(inner);
+    return box;
+  }
+
   // ---- 큰 카드 미리보기: 미니 카드 탭 시 데스크톱 풀카드를 화면 중앙에 크게(탭하면 닫힘) ----
   var _bigBack=null;
   function hideBig(){ if(_bigBack&&_bigBack.parentNode) _bigBack.parentNode.removeChild(_bigBack); _bigBack=null; }
@@ -302,8 +319,10 @@
       rows.forEach(function(id){
         var n=faceNode(id,mob); if(!n) return;
         // 모바일·데스크톱 모두: 카드를 래퍼로 감싸 클릭(탭) 시 큰 카드로 확대.
+        // 데스크톱은 커스텀 카드 페이지와 동일한 표준 배율(1.32)로 확대 표시.
         n.style.pointerEvents="none";
-        var w=document.createElement("div"); w.className="figwrap"; w.appendChild(n);
+        var w=document.createElement("div"); w.className="figwrap";
+        w.appendChild(mob?n:scaledFace(n,poolScale()));
         tapToZoom(w,id); g.appendChild(w);
       });
       grp.appendChild(g); catalogEl.appendChild(grp);
