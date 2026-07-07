@@ -1949,10 +1949,18 @@
     var W, MINH, VPH;
     if (prev) { W = 186; MINH = 246; VPH = 116; }
     else if (big && COMPACT) {
-      // 멀리건 2+3 그리드가 가로 스크롤 없이 한 화면에 들어오도록 하단 3장 기준으로 폭을 뷰포트에 맞춤.
-      var avail = Math.min(window.innerWidth || 360, 480);
-      W = Math.max(94, Math.min(150, Math.floor((avail - 40) / 3)));
-      var rr = W / 150; MINH = Math.round(208 * rr); VPH = Math.round(90 * rr);
+      // 멀리건 2+3 그리드가 가로 스크롤 없이 한 화면에 들어오도록 하단 3장 기준으로 폭을 뷰포트에 맞추되,
+      // 세로는 2행뿐이라 여유가 있으므로 카드를 더 키우고 높여 효과문 잘림을 막는다(모바일 멀리건 가독성).
+      var vwm = Math.min(window.innerWidth || 360, 520);
+      var vhm = window.innerHeight || 640;
+      var wByW = Math.floor((vwm - 34) / 3);          // 하단 3장 + 오버레이 패딩·gap 여백
+      var wByH = Math.floor((vhm - 176) / 2 / 1.6);   // 위·아래 2행 + 헤더·안내·버튼 크롬, 카드 높이비 1.6 기준
+      W = Math.max(96, Math.min(168, Math.min(wByW, wByH)));
+      var rr = W / 168; MINH = Math.round(268 * rr);
+      // 멀리건에선 일러스트가 아니라 텍스트를 읽는 게 목적 — 아트 뷰포트를 줄여 효과문 공간을 확보.
+      // 선언/시전 조건·클래스 단일(1장 제한) 덱룰 행이 붙는 카드는 그만큼 아트를 더 줄여 잘림 방지.
+      var mullRows = (condSpec(card) ? 1 : 0) + (deckRuleLabel(card) ? 1 : 0);
+      VPH = Math.round(Math.max(44, 96 - mullRows * 26) * rr);
     }
     else if (big) {
       // 데스크톱 멀리건 위3·아래2 그리드 — 스크롤 없이 한 화면에 크게 들어오도록 뷰포트(가로 3장·세로 2행)에 맞춰 스케일.
