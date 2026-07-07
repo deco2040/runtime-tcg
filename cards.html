@@ -328,6 +328,8 @@
       grp.appendChild(g); catalogEl.appendChild(grp);
     });
     if(!any) catalogEl.innerHTML='<div class="empty">검색 결과가 없습니다.</div>';
+    // 커스텀 카드 페이지(덱빌더)와 동일 — 넘치는 효과문(특히 포인터) 폰트를 자리에 맞게 자동 축소.
+    if(UI.fitCards) requestAnimationFrame(function(){ try{ UI.fitCards(catalogEl); }catch(e){} });
   }
   Array.prototype.forEach.call(document.querySelectorAll(".fbtn"),function(b){
     var f=b.getAttribute("data-f");
@@ -379,6 +381,7 @@
         tapToZoom(w,id);   // 탭 → 큰 데스크톱 카드
         g.appendChild(w);
       });
+      if(UI.fitCards) requestAnimationFrame(function(){ try{ UI.fitCards(det); }catch(e){} });
     };
     det.addEventListener("toggle",function(){
       if(det.open && !det._rendered){ det._rendered=true; det._render(); }
