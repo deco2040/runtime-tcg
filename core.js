@@ -2197,10 +2197,26 @@
     ]);
   }
   // ─────────────────────────────────────────── 좌측 패널: 날씨 배너 + 덱 트래커 (데스크톱 전용)
-  // 날씨 배너 — 현재 게임 날씨(6종/clear)를 아이콘·이름·효과로 상시 표시.
+  // 날씨별 상세 효과(호버 툴팁용) — 발동 시점/수치/양측 적용을 인라인 desc보다 자세히.
+  var WEATHER_DETAIL = {
+    clear: '특이 효과 없음 — 표준 런타임. 스탯·이동·사거리 모두 기본값으로 진행됩니다.',
+    overclock: '양측 모든 유닛의 공격력 +1 (상시·즉시). 이후 소환·선언되는 유닛에도 적용됩니다.',
+    throttle: '양측 모든 유닛의 공격력 −1 (상시, 최소 0). 이후 등장하는 유닛에도 적용됩니다.',
+    memleak: '8턴째부터 매 턴 시작 시 양측 모든 유닛의 HP가 1씩 감소합니다. 장기전일수록 압박이 커집니다.',
+    gc: '8턴째부터 4턴마다, 체력이 가장 낮은 유닛 1기를 파괴(회수)합니다. 저체력 유닛을 방치하면 쓸려나갑니다.',
+    deadlock: '매치 시작 시 통로(2·3행)에 중립 벽 「교착 노드」(공격력 0 · 체력 12) 3개가 배치됩니다. 양측 모두 공격해 부술 수 있으나, 스스로 이동·공격하지 않고 진격로를 가로막습니다.'
+  };
+  function weatherDetail(id) { return WEATHER_DETAIL[id] || WEATHER_DETAIL.clear; }
+  // 날씨 배너 — 현재 게임 날씨(6종/clear)를 아이콘·이름·효과로 상시 표시. 호버 시 상세 효과 툴팁.
   function weatherBanner() {
     var info = weatherInfo(G.weather);
-    return el('div', { title: info.desc, style: { display: 'flex', flexDirection: 'column', gap: '3px', padding: '8px 9px', background: hexa(info.color, 0.14), borderLeft: '3px solid ' + info.color, border: '1px solid ' + SKIN.ink, borderLeftWidth: '3px' } }, [
+    var tip = { t: info.icon + ' ' + info.name + ' · ' + info.en, d: weatherDetail(G.weather) };
+    return el('div', {
+      onmouseenter: function (e) { showKwTip(e.currentTarget, tip); },
+      onmouseleave: hideKwTip,
+      onclick: function (e) { showKwTip(e.currentTarget, tip); },
+      style: { display: 'flex', flexDirection: 'column', gap: '3px', padding: '8px 9px', background: hexa(info.color, 0.14), borderLeft: '3px solid ' + info.color, border: '1px solid ' + SKIN.ink, borderLeftWidth: '3px', cursor: 'help' }
+    }, [
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
         el('span', { style: { fontSize: '17px', flex: 'none' } }, [info.icon]),
         el('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.1 } }, [
