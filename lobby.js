@@ -25,6 +25,33 @@
   var listEl = null; // 메시지 리스트 컨테이너(증분 append 용)
   var sending = false;
   var MAX_KEEP = 200; // 메모리에 유지할 최대 메시지 수
+  // 채팅 주기적 초기화 — 최근 CHAT_RESET_MIN 분만 표시(슬라이딩 윈도우). lobby_messages 는
+  // RLS 상 클라이언트 DELETE 불가(불변 로그)라 서버 삭제 대신 표시 윈도우로 초기화한다.
+  // (서버측 실삭제는 supabase/migrations/0005_lobby_cleanup.sql 의 pg_cron 으로 선택 적용.)
+  var CHAT_RESET_MIN = 30;
+  var CHAT_RESET_MS = CHAT_RESET_MIN * 60 * 1000;
+  var resetTimer = null;
+
+  // 표시 윈도우 밖(오래된) 메시지 판별
+  function isFresh(m) {
+    if (!m || !m.created_at) return true;
+    var t = new Date(m.created_at).getTime();
+    if (isNaN(t)) return true;
+    return Date.now() - t < CHAT_RESET_MS;
+  }
+  // 윈도우 밖 메시지를 걷어내고 필요 시 리스트 재그리기(주기 타이머 + 로드 시 호출)
+  function pruneOld() {
+    if (!active) return;
+    var before = msgs.length;
+    msgs = msgs.filter(isFresh);
+    if (msgs.length !== before) redraw(true);
+  }
+
+  // 데스크톱(넓은 화면) — 우측을 리더보드(위)+채팅(아래) 2단으로. 좁으면 채팅만.
+  function isWide() {
+    try { return window.matchMedia('(min-width:901px)').matches; }
+    catch (e) { return (window.innerWidth || 800) > 900; }
+  }
 
   // 덱 계열 글리프(title.js 와 동일)
   var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
@@ -71,6 +98,8 @@
     status = UI.Net && UI.Net.enabled ? '접속 중…' : '';
     msgs = [];
     presenceCount = 0;
+    if (resetTimer) clearInterval(resetTimer);
+    resetTimer = setInterval(pruneOld, 60 * 1000); // 1분마다 오래된 메시지 정리
     redraw();
     connect();
   }
@@ -89,6 +118,7 @@
   }
 
   function cleanup() {
+    if (resetTimer) { clearInterval(resetTimer); resetTimer = null; }
     if (channel) {
       try {
         var c = UI.Net && UI.Net.client && UI.Net.client();
@@ -131,7 +161,8 @@
       .limit(50)
       .then(function (r) {
         if (r.error) throw r.error;
-        msgs = (r.data || []).slice().reverse();
+        // 최근 CHAT_RESET_MIN 분 이내 메시지만 표시(주기적 초기화 = 슬라이딩 윈도우)
+        msgs = (r.data || []).slice().reverse().filter(isFresh);
         redraw(true);
       });
   }
@@ -223,8 +254,8 @@
   }
 
   // ─────────────────────────────────────────── 채팅 행/헤더
-  function msgRow(m) {
-    var p = pal();
+  function msgRow(m, p) {
+    p = p || pal();
     var mine = UI.Net && UI.Net.userId && m.user_id === UI.Net.userId();
     return el(
       'div',
@@ -426,7 +457,7 @@
         title: '편집',
         onclick: function (e) {
           e.stopPropagation();
-          if (UI.openDeckBuilder) goTo(function () { UI.openDeckBuilder(k); });
+          if (UI.openDeckBuilder) goTo(function () { UI.openDeckBuilder(k, 'lobby'); });
         },
         style: {
           position: 'absolute', top: '3px', right: '4px', fontSize: '13px',
@@ -438,7 +469,7 @@
     });
     cg.appendChild(
       el('button', {
-        onclick: function () { if (UI.openDeckBuilder) goTo(function () { UI.openDeckBuilder(null); }); },
+        onclick: function () { if (UI.openDeckBuilder) goTo(function () { UI.openDeckBuilder(null, 'lobby'); }); },
         class: 'crt-opt',
         style: {
           display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center',
@@ -523,7 +554,7 @@
           padding: '7px 9px', borderBottom: '1px solid ' + p.line,
         },
       }, [
-        el('span', { style: { fontWeight: 700, color: p.amb } }, ['💬 채팅 · CHAT']),
+        el('span', { style: { fontWeight: 700, color: p.amb } }, ['💬 채팅 · 최근 ' + CHAT_RESET_MIN + '분']),
         el('span', { id: 'lobby-online' }, ['● ONLINE ' + (presenceCount || 1)]),
       ])
     );
@@ -548,7 +579,7 @@
         ])
       );
     } else {
-      msgs.forEach(function (m) { listEl.appendChild(msgRow(m)); });
+      msgs.forEach(function (m) { listEl.appendChild(msgRow(m, p)); });
     }
     panel.appendChild(listEl);
 
@@ -603,7 +634,7 @@
           '⚠ 멀티플레이 백엔드 미설정',
         ]),
         el('div', { style: { color: p.dim } }, [
-          'config.js 에 Supabase URL·anon 키를 넣으면 채팅과 온라인 매칭이 활성화됩니다. ',
+          'config.js 에 Supabase URL·anon 키를 넣으면 채팅과 멀티플레이 매칭이 활성화됩니다. ',
           '익명 로그인(Authentication → Providers → Anonymous)도 켜야 게스트 입장이 됩니다.',
         ]),
       ]
@@ -653,7 +684,17 @@
     main.appendChild(actionButtons(p));
 
     row.appendChild(main);
-    row.appendChild(chatPanel(p));
+    // 우측: 데스크톱은 리더보드(위)+채팅(아래) 2단, 좁은 화면은 채팅만(기존 스택 유지).
+    if (isWide() && UI.leaderboardEmbed) {
+      var rightCol = el('div', {
+        style: { flex: '1 1 300px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '13px' },
+      });
+      rightCol.appendChild(UI.leaderboardEmbed(12));
+      rightCol.appendChild(chatPanel(p));
+      row.appendChild(rightCol);
+    } else {
+      row.appendChild(chatPanel(p));
+    }
     b.appendChild(row);
 
     // 하단 네비 — 뒤로

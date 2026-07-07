@@ -11,6 +11,7 @@
   // 편집 상태
   var active = false;          // 빌더 화면 표시 중 여부(core.render 가 참조)
   var bDeck = null;            // { key, name, list:[cardId…] }
+  var bOrigin = 'title';       // 진입 맥락 — 취소/저장/삭제 후 복귀 화면('title'|'single'|'lobby')
   var bFilter = 'all';         // 카드 풀 클래스 필터
   var bMsg = '';               // 일시 안내 메시지(추가 차단 등)
   var _pool = null;
@@ -51,8 +52,9 @@
   }
   function bRemove(id) { var i = bDeck.list.lastIndexOf(id); if (i >= 0) { bDeck.list.splice(i, 1); if (bDeck.cover === id && bDeck.list.indexOf(id) < 0) bDeck.cover = null; bMsg = ''; if (Sound().move) Sound().move(); UI.render(); } }
 
-  function openDeckBuilder(editKey) {
+  function openDeckBuilder(editKey, origin) {
     UI.exitToGuide && UI.exitToGuide();   // 진행 중 게임/튜토리얼 상태 정리(G=null)
+    bOrigin = origin || 'title';          // 진입 맥락 저장 → 나갈 때 그 화면으로 복귀
     if (editKey && DECKS[editKey]) bDeck = { key: editKey, name: DECKS[editKey].name || '', list: DECKS[editKey].list.slice(), cover: DECKS[editKey].cover || null };
     else bDeck = { key: null, name: '', list: [], cover: null };
     bFilter = 'all'; bMsg = ''; active = true; _scrollPool = 0; _scrollDeck = 0;
@@ -60,7 +62,12 @@
     UI.render();
   }
   function closeBuilder() { active = false; bDeck = null; hideCardTip(); hideBigDB(); if (app) app.style.maxWidth = '1180px'; }
-  function bCancel() { closeBuilder(); UI.renderTitle(); }
+  // 진입 맥락으로 복귀 — 멀티플레이 로비에서 왔으면 로비로, 아니면 타이틀(싱글은 titleMode 유지되어 싱글 화면).
+  function returnFromBuilder() {
+    if (bOrigin === 'lobby' && UI.renderLobby) UI.renderLobby();
+    else UI.renderTitle();
+  }
+  function bCancel() { closeBuilder(); returnFromBuilder(); }
   function bSave() {
     var name = (bDeck.name || '').trim();
     if (!name) { bMsg = '덱 이름을 입력하세요'; UI.render(); return; }
@@ -69,14 +76,14 @@
     var key = bDeck.key || UI.nextCustomKey();
     UI.saveCustomDeck(key, name, bDeck.list, bDeck.cover);
     UI.setMyDeck(key);
-    closeBuilder(); UI.renderTitle();
+    closeBuilder(); returnFromBuilder();
   }
   function bDelete() {
     if (!bDeck.key) return;
     var ok = true; try { ok = window.confirm('이 커스텀 덱을 삭제할까요?'); } catch (e) {}
     if (!ok) return;
     UI.deleteCustomDeck(bDeck.key);
-    closeBuilder(); UI.renderTitle();
+    closeBuilder(); returnFromBuilder();
   }
 
   // ---- 렌더 ----
@@ -209,7 +216,13 @@
   // 확대분만큼 겉박스 크기를 직접 잡아줘 이웃과 겹치지 않게 한다(origin=top center → 좌우 대칭·상단 고정).
   var FACE_W = 158, FACE_H = 220;
   // 카드 풀 타일 배율 — 데스크톱은 확대(1.32, 텍스트 가독성), 모바일은 축소(0.62, 한 화면에 다수 카드).
-  function isMobileDB() { try { return window.matchMedia('(max-width:640px)').matches; } catch (e) { return false; } }
+  // 모바일 판정은 인게임 손패(core COMPACT: ≤900px 또는 터치+낮은높이)와 동일 기준으로 통일 —
+  // 641~900px 폰/태블릿에서 손패는 미니인데 덱빌더만 큰 카드로 뜨던 불일치 제거.
+  function isMobileDB() {
+    if (UI.isCompact) return UI.isCompact();
+    try { return window.matchMedia('(max-width:900px)').matches || (window.matchMedia('(pointer: coarse)').matches && window.matchMedia('(max-height:600px)').matches); }
+    catch (e) { return (window.innerWidth || 1200) <= 900; }
+  }
   function poolScale() { return isMobileDB() ? 0.62 : 1.32; }
   function scaledFace(node, sc) {
     if (!node) return null;

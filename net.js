@@ -83,7 +83,53 @@
     return _clientPromise;
   }
 
-  // 게스트(익명) 로그인 보장 — 세션 없으면 익명 로그인 후 프로필 확보
+  // 저장된(persisted) 세션 토큰이 localStorage 에 있는지 — 회원 세션 보호용.
+  // 있으면 ensureGuest 가 함부로 익명 로그인으로 덮어쓰지 않는다.
+  function hasStoredSession() {
+    try {
+      var raw = window.localStorage.getItem('rt_auth');
+      if (!raw) return false;
+      var o = JSON.parse(raw);
+      return !!(
+        o &&
+        (o.access_token ||
+          o.refresh_token ||
+          (o.currentSession && o.currentSession.access_token))
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 부트 시 비파괴 세션 복원 — 저장된 세션이 있으면 그대로 로드(+프로필). 익명 폴백 없음.
+  // 새로고침 후 회원 로그인 유지의 핵심 경로. 반환: Promise<session|null>.
+  function restoreSession() {
+    return loadClient().then(function (c) {
+      if (!c) return null;
+      return c.auth
+        .getSession()
+        .then(function (r) {
+          var s = r && r.data && r.data.session;
+          if (!s) return null;
+          _session = s;
+          return loadProfile().then(function () {
+            // 복원 완료를 구독자(타이틀 헤더 등)에 통지
+            _authSubs.forEach(function (cb) {
+              try {
+                cb(_session);
+              } catch (e) {}
+            });
+            return s;
+          });
+        })
+        .catch(function () {
+          return null;
+        });
+    });
+  }
+
+  // 게스트(익명) 로그인 보장 — 세션 없으면 익명 로그인 후 프로필 확보.
+  // 단, localStorage 에 저장된 세션이 있으면(회원) 익명 생성으로 덮어쓰지 않는다.
   function ensureGuest() {
     return loadClient().then(function (c) {
       if (!c) return null;
@@ -94,6 +140,18 @@
           if (s) {
             _session = s;
             return s;
+          }
+          // 저장된 회원 세션이 있는데 순간 null 이면 익명 생성 금지 — 1회 재시도 후에도
+          // 없을 때만 진짜 신규로 간주. (회원 세션이 익명으로 덮어써지는 로그아웃 버그 방지)
+          if (hasStoredSession()) {
+            return c.auth.getSession().then(function (r3) {
+              var s3 = r3 && r3.data && r3.data.session;
+              if (s3) {
+                _session = s3;
+                return s3;
+              }
+              return null; // 익명 생성하지 않음 — 저장된 세션 보호
+            });
           }
           return c.auth.signInAnonymously().then(function (r2) {
             if (r2.error) {
@@ -462,6 +520,7 @@
     enabled: configured,
     ready: loadClient,
     ensureGuest: ensureGuest,
+    restore: restoreSession,
     signUpEmail: signUpEmail,
     signInEmail: signInEmail,
     signInOAuth: signInOAuth,

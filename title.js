@@ -91,11 +91,11 @@
     b.appendChild(crtLabel('▸ 모드 선택 · MODE'));
     var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '12px', margin: '10px 0 6px' } }, [
       modeCard('🎮', '싱글 플레이', 'SINGLE', 'AI와 대국 · 견본/커스텀 덱 · 도전 모드', function () { titleMode = 'single'; render(); }),
-      modeCard('🌐', '온라인 플레이', 'ONLINE', '다른 플레이어와 실시간 대전 · 로비', function () { if (UI.renderLobby) UI.renderLobby(); })
+      modeCard('🌐', '멀티플레이', 'MULTIPLAYER', '다른 플레이어와 실시간 대전 · 로비', function () { if (UI.renderLobby) UI.renderLobby(); })
     ]);
     b.appendChild(grid);
     b.appendChild(utilRow());
-    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, ['모드를 선택하세요. 싱글은 덱을 고른 뒤 바로 시작, 온라인은 로비에서 상대를 찾습니다.']));
+    b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, ['모드를 선택하세요. 싱글은 덱을 고른 뒤 바로 시작, 멀티플레이는 로비에서 상대를 찾습니다.']));
   }
   function modeCard(icon, title, sub, desc, cb) {
     return el('button', {
@@ -251,12 +251,12 @@
           el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '') + gly + ' ' + k]),
           el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장'])
         ]),
-        el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k); }, style: { position: 'absolute', top: '5px', right: '6px', fontSize: '15px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
+        el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k, 'single'); }, style: { position: 'absolute', top: '5px', right: '6px', fontSize: '15px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
       ]));
     });
     // 새 덱 만들기
     grid.appendChild(el('button', {
-      onclick: function () { UI.openDeckBuilder(null); }, class: 'crt-opt',
+      onclick: function () { UI.openDeckBuilder(null, 'single'); }, class: 'crt-opt',
       style: { display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center', justifyContent: 'center', minHeight: '52px', textAlign: 'center', borderStyle: 'dashed' }
     }, [
       el('span', { style: { fontSize: '18px', fontWeight: 700, lineHeight: 1 } }, ['＋']),

@@ -336,7 +336,7 @@
 
     if (phase === 'offline') {
       b.appendChild(el('div', { style: { fontSize: '12px', lineHeight: 1.7, color: p.dim } }, [
-        'config.js 에 Supabase 키를 넣고 0003_rooms.sql 을 적용하면 온라인 매칭이 활성화됩니다.',
+        'config.js 에 Supabase 키를 넣고 0003_rooms.sql 을 적용하면 멀티플레이 매칭이 활성화됩니다.',
       ]));
       b.appendChild(navRow(p, [backBtn(p)]));
     } else if (phase === 'custommenu') {

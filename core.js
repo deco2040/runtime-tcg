@@ -1225,6 +1225,7 @@
       left.appendChild(handBar(meTurn));
       var dtb = turnTimerBar(); if (dtb) left.appendChild(dtb);
       left.appendChild(controls(meTurn));
+      main.appendChild(leftTrackPanel());   // 좌측: 날씨 배너 + 덱 트래커(데스크톱 전용)
       main.appendChild(left);
       main.appendChild(sidePanel());
       wrap.appendChild(main);
@@ -2171,6 +2172,79 @@
       el('div', { style: { fontSize: '10.5px', color: SKIN.muted, marginTop: '6px', lineHeight: 1.6 } }, ['🟡 함수 범위 = 능력이 닿는 칸(카드마다 다름) · 🔴 옆칸 = 기본 공격이 닿는 1칸(모든 유닛 공통) · 필드 카드에 커서를 올리면 함수 범위가 보드에 표시됩니다.'])
     ]);
   }
+  // ─────────────────────────────────────────── 좌측 패널: 날씨 배너 + 덱 트래커 (데스크톱 전용)
+  // 날씨 배너 — 현재 게임 날씨(6종/clear)를 아이콘·이름·효과로 상시 표시.
+  function weatherBanner() {
+    var info = weatherInfo(G.weather);
+    return el('div', { title: info.desc, style: { display: 'flex', flexDirection: 'column', gap: '3px', padding: '8px 9px', background: hexa(info.color, 0.14), borderLeft: '3px solid ' + info.color, border: '1px solid ' + SKIN.ink, borderLeftWidth: '3px' } }, [
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
+        el('span', { style: { fontSize: '17px', flex: 'none' } }, [info.icon]),
+        el('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.1 } }, [
+          el('span', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: SKIN.txt } }, [info.name]),
+          el('span', { class: 'mono', style: { fontSize: '8px', letterSpacing: '.14em', color: SKIN.muted } }, ['WEATHER · ' + info.en])
+        ])
+      ]),
+      el('div', { style: { fontSize: '10px', color: SKIN.panelText, lineHeight: 1.45 } }, [info.desc])
+    ]);
+  }
+  // 덱 트래커 — 내 덱의 카드별 잔여 매수(뽑기 더미 기준)를 상시 표시. 행 클릭 시 인스펙터 고정.
+  function deckTrackerPanel() {
+    var pl = G.players[HUMAN];
+    var d = DECKS[myDeck];
+    var startList = (d && d.list) || [];
+    var startCount = {}, order = [];
+    startList.forEach(function (id) { if (startCount[id] === undefined) { startCount[id] = 0; order.push(id); } startCount[id]++; });
+    // 시작 리스트가 없으면(커스텀 미동기 등) 뽑기 더미 기준으로라도 구성
+    if (!order.length) { pl.deck.forEach(function (id) { if (startCount[id] === undefined) { startCount[id] = 0; order.push(id); } startCount[id]++; }); }
+    var remain = {}; pl.deck.forEach(function (id) { remain[id] = (remain[id] || 0) + 1; });
+    var clsOrd = { thread: 0, memory: 1, process: 2, generic: 3, mixed: 4 };
+    order.sort(function (a, b) {
+      var ca = CARDS[a] || {}, cb = CARDS[b] || {};
+      var oa = clsOrd[ca.cls] === undefined ? 9 : clsOrd[ca.cls], ob = clsOrd[cb.cls] === undefined ? 9 : clsOrd[cb.cls];
+      if (oa !== ob) return oa - ob;
+      var na = ca.name || a, nb = cb.name || b;
+      return na < nb ? -1 : na > nb ? 1 : 0;
+    });
+
+    var box = el('div', { style: { display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 } });
+    box.appendChild(el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.18em', color: SKIN.muted, margin: '2px 0 6px' } }, ['덱 트래커 · DECK']));
+    // 요약(남은 덱 / 손패 / 묘지)
+    box.appendChild(el('div', { class: 'mono', style: { display: 'flex', gap: '8px', fontSize: '9.5px', color: SKIN.muted, marginBottom: '7px', flexWrap: 'wrap' } }, [
+      el('span', {}, ['덱 ', el('b', { style: { color: pl.deck.length <= 3 ? SKIN.heat : SKIN.gold } }, [String(pl.deck.length)]), ' / ' + startList.length]),
+      el('span', {}, ['패 ', el('b', { style: { color: SKIN.txt } }, [String(pl.hand.length)])]),
+      el('span', {}, ['묘 ', el('b', { style: { color: SKIN.txt } }, [String(pl.graveyard.length)])])
+    ]));
+    var list = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto', minHeight: 0, flex: 1, maxHeight: '52vh' } });
+    if (!order.length) {
+      list.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.faint, padding: '6px 2px' } }, ['덱 정보 없음']));
+    }
+    order.forEach(function (id) {
+      var c = CARDS[id] || { name: id, cls: 'generic' };
+      var left = remain[id] || 0, tot = startCount[id] || 0;
+      var cl = CLS[c.cls] || CLS.generic;
+      var out = left <= 0;
+      var row = el('div', {
+        onclick: function () { pinned = { id: id }; refreshInspector(); if (Sound.ui) Sound.ui(); },
+        title: c.name,
+        style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 5px', cursor: 'pointer', borderLeft: '2px solid ' + cl, background: out ? 'transparent' : hexa(cl, 0.08), opacity: out ? 0.4 : 1, borderRadius: '2px' }
+      }, [
+        el('span', { style: { fontSize: '10px', color: cl, flex: 'none', width: '11px', textAlign: 'center' } }, [GLY[c.cls] || GLY.generic]),
+        el('span', { class: 'grot', style: { flex: 1, minWidth: 0, fontSize: '11px', fontWeight: 700, color: SKIN.txt, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [c.name || id]),
+        el('span', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: out ? SKIN.faint : (left <= 1 ? SKIN.heat : SKIN.gold) } }, [left + (tot > 1 ? '/' + tot : '')])
+      ]);
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+    return box;
+  }
+  // 좌측 컬럼(날씨 배너 + 덱 트래커) — 데스크톱 렌더에서만 삽입.
+  function leftTrackPanel() {
+    var panel = el('div', { id: 'lefttrack', style: { flex: '0 0 186px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '10px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
+    if (G.weather && !tutorial) panel.appendChild(weatherBanner());
+    panel.appendChild(deckTrackerPanel());
+    return panel;
+  }
+
   function sidePanel() {
     var panel = el('div', { id: 'side', style: { flex: '0 0 300px', width: '300px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '12px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
     panel.appendChild(el('div', { id: 'inspector' }, [inspectorContent()]));
@@ -2897,6 +2971,9 @@
   UI.bestStreak = bestStreak; UI.bestMap = bestMap;
   UI.getMyDeck = function () { return myDeck; }; UI.setMyDeck = function (k) { myDeck = k; };
   UI.getOppDeck = function () { return oppDeck; }; UI.setOppDeck = function (k) { oppDeck = k; };
+  // 컴팩트(모바일/좁은 화면) 여부 — 인게임 손패와 덱빌더가 동일 기준(≤900px 또는 터치+낮은높이)을
+  // 공유하도록 노출. 덱빌더 미니카드 전환 브레이크포인트를 손패와 통일(불일치 제거).
+  UI.isCompact = function () { return COMPACT; };
   // 커스텀 덱: title.js(견본/커스텀 구분) · deckbuilder.js(저장/삭제) 가 소비
   UI.GLY = GLY;
   UI.deckCoverCls = deckCoverCls; UI.deckDominantCls = deckDominantCls;
@@ -2934,8 +3011,26 @@
   // RT_NO_BOOT: dev.html 등에서 게임 메뉴를 띄우지 않고 렌더 헬퍼만 재사용할 때(카드 페이스 미리보기).
   // renderTitle 은 title.js(core 뒤에 로드)에 있으므로, 현재 스크립트 체인이 끝난 뒤 부트한다.
   G = null;
+  // 타이틀 화면에 머물러 있는지(다른 화면으로 이동 안 함) — 세션 복원 후 안전 재렌더 판정용.
+  function onTitleScreen() {
+    if (G) return false;
+    var f = ['isLobbyActive', 'isBuilderActive', 'isMatchmakingActive', 'isAuthActive', 'isLeaderboardActive'];
+    for (var i = 0; i < f.length; i++) { try { if (UI[f[i]] && UI[f[i]]()) return false; } catch (e) {} }
+    return true;
+  }
   if (!window.RT_NO_BOOT) {
-    var _boot = function () { if (UI.renderTitle) UI.renderTitle(); };
+    var _boot = function () {
+      if (UI.renderTitle) UI.renderTitle();
+      // 부트 시 저장된 회원 세션 복원 — 새로고침 후 로그인 유지. 완료되면 타이틀 헤더를
+      // 회원 상태로 갱신(비파괴: 익명 생성 안 함). 다른 화면으로 이동했으면 재렌더 생략.
+      try {
+        if (UI.Net && UI.Net.enabled && UI.Net.restore) {
+          UI.Net.restore().then(function (s) {
+            if (s && onTitleScreen() && UI.renderTitle) UI.renderTitle();
+          });
+        }
+      } catch (e) {}
+    };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot);
     else setTimeout(_boot, 0);
   }

@@ -139,7 +139,7 @@
     if (err === 'offline') {
       return el('div', { style: { padding: '20px 14px', fontSize: '12px', lineHeight: 1.7, color: p.dim, textAlign: 'center' } }, [
         el('div', { style: { fontWeight: 700, color: p.hi, marginBottom: '6px' } }, ['⚠ 멀티플레이 백엔드 미설정']),
-        el('div', {}, ['리더보드는 온라인 접속 시 표시됩니다.']),
+        el('div', {}, ['리더보드는 멀티플레이 접속 시 표시됩니다.']),
       ]);
     }
     if (rows === null || loading) {
@@ -220,8 +220,78 @@
     app.appendChild(monitor);
   }
 
+  // ─────────────────────────────────────────── 로비 임베드
+  // 독립적으로 profiles 를 조회해 상위 N명 컴팩트 표를 그려 컨테이너 노드를 즉시 반환.
+  // (leaderboard 화면 전용 모듈 상태 rows/sortMode 를 건드리지 않음 — 승수 정렬 고정.)
+  var _embedCache = { rows: null, ts: 0 };   // 로비 임베드 스냅샷 캐시(30초) — redraw 마다 재조회 방지
+  function embedBoard(limit) {
+    limit = limit || 12;
+    var p = pal();
+    var box = el('div', { style: { display: 'flex', flexDirection: 'column', border: '1px solid ' + p.line } });
+    box.appendChild(
+      el('div', {
+        style: {
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontSize: '10px', letterSpacing: '.1em', color: p.dim,
+          padding: '7px 9px', borderBottom: '1px solid ' + p.line,
+        },
+      }, [
+        el('span', { style: { fontWeight: 700, color: p.amb } }, ['🏆 리더보드 · TOP ' + limit]),
+        el('button', {
+          class: 'crt-opt',
+          onclick: function () { if (UI.Sound) UI.Sound.ui(); if (UI.renderLeaderboard) UI.renderLeaderboard(); },
+          style: { fontSize: '9px', padding: '3px 7px', flex: 'none' },
+        }, ['전체 ▸']),
+      ])
+    );
+    var body = el('div', { style: { minHeight: '70px' } }, [
+      el('div', { style: { padding: '16px 10px', fontSize: '11px', color: p.dim, textAlign: 'center' } }, ['⏳ 랭킹 불러오는 중…']),
+    ]);
+    box.appendChild(body);
+
+    function fill(node) { while (body.firstChild) body.removeChild(body.firstChild); body.appendChild(node); }
+    function msg(t) { fill(el('div', { style: { padding: '16px 10px', fontSize: '11px', color: p.dim, textAlign: 'center' } }, [t])); }
+    function paint(list) {
+      if (!list.length) { msg('아직 기록이 없어요 — 첫 승리의 주인공이 되어보세요!'); return; }
+      var myId = UI.Net && UI.Net.userId ? UI.Net.userId() : null;
+      var frag = el('div', { style: { display: 'flex', flexDirection: 'column' } }, [headerRow(p, true)]);
+      var lb = el('div', { style: { maxHeight: '30vh', overflowY: 'auto' } });
+      list.slice(0, limit).forEach(function (entry, idx) { lb.appendChild(playerRow(p, entry, idx + 1, true, !!(myId && entry.id === myId))); });
+      frag.appendChild(lb);
+      fill(frag);
+    }
+
+    if (!UI.Net || !UI.Net.enabled) { msg('⚠ 오프라인 — 랭킹 미표시'); return box; }
+
+    // 30초 이내 캐시가 있으면 재조회 없이 즉시 렌더(덱 선택/테마 토글 등 잦은 redraw 시 네트워크 절약)
+    if (_embedCache.rows && (Date.now() - _embedCache.ts) < 30000) { paint(_embedCache.rows); return box; }
+
+    var ready = (UI.Net && UI.Net.ready) ? UI.Net.ready() : Promise.resolve(null);
+    ready
+      .then(function (c) {
+        if (!c) throw new Error('no-client');
+        var ensure = (UI.Net && UI.Net.ensureGuest) ? UI.Net.ensureGuest() : Promise.resolve();
+        return ensure.then(function () { return c; });
+      })
+      .then(function (c) {
+        return c.from('profiles')
+          .select('id,nickname,avatar,wins,losses,draws,games,is_guest')
+          .gt('games', 0).order('wins', { ascending: false }).limit(limit);
+      })
+      .then(function (r) {
+        var list = (r && r.data) ? r.data.slice() : [];
+        list.sort(function (a, b) { return (b.wins - a.wins) || (winRate(b) - winRate(a)) || (b.games - a.games); });
+        _embedCache = { rows: list, ts: Date.now() };
+        if (!document.body.contains(box)) return;
+        paint(list);
+      })
+      .catch(function () { if (document.body.contains(box)) msg('⚠ 랭킹 조회 실패'); });
+    return box;
+  }
+
   // ─────────────────────────────────────────── exports
   UI.renderLeaderboard = enter;
   UI.redrawLeaderboard = redraw;
   UI.isLeaderboardActive = function () { return active; };
+  UI.leaderboardEmbed = embedBoard;
 })();
