@@ -341,6 +341,28 @@
         if (ab.trigger === 'onUnitDeath') { self.beginResolve(); ab.fn(self, w, { dead: u, atKey: k }); self.endResolve(); }
       });
     });
+    // 오라 소멸 연쇄 사망 처리: 이 파괴로 오라(Persist 최대체력+2·Polymorph +1)가 사라지면
+    // 인접/전역 유닛의 effMaxHp 가 줄어 curHp 가 0 이하가 될 수 있다. deal 은 피격 순간에만
+    // 사망을 검사하므로, 여기서 보드를 훑어 음수 체력 잔존 유닛을 마저 파괴한다(버그: 포인터로
+    // Persist 처치 시 오라 버프받던 적이 체력 마이너스로 살아남던 문제).
+    this.reap();
+  };
+
+  // 최대체력 하락(오라 소멸 등)으로 curHp<=0 이 된 인스턴스를 일괄 파괴. 재진입 방지 가드로
+  // destroy→reap→destroy 연쇄가 무한재귀 없이 하나의 스윕에서 안정될 때까지 반복한다.
+  Game.prototype.reap = function () {
+    if (this._reaping) return;
+    this._reaping = true;
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var objs = this.objects();
+      for (var i = 0; i < objs.length; i++) {
+        var u = objs[i];
+        if (this.board[unitKey(this, u)] === u && this.curHp(u) <= 0) { this.destroy(u, null); changed = true; break; }
+      }
+    }
+    this._reaping = false;
   };
 
   Game.prototype.healInst = function (u, amount) {
@@ -848,6 +870,8 @@
     this.allyObjects(player).forEach(function (u) {
       if (u.cardId === 'Lambda') self.turnFlags.lambdaBonus = 2;
     });
+    // 포인터가 오라 소스를 파괴 없이 제거(예: 손으로 되돌리기)해 최대체력이 하락한 경우도 스윕.
+    this.reap();
     this.checkWin(); this.emit();
     return true;
   };
