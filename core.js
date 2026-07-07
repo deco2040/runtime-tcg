@@ -2260,6 +2260,21 @@
       ]);
     }).filter(Boolean);
   }
+  // 날씨 규칙 행 — WEATHER_INFO 재사용. 이번 판 날씨(G.weather)는 강조 배지 + 배경 틴트.
+  function weatherRuleRows() {
+    var cur = G && G.weather;
+    return ['clear', 'overclock', 'throttle', 'memleak', 'gc', 'firewall'].map(function (id) {
+      var wi = weatherInfo(id), active = (id === cur);
+      return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line, background: active ? hexa(wi.color, .1) : 'transparent' } }, [
+        el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' } }, [
+          el('span', { style: { fontSize: '13px', lineHeight: 1 } }, [wi.icon]),
+          el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: wi.color } }, [wi.name]),
+          active ? el('span', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: '#fff', background: wi.color, padding: '0 5px', borderRadius: '2px', letterSpacing: '.04em' } }, ['이번 판']) : null
+        ]),
+        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [wi.desc])
+      ]);
+    });
+  }
   function closeMenu() { menuView = null; render(); }
   function doSurrender() {
     menuView = null;
@@ -2286,7 +2301,9 @@
       kids = [
         header('규칙 요약', 'menu'),
         el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['특수능력 · 발동 방식']),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['날씨 · RUNTIME WEATHER' + (G && G.weather ? '  —  이번 판: ' + weatherInfo(G.weather).icon + ' ' + weatherInfo(G.weather).name : '')]),
+          el('div', {}, weatherRuleRows()),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['특수능력 · 발동 방식']),
           el('div', {}, ruleRows(RULE_ABILITY)),
           el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['대상 규칙']),
           el('div', {}, ruleRows(RULE_TARGET)),
@@ -2306,7 +2323,7 @@
     } else {
       kids = [
         header('메뉴', null),
-        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (특수능력·대상·함수 범위)']),
+        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (날씨·특수능력·대상·범위)']),
         el('button', { class: 'btn', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px', background: SKIN.enemy, color: '#fff' }, onclick: function () { menuView = 'confirm'; render(); } }, ['🏳 항복'])
       ];
     }
