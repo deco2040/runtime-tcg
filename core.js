@@ -341,11 +341,13 @@
         el('div', { style: { fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
       ]);
     }
-    // 조건문은 여러 줄이어도 짤리지 않게 줄바꿈 허용(flex-start 정렬). 라벨칩만 굵게, 조건문 본문은 일반 굵기(피드백: 두꺼워 읽기 힘듦).
-    return el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '3px', margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
-      el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
-      el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label]),
-      el('span', { style: { minWidth: 0, flex: 1, fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+    // 데스크톱: [✓ 라벨칩]을 첫 줄에 두고 줄바꿈 후, 조건문을 그 아래에서 카드 전체 폭으로 꽉 채운다(요청: 태그 줄바꿈 후 텍스트 풀폭). 라벨칩만 굵게, 조건문 본문은 일반 굵기.
+    return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '2px' } }, [
+        el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
+        el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
+      ]),
+      el('div', { style: { fontWeight: 400, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
     ]);
   }
   // 클래스 단일 카드(deckRule) 표식 — 효과문에서 뗀 'XX 단일 덱' 정보를 클래스색 칩으로 별도 표시(구분용).
@@ -583,7 +585,7 @@
     var box = el('div', { style: { width: w + 'px', height: h + 'px', filter: 'drop-shadow(0 12px 30px rgba(0,0,0,.6))' } }, [inner]);
     t.appendChild(box); t.style.display = 'block';
     var vw = window.innerWidth || 1200, vh = window.innerHeight || 800, gap = 12;
-    var left = rect.right + gap; if (left + w > vw - 8) left = rect.left - w - gap; if (left < 8) left = 8;   // 기본은 행 오른쪽
+    var left = rect.left - w - gap; if (left < 8) left = rect.right + gap; if (left + w > vw - 8) left = Math.max(8, vw - w - 8);   // 기본은 행 왼쪽(요청), 공간 없으면 오른쪽
     var top = rect.top + rect.height / 2 - h / 2; if (top + h > vh - 8) top = vh - h - 8; if (top < 8) top = 8;
     t.style.left = left + 'px'; t.style.top = top + 'px';
     fitHand(box);   // 긴 효과문 잘림 방지(인게임 손패와 동일)
