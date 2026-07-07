@@ -338,7 +338,7 @@
     if (COMPACT) {
       return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
         el('span', { class: 'mono', style: { display: 'inline-block', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em', marginBottom: '2px' } }, [spec.label]),
-        el('div', { style: { fontWeight: 500, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+        el('div', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
       ]);
     }
     // 데스크톱: 선언조건 태그(✓+라벨칩)를 float:left → 조건문이 태그 옆에서 이어지고, 길어지면 태그 밑에서부터 카드 전체 폭으로 이어져 꽉 채워진다. 조건문 텍스트는 중앙 정렬(태그는 float 라 좌측 고정). 라벨칩만 굵게, 본문은 일반 굵기.
@@ -347,7 +347,7 @@
         el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
         el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
       ]),
-      el('span', { style: { fontWeight: 500, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
+      el('span', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
       el('div', { style: { clear: 'both' } })
     ]);
   }
@@ -572,8 +572,9 @@
     }
     flush();
     // keep-all 래퍼: 효과문이 렌더되는 모든 곳(손패·보드·툴팁·미리보기)에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
-    // fontWeight 500: CRT 필터 + 축소 폰트에서 본문 가독성 확보(전체 카드 굵기 상향). 키워드 칩은 자체 700 유지.
-    return [el('span', { style: { fontWeight: 500, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
+    // fontFamily 명시: 덱빌더(.crt-screen)는 기본이 Space Mono(400/700만) 라 중간 웨이트가 clamp 됨 → 본문 폰트를 IBM Plex Sans KR 로 고정해 웨이트가 실제 적용되게(인게임과도 일치).
+    // fontWeight 600: CRT 필터 + 축소 폰트에서 본문 가독성 확보(전체 카드 굵기 상향). 키워드 칩은 자체 폰트/700 유지.
+    return [el('span', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
   }
 
   // ---- animation / fx layer (event-driven; overlays survive full re-renders)
