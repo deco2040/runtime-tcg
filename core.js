@@ -2049,14 +2049,12 @@
       el('span', { style: { fontSize: 'clamp(30px,12vw,50px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic]),
       artLayer(card)
     ]);
-    // 효과 요약 — 롱프레스 없이 손패에서 바로 효과 인지(모바일 P5). 넘치면 fitHand 가 폰트 자동 축소.
-    var effTxt = effectOnly(card.text);
-    var effEl = effTxt ? el('div', { 'data-fit': '1', 'data-fit-fs': 7.5, style: { flex: 'none', margin: '0 2px 1px', padding: '2px 3px', fontSize: '7.5px', lineHeight: 1.26, color: SKIN.effTxt, background: SKIN.effBg, height: '28px', overflow: 'hidden', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, richText(effTxt)) : null;
+    // 예전 미니 디자인으로 복귀 — 이름·글리프·ATK/HP만. 효과 요약 텍스트는 작아서 잘려 안 읽히므로 제거.
+    // 상세(효과·사거리)는 꾹 눌러 미리보기(모바일 peek)·덱빌더 호버 확대로 확인.
     return el('button', props, [
       // 상단(타이틀바)을 키우고 이름 줄바꿈 허용 → 전체 이름이 한번에 보이게
       winTitlebar(card, { iconPx: 11, nameFs: 9, pad: '3px 4px', wrap: true, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '0 3px', flex: 'none' } }, ['⚡']) : null }),
       art,
-      effEl,
       isP ? el('div', { class: 'mono', style: { flex: 'none', textAlign: 'center', fontSize: '9px', fontWeight: 700, color: '#d8472b', background: SKIN.effBg, padding: '2px 0', margin: '0 2px 2px', whiteSpace: 'nowrap', overflow: 'hidden' } }, ['◆ 드래그 시전'])
           : statusStrip(card.atk, card.hp, card.hp, { atkW: 32, fs: 13, icoPx: 11, margin: '0 2px 2px' })
     ]);
