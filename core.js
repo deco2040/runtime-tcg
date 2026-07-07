@@ -259,8 +259,6 @@
   // 베벨: 페이스에서 파생. raised = 상/좌 hi · 하/우 lo, sunken = 반전(§7).
   function raisedBev(hi, lo) { hi = hi || SKIN.faceHi; lo = lo || SKIN.faceLo; return { border: '2px solid', borderColor: hi + ' ' + lo + ' ' + lo + ' ' + hi }; }
   function sunkenBev() { return { border: '2px solid', borderColor: SKIN.faceLo + ' ' + SKIN.faceHi + ' ' + SKIN.faceHi + ' ' + SKIN.faceLo }; }
-  // CRT 필터 + 축소 폰트에서 강조 텍스트(키워드칩·용어·라벨·이름)를 본문(600)보다 확실히 굵게. 폰트 웨이트 상한(700)을 넘어 시각 굵기를 확보하는 faux extra-bold(글자색과 같은 얇은 스트로크).
-  var HEAVY_STROKE = '0.35px currentColor';
   // 오너 LED (내=틸 / 적=마젠타)
   function ledDot(owner, sz) { return el('span', { style: { width: (sz || 8) + 'px', height: (sz || 8) + 'px', flex: 'none', borderRadius: '50%', background: OWNER_LED[owner], border: '1px solid rgba(0,0,0,.45)', boxShadow: '0 0 0 1px rgba(255,255,255,.6), 0 0 4px ' + hexa(OWNER_LED[owner], .9) } }); }
   // 앱아이콘 = 계열(무채색 글리프). 타이틀바 좌측.
@@ -276,7 +274,7 @@
     var bg = CLS[card.cls] || CLS.generic, kids = [];
     if (o.led != null) kids.push(ledDot(o.led, o.ledPx));
     if (o.icon !== false) kids.push(appIcon(card, o.iconPx));
-    var nameSt = { flex: 1, minWidth: 0, fontSize: (o.nameFs || 9) + 'px', fontWeight: 700, color: '#fff', WebkitTextStroke: HEAVY_STROKE, letterSpacing: '.02em' };
+    var nameSt = { flex: 1, minWidth: 0, fontSize: (o.nameFs || 9) + 'px', fontWeight: 700, color: '#fff', letterSpacing: '.02em' };
     if (o.wrap) { nameSt.whiteSpace = 'normal'; nameSt.lineHeight = 1.05; nameSt.wordBreak = 'break-word'; } // 전체 이름 표시(줄바꿈 허용)
     else { nameSt.whiteSpace = 'nowrap'; nameSt.overflow = 'hidden'; nameSt.textOverflow = 'ellipsis'; }
     kids.push(el('span', { class: 'mono', style: nameSt }, [o.name != null ? o.name : card.name]));
@@ -339,17 +337,17 @@
     // 모바일 한정: ✓/⚠ 이모지 제거 + 라벨칩을 한 줄에 두고, 조건문을 그 아래에서 전체 폭으로 이어 채운다(좁은 카드 잘림 방지). 충족/미충족은 칩 배경색으로만 표시.
     if (COMPACT) {
       return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
-        el('span', { class: 'mono', style: { display: 'inline-block', fontWeight: 700, color: '#fff', WebkitTextStroke: HEAVY_STROKE, background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em', marginBottom: '2px' } }, [spec.label]),
-        el('div', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
+        el('span', { class: 'mono', style: { display: 'inline-block', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em', marginBottom: '2px' } }, [spec.label]),
+        el('div', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 500, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
       ]);
     }
     // 데스크톱: 선언조건 태그(✓+라벨칩)를 float:left → 조건문이 태그 옆에서 이어지고, 길어지면 태그 밑에서부터 카드 전체 폭으로 이어져 꽉 채워진다. 조건문 텍스트는 중앙 정렬(태그는 float 라 좌측 고정). 라벨칩만 굵게, 본문은 일반 굵기.
     return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
       el('span', { style: { 'float': 'left', display: 'inline-flex', alignItems: 'center', gap: '3px', marginRight: '5px' } }, [
         el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
-        el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', WebkitTextStroke: HEAVY_STROKE, background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
+        el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
       ]),
-      el('span', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
+      el('span', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 500, color: SKIN.effTxt, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text]),
       el('div', { style: { clear: 'both' } })
     ]);
   }
@@ -364,7 +362,7 @@
     opts = opts || {};
     var cl = CLS[cls] || CLS.generic, gly = GLY[cls] || '';
     return el('div', { class: 'mono', title: cls + ' 클래스 단일 카드 · ' + cls + ' 단일 클래스 덱 전용', style: { display: 'flex', alignItems: 'center', margin: opts.margin || '3px 2px 0', fontSize: (opts.fs || 8) + 'px', lineHeight: 1.3 } }, [
-      el('span', { style: { flex: 'none', fontWeight: 700, color: '#fff', WebkitTextStroke: HEAVY_STROKE, background: cl, padding: '0 5px', borderRadius: '2px', letterSpacing: '.02em', border: '1px solid rgba(0,0,0,.3)' } }, [gly + ' ' + cls + ' 클래스 단일'])
+      el('span', { style: { flex: 'none', fontWeight: 700, color: '#fff', background: cl, padding: '0 5px', borderRadius: '2px', letterSpacing: '.02em', border: '1px solid rgba(0,0,0,.3)' } }, [gly + ' ' + cls + ' 클래스 단일'])
     ]);
   }
   // 사거리 그리드 = 뷰포트 우하단 코너 오버레이(이슈 5: 타이틀바 과밀 해소). 불투명 다크 박스 배킹 + 밝은 셀로
@@ -563,11 +561,11 @@
       if (m) {
         flush();
         var isMode = MODE_KW[m], label = m, style;
-        var chip = { fontFamily: "'Space Mono',monospace", fontSize: '9px', fontWeight: 700, color: '#fff', WebkitTextStroke: HEAVY_STROKE, padding: '0 4px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
-        if (isMode) style = { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', WebkitTextStroke: HEAVY_STROKE, background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
+        var chip = { fontFamily: "'Space Mono',monospace", fontSize: '9px', fontWeight: 700, color: '#fff', padding: '0 4px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
+        if (isMode) style = { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
         else if (DMG_TRIGGER[m]) style = Object.assign({}, chip, { background: '#c8791f' });        // 피격 시/후 = 앰버칩
-        else if (ATTACK_KW[m]) style = { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700, WebkitTextStroke: HEAVY_STROKE };
-        else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 700, WebkitTextStroke: HEAVY_STROKE };
+        else if (ATTACK_KW[m]) style = { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 };
+        else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 700 };
         nodes.push(el('span', { 'data-kwchip': '1', style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip, onclick: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]) }, [label]));
         i += m.length;
       } else { buf += text[i]; i++; }
@@ -575,8 +573,8 @@
     flush();
     // keep-all 래퍼: 효과문이 렌더되는 모든 곳(손패·보드·툴팁·미리보기)에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
     // fontFamily 명시: 덱빌더(.crt-screen)는 기본이 Space Mono(400/700만) 라 중간 웨이트가 clamp 됨 → 본문 폰트를 IBM Plex Sans KR 로 고정해 웨이트가 실제 적용되게(인게임과도 일치).
-    // fontWeight 600: CRT 필터 + 축소 폰트에서 본문 가독성 확보(전체 카드 굵기 상향). 키워드 칩은 자체 폰트/700 유지.
-    return [el('span', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
+    // fontWeight 500: CRT 필터 + 축소 폰트 가독성 확보(원본 400 대비 상향). 강조(키워드칩·용어·라벨·이름)는 700 유지 → 본문 500 < 강조 700 로 스트로크 없이 명확 구분(스트로크는 한글 글자 뭉침 이슈로 폐기).
+    return [el('span', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 500, wordBreak: 'keep-all', overflowWrap: 'break-word' } }, nodes)];
   }
 
   // ---- animation / fx layer (event-driven; overlays survive full re-renders)
