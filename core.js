@@ -336,13 +336,13 @@
     var fs = opts.fs || 8, g = spec.label === '선언 조건' ? GLOSS['require'] : GLOSS['시전 조건'];
     // 모바일 한정: ✓/⚠ 이모지 제거 + 라벨칩을 한 줄에 두고, 조건문을 그 아래에서 전체 폭으로 이어 채운다(좁은 카드 잘림 방지). 충족/미충족은 칩 배경색으로만 표시.
     if (COMPACT) {
-      return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
+      return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.5, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
         el('span', { class: 'mono', style: { display: 'inline-block', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em', marginBottom: '2px' } }, [spec.label]),
         el('div', { style: { fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 500, color: SKIN.effTxt, whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'break-word' } }, [spec.text])
       ]);
     }
     // 데스크톱: 선언조건 태그(✓+라벨칩)를 float:left → 조건문이 태그 옆에서 이어지고, 길어지면 태그 밑에서부터 카드 전체 폭으로 이어져 꽉 채워진다. 조건문 텍스트는 중앙 정렬(태그는 float 라 좌측 고정). 라벨칩만 굵게, 본문은 일반 굵기.
-    return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.4, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
+    return el('div', { style: { margin: opts.margin || '3px 2px 0', fontSize: fs + 'px', lineHeight: 1.5, textAlign: 'center', cursor: g ? 'help' : 'default' }, onmouseenter: g ? function (e) { showKwTip(e.currentTarget, g); } : null, onmouseleave: g ? hideKwTip : null }, [
       el('span', { style: { 'float': 'left', display: 'inline-flex', alignItems: 'center', gap: '3px', marginRight: '5px' } }, [
         el('span', { style: { flex: 'none', fontWeight: 700, color: spec.met ? SKIN.buff : SKIN.heat } }, [spec.met ? '✓' : '⚠']),
         el('span', { class: 'mono', style: { flex: 'none', fontWeight: 700, color: '#fff', background: spec.met ? SKIN.muted : SKIN.heat, padding: '0 4px', borderRadius: '2px', letterSpacing: '.02em' } }, [spec.label])
@@ -411,7 +411,7 @@
   function effectPanel(card, opts) {
     opts = opts || {};
     var fs = opts.fs || 8;
-    var st = Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: fs + 'px', lineHeight: 1.45, padding: '3px 5px', minHeight: (opts.min != null ? opts.min : 26) + 'px', overflow: 'hidden' }, opts.flex ? { flex: 1 } : {}, sunkenBev());
+    var st = Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: fs + 'px', lineHeight: 1.55, padding: '3px 5px', minHeight: (opts.min != null ? opts.min : 26) + 'px', overflow: 'hidden' }, opts.flex ? { flex: 1 } : {}, sunkenBev());
     // data-fit: 렌더 후 fitHand()가 넘치면 폰트를 자동 축소(잘림 방지). opts.fit === false 면 제외.
     var props = opts.fit === false ? { style: st } : { style: st, 'data-fit': '1', 'data-fit-fs': fs };
     return el('div', props, richText(effectOnly(card.text)));
@@ -921,7 +921,7 @@
       el('div', { style: Object.assign({ position: 'relative', background: SKIN.face, padding: '3px', boxShadow: '0 16px 34px rgba(0,0,0,.55)' }, raisedBev()) }, [
         winTitlebar(card, { iconPx: 15, nameFs: 12, hatch: owner !== HUMAN }),
         viewportBox(card, 92, { gScale: 0.5 }),
-        el('div', { style: Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, padding: '6px 7px', fontSize: '10.5px', lineHeight: 1.45 }, sunkenBev()) }, richText(effectOnly(card.text)))
+        el('div', { style: Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, padding: '6px 7px', fontSize: '10.5px', lineHeight: 1.55 }, sunkenBev()) }, richText(effectOnly(card.text)))
       ])
     ]);
     var L = fxLayer(); L.appendChild(lbl); L.appendChild(wrap);
@@ -2066,7 +2066,7 @@
         el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, minHeight: '0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: effFs + 'px', padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()), 'data-fit': '1', 'data-fit-fs': effFs }, [
           el('div', { style: { display: 'flex', gap: '6px', alignItems: 'flex-start' } }, [
             el('div', { style: { width: '20px', height: '20px', flex: 'none', borderRadius: '50%', background: '#d8472b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' } }, ['⚡']),
-            el('div', { style: { minWidth: 0, lineHeight: 1.45 } }, richText(effectOnly(card.text)))
+            el('div', { style: { minWidth: 0, lineHeight: 1.55 } }, richText(effectOnly(card.text)))
           ]),
           prI ? el('div', { class: 'mono', style: { fontSize: '0.85em', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + prI.text]) : null
         ]),
@@ -2150,7 +2150,7 @@
     var head = winTitlebar(card, { iconPx: 12, nameFs: 10, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : null });
     if (isP) return el('div', { style: st }, [
       head, viewportBox(card, 64, { gScale: 0.5 }),
-      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.4, overflow: 'hidden' }, sunkenBev()) }, richText(effectOnly(card.text)))
+      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.5, overflow: 'hidden' }, sunkenBev()) }, richText(effectOnly(card.text)))
     ]);
     return el('div', { style: st }, [
       head, viewportBox(card, 60, { gScale: 0.5 }),
