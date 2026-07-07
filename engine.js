@@ -24,7 +24,7 @@
 
   // ----------------------------------------------------------------- RUNTIME WEATHER (판 전체 환경 효과)
   // 매 게임 1종이 결정적으로 지정된다(온라인은 seed 파생 → 양 클라 동일). clear 는 랜덤 풀에서 제외(무언가는 반드시 일어난다).
-  var WEATHERS_ALL = ['overclock', 'throttle', 'memleak', 'gc', 'firewall'];
+  var WEATHERS_ALL = ['overclock', 'throttle', 'memleak', 'gc', 'deadlock'];
   var WEATHER_HAZARD_START = 8; // memleak/gc 발동 시작 ply(초반 숨통)
   var WEATHER_GC_PERIOD = 4;    // gc 회수 주기 ply
   var WALL_OWNER = 2;           // 중립 벽 소유자(플레이어 0/1 아님)
@@ -1029,14 +1029,32 @@
     g.allyObjects(me).forEach(function (u) { if (g.canBasicAttack(u) && g.basicAttackTargets(u).indexOf(bk) >= 0) sum += g.effAtk(u); });
     return sum;
   }
-  // pick the best basic-attack target for u: finish body > commit lethal > kill a threat > pressure body > chip
+  // 방어 휴리스틱: 적 유닛 t 가 내(me) 본체를 기본공격 사거리에 두는가(= 내 본체를 때리는/때릴 놈).
+  function aiThreatensBody(g, t, myBK) {
+    if (!t || t.type !== 'object' || g.effAtk(t) <= 0) return false;
+    var tt = g.basicAttackTargets(t); return tt && tt.indexOf(myBK) >= 0;
+  }
+  // pick the best basic-attack target for u: finish body > commit lethal > kill a base-threat/threat > defend body > pressure body > chip
   function aiAttackTarget(g, me, u, lethalBody) {
     var tg = g.basicAttackTargets(u); if (!tg.length) return null;
-    var atk = g.effAtk(u);
+    var atk = g.effAtk(u), myBK = bodyKey(me);
     var bodyK = tg.filter(function (k) { return g.board[k].type === 'body'; })[0];
     if (bodyK && (lethalBody || g.curHp(g.board[bodyK]) <= atk)) return bodyK;             // finishing / committed lethal
     var kills = tg.filter(function (k) { var t = g.board[k]; return t.type === 'object' && g.curHp(t) <= atk && g.effAtk(t) > 0; });
-    if (kills.length) { kills.sort(function (a, b) { return g.effAtk(g.board[b]) - g.effAtk(g.board[a]); }); return kills[0]; } // remove biggest threat we can one-shot
+    if (kills.length) {
+      // 원샷 가능한 대상 중 '내 본체를 노리는 유닛'을 최우선(다운사이드 없음 — 어차피 잡을 유닛이면 본체 때리는 놈부터), 그다음 공격력 큰 순.
+      kills.sort(function (a, b) {
+        var da = aiThreatensBody(g, g.board[a], myBK) ? 1 : 0, db = aiThreatensBody(g, g.board[b], myBK) ? 1 : 0;
+        if (da !== db) return db - da;
+        return g.effAtk(g.board[b]) - g.effAtk(g.board[a]);
+      });
+      return kills[0];
+    }
+    // 원샷 불가 — 내 본체가 위험(≤24, 즉 16+ 피해)하고 리썰 임박이 아니면, 본체를 노리는 적을 깎아 압박을 줄인다(레이스보다 우선).
+    if (!lethalBody && g.curHp(g.body(me)) <= 24) {
+      var bthreats = tg.filter(function (k) { return aiThreatensBody(g, g.board[k], myBK); });
+      if (bthreats.length) { bthreats.sort(function (a, b) { return g.effAtk(g.board[b]) - g.effAtk(g.board[a]); }); return bthreats[0]; }
+    }
     if (bodyK) return bodyK;                                                               // otherwise race the body
     tg.sort(function (a, b) { return g.curHp(g.board[a]) - g.curHp(g.board[b]); }); return tg[0];
   }
@@ -1051,7 +1069,11 @@
         var ebody = ts.filter(function (k) { return g.board[k].type === 'body'; })[0];
         var units = ts.filter(function (k) { return g.board[k].type === 'object'; });
         units.sort(function (a, b) { return g.curHp(g.board[a]) - g.curHp(g.board[b]); });
+        var myBK3 = bodyKey(me);
+        // 제거 우선순위: ① 내 본체를 노리는 위협(baseThreat) ② 그 외 공격력 있는 위협 — 둘 다 저체력(제거 쉬운) 순.
+        var baseThreat = null; for (var y = 0; y < units.length; y++) { if (aiThreatensBody(g, g.board[units[y]], myBK3)) { baseThreat = units[y]; break; } }
         var threat = null; for (var z = 0; z < units.length; z++) { if (g.effAtk(g.board[units[z]]) > 0) { threat = units[z]; break; } }
+        threat = baseThreat || threat;                                         // 본체를 때리는 놈을 최우선 스나이프
         if (ebody && (g.curHp(g.board[ebody]) <= 14 || !threat)) tk = ebody;   // close out a low body, or nothing worth removing
         else tk = threat || units[0] || ebody;                                 // else snipe a threatening unit
       }
@@ -1153,12 +1175,12 @@
     g.board[bodyKey(1)] = { uid: g.uidSeq++, owner: 1, cardId: '__body1', type: 'body', baseAtk: 0, baseHp: BODY_HP, atkMod: 0, hpMod: 0, dmg: 0, onceUsed: {}, flags: {} };
     // RUNTIME WEATHER 지정 — 명시(opts.weather: 튜토리얼 clear·챌린지 스테이지) 우선, 없으면 seed 파생(단일/온라인 랜덤·양 클라 동일).
     g.weather = (opts.weather !== undefined) ? opts.weather : weatherFromSeed(opts.seed != null ? opts.seed : 12345);
-    if (g.weather === 'firewall') placeFirewallWalls(g);
+    if (g.weather === 'deadlock') placeDeadlockWalls(g);
     g.startMatch();
     return g;
   }
-  // 방화벽 날씨 — 통로(row 2·3)에서 결정적으로 3칸을 골라 중립 벽(공0/체12·이동불가) 배치.
-  function placeFirewallWalls(g) {
+  // 교착(DEADLOCK) 날씨 — 통로(row 2·3)에서 결정적으로 3칸을 골라 중립 벽(공0/체12·이동불가) 배치.
+  function placeDeadlockWalls(g) {
     var cells = [], c;
     for (c = 1; c <= COLS; c++) { cells.push(K(c, 2)); cells.push(K(c, 3)); }
     // seed rng 로 셔플(양 클라 동일) 후 앞 3칸 — 본체/유닛 없는 통로라 항상 빈 칸.
@@ -1172,7 +1194,7 @@
   }
   CARDS.__body0 = { id: '__body0', name: '본체', cls: 'none', kind: 'body', atk: 0, hp: BODY_HP, abilities: [] };
   CARDS.__body1 = { id: '__body1', name: '본체', cls: 'none', kind: 'body', atk: 0, hp: BODY_HP, abilities: [] };
-  CARDS.__wall = { id: '__wall', name: '방화벽', cls: 'none', kind: 'object', atk: 0, hp: 12, text: '중립 벽 — 공격 가능·이동 불가', abilities: [] }; // FIREWALL 날씨 중립 벽
+  CARDS.__wall = { id: '__wall', name: '교착 노드', cls: 'none', kind: 'object', atk: 0, hp: 12, text: '교착 노드 — 공격 가능·이동 불가', abilities: [] }; // DEADLOCK 날씨 중립 벽
 
   // ============================================================== range display metadata
   // Origin-relative shape of each card's PRIMARY range, for the card-UI mini-grid.

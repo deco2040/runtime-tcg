@@ -187,7 +187,7 @@
           ['🧊', '스로틀링', '#3f7bd6', '모든 유닛 공격력 **−1** (최소 0·즉시).'],
           ['🩸', '메모리 누수', '#c23c70', '**8턴부터** 매 턴 모든 유닛 HP **−1** — 장기전일수록 압박이 커집니다.'],
           ['🧹', '가비지 컬렉션', '#8a6fb0', '**8턴부터 4턴마다** 체력이 가장 낮은 유닛 1기를 **회수(파괴)**.'],
-          ['🧱', '방화벽', '#8a8a94', '**중립 벽**이 통로를 가로막습니다 — **양쪽 다 공격 가능·이동 불가**.']
+          ['⛓️', '교착', '#b8823a', '**교착 노드**가 통로를 가로막습니다 — **양쪽 다 공격 가능·이동 불가**.']
         ];
         var list = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', margin: '6px 0 10px' } });
         rows.forEach(function (r) {
@@ -198,9 +198,9 @@
           ]));
         });
         box.appendChild(list);
-        box.appendChild(tutP('**방화벽**의 중립 벽은 어느 편도 아니라서 **양쪽 모두 때려서** 부술 수 있지만, 스스로는 **움직이지 않고 공격도 하지 않습니다.** 진격로를 막거나 우회를 강요하죠.'));
-        box.appendChild(tutMini({ '1,2': tutTile('🧱 벽', '#fff', '#484850'), '2,2': tutTile('🧱 벽', '#fff', '#484850'), '3,2': tutTile('🧱 벽', '#fff', '#484850'), '3,4': tutTile('내 본체', '#9db8e6', '#1d1d24'), '3,1': tutTile('적 본체', '#e6a3bd', '#3a2630') }));
-        box.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, textAlign: 'center', marginBottom: '8px' } }, ['방화벽 예시 — 통로(2·3행)에 중립 벽이 배치된다']));
+        box.appendChild(tutP('**교착**의 중립 벽(교착 노드)은 어느 편도 아니라서 **양쪽 모두 때려서** 부술 수 있지만, 스스로는 **움직이지 않고 공격도 하지 않습니다.** 진격로를 막거나 우회를 강요하죠.'));
+        box.appendChild(tutMini({ '1,2': tutTile('⛓️ 벽', '#fff', '#3a3026'), '2,2': tutTile('⛓️ 벽', '#fff', '#3a3026'), '3,2': tutTile('⛓️ 벽', '#fff', '#3a3026'), '3,4': tutTile('내 본체', '#9db8e6', '#1d1d24'), '3,1': tutTile('적 본체', '#e6a3bd', '#3a2630') }));
+        box.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, textAlign: 'center', marginBottom: '8px' } }, ['교착 예시 — 통로(2·3행)에 교착 노드가 배치된다']));
         box.appendChild(tutP('**CHALLENGE 모드**에선 스테이지가 오를수록 날씨가 더 가혹해지고, **5·10…단계 보스전**에선 피해·차폐형 날씨가 강제됩니다. 날씨를 읽고 **덱과 전개 속도**를 맞추는 것이 새로운 공략 포인트예요.'));
         box.appendChild(el('div', { style: { textAlign: 'center', marginTop: '12px' } }, [
           el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 26px', background: SKIN.own, color: '#fff', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.25)' }, onclick: UI.startTutorialPractice }, ['▶ 직접 해보기 (실습)'])

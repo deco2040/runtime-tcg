@@ -52,7 +52,7 @@
       abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { allyThreads(G, u.owner).forEach(function (x) { G.buffAtk(x, 1); }); } }] });
     def({ id: 'Salvo', cls: 'thread', kind: 'object', atk: 6, hp: 2, text: 'For(1) 「2칸이내」 적 하나에게 공격력만큼 피해',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : nearestEnemyOrBodyWithin(G, u, 2); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }] });
-    def({ id: 'Recursion', cls: 'thread', kind: 'object', atk: 3, hp: 3, text: 'When 피격 후 생존 시 공격력 +2',
+    def({ id: 'Recursion', cls: 'thread', kind: 'object', atk: 3, hp: 3, text: 'When 피격 시 살아남으면 공격력 +2',
       abilities: [{ kw: 'When', trigger: 'onDamaged', fn: function (G, u) { if (G.curHp(u) > 0) G.buffAtk(u, 2); } }] });
     def({ id: 'Signal', cls: 'thread', kind: 'object', atk: 4, hp: 3, text: 'Once 선언 시 「옆칸」 아군 thread 1장 공격력 +4',
       abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { var t = G.adj(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'thread'; })[0]; if (t) G.buffAtk(t, 4); } }] });
@@ -126,7 +126,7 @@
     def({ id: 'Stack', cls: 'memory', kind: 'object', atk: 0, hp: 10, text: 'While 「옆칸」 적 인스턴스 공격력 -2', abilities: [] });
     def({ id: 'Semaphore', cls: 'memory', kind: 'object', atk: 0, hp: 8, text: 'For(2) 적 인스턴스 하나 1턴 봉쇄',
       abilities: [{ kw: 'For', forCount: 2, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (t) G.bind(t, 1); } }] });
-    def({ id: 'Buffer', cls: 'memory', kind: 'object', atk: 0, hp: 11, text: 'When 피격 후 체력이 5 이하면 4 회복(턴당 1회)',
+    def({ id: 'Buffer', cls: 'memory', kind: 'object', atk: 0, hp: 11, text: 'When 피격 시 체력이 5 이하로 남으면 4 회복(턴당 1회)',
       abilities: [{ kw: 'When', trigger: 'onDamaged', fn: function (G, u) { if (G.curHp(u) > 0 && G.curHp(u) <= 5 && u.flags.bufTurn !== G.turnNo) { u.flags.bufTurn = G.turnNo; G.healInst(u, 4); } } }] });
     def({ id: 'Sentinel', cls: 'memory', kind: 'object', atk: 2, hp: 9, text: 'When 「옆칸」에 적 인스턴스 진입 시 그 적 인스턴스 1턴 봉쇄 + 2 피해',
       abilities: [{ kw: 'When', trigger: 'onEnterRange', fn: function (G, u, ctx) { var m = ctx.mover; if (!m || m.owner === u.owner) return; G.bind(m, 1); if (G.board[unitKey(G, m)]) G.deal(m, 2, { attacker: u }); } }] });

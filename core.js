@@ -32,7 +32,7 @@
     throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '모든 유닛 공격력 −1 (최소 0).' },
     memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴부터 매 턴 모든 유닛 HP −1.' },
     gc: { name: '가비지 컬렉션', en: 'GC SWEEP', icon: '🧹', color: '#8a6fb0', desc: '8턴부터 4턴마다 HP 최저 유닛 1기 회수(파괴).' },
-    firewall: { name: '방화벽', en: 'FIREWALL', icon: '🧱', color: '#8a8a94', desc: '중립 벽이 필드를 가로막는다 — 공격 가능·이동 불가.' }
+    deadlock: { name: '교착', en: 'DEADLOCK', icon: '⛓️', color: '#b8823a', desc: '교착 노드가 필드를 가로막는다 — 공격 가능·이동 불가.' }
   };
   function weatherInfo(id) { return WEATHER_INFO[id] || WEATHER_INFO.clear; }
   var HUMAN = 0, AI = 1;
@@ -52,7 +52,8 @@
   function isTouchDevice() { try { return window.matchMedia('(pointer: coarse)').matches; } catch (e) { return 'ontouchstart' in window; } }
   // 컴팩트(모바일) = 좁은 폭 이거나, 터치기기의 낮은 높이(가로로 든 폰) — 큰 폰 가로에서도 데스크톱 레이아웃으로 안 빠지게.
   function computeCompact() {
-    try { COMPACT = window.matchMedia('(max-width: 900px)').matches || (isTouchDevice() && window.matchMedia('(max-height: 600px)').matches); }
+    // ≤900px 또는 터치기기(낮은높이 가로폰·가로 태블릿 ≤1024) → 미니/컴팩트. 마우스 광폭 데스크톱은 풀카드 유지.
+    try { COMPACT = window.matchMedia('(max-width: 900px)').matches || (isTouchDevice() && (window.matchMedia('(max-height: 600px)').matches || (window.innerWidth || 1200) <= 1024)); }
     catch (e) { COMPACT = (window.innerWidth || 1200) <= 900; }
   }
   function isPortrait() { return (window.innerHeight || 0) > (window.innerWidth || 0); }
@@ -166,10 +167,13 @@
     opts = opts || {};
     var cell = opts.cell || 5, lblFs = opts.lblFs || 7;         // 상세보기에서는 opts로 확대
     var lbl = spec.code === 'cast' ? '시전 범위(본체 기준)' : '함수 범위';
-    if (spec.kind === 'label') {
+    // 격자 없는 범위(code 'self' 등 자기 대상/패시브) → 빈 5×5 대신 라벨칩. (모바일 상세에서 빈 그리드 오표기 방지)
+    var emptyGrid = spec.kind === 'grid' && (!spec.cells || !spec.cells.length);
+    if (spec.kind === 'label' || emptyGrid) {
+      var chipTxt = spec.kind === 'label' ? spec.text : '고정 · 자기 대상';
       return el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } }, [
         el('span', { class: 'mono', style: { fontSize: lblFs + 'px', color: SKIN.faint, letterSpacing: '.12em' } }, [lbl]),
-        el('span', { class: 'mono', style: { fontSize: (lblFs + 2) + 'px', fontWeight: 700, color: SKIN.panelText, padding: '2px 5px', border: '1px solid ' + SKIN.line, background: SKIN.chassisAlt } }, [spec.text])
+        el('span', { class: 'mono', style: { fontSize: (lblFs + 2) + 'px', fontWeight: 700, color: SKIN.panelText, padding: '2px 5px', border: '1px solid ' + SKIN.line, background: SKIN.chassisAlt } }, [chipTxt])
       ]);
     }
     var set = {}; spec.cells.forEach(function (c) { set[c[0] + ',' + c[1]] = 1; });
@@ -420,11 +424,14 @@
       el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, color: opts.buffed ? SKIN.buff : 'inherit', lineHeight: 1 } }, [String(atk)])
     ]);
     // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 뉴트럴 미터 + 숫자 병기.
-    var hpNum = el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none' } }, [String(hp)]);
+    // HP 상태 색: 피격(현재<최대)=빨강(우선), 과충전(최대>기본)=녹/강조. 정상=기본. baseHp 미전달 시 기본색(하위호환).
+    var hpColor = (hp < maxHp) ? SKIN.heat : ((opts.baseHp != null && maxHp > opts.baseHp) ? SKIN.buff : null);
+    var hpNum = el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, lineHeight: 1, flex: 'none', color: hpColor || 'inherit' } }, [String(hp)]);
+    var hpIco = el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none', color: hpColor || 'inherit' } }, ['♥']);
     var hpEl = el('div', { style: Object.assign({ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: COMPACT ? 'center' : 'flex-start', gap: '3px', padding: '2px 4px', background: SKIN.hpTrack, color: SKIN.effTxt }, sunkenBev()) },
       COMPACT
-        ? [el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']), hpNum]
-        : [el('span', { style: { fontSize: (opts.icoPx || 9) + 'px', lineHeight: 1, flex: 'none' } }, ['♥']), hpMeter(hp, maxHp, { h: opts.meterH || 8 }), hpNum]
+        ? [hpIco, hpNum]
+        : [hpIco, hpMeter(hp, maxHp, { h: opts.meterH || 8 }), hpNum]
     );
     return el('div', { style: { display: 'flex', gap: '3px', margin: opts.margin || '3px 2px 2px' } }, [atkEl, hpEl]);
   }
@@ -471,8 +478,7 @@
     '강제 이동': { t: '강제 이동', d: '효과가 대상의 의사와 무관하게 경로를 따라 옮긴다. 강제이동 트리거(Thrash)와 진입 트리거가 발동.' },
     '재배치': { t: '재배치(relocate)', d: '위치를 제거한 뒤 새 칸에 재설정. 경로가 없어 이동·진입·강제이동 트리거 전부 비발동(Wormhole).' },
     '진입 시': { t: '진입 시', d: '해당 범위 칸으로 적이 들어올 때. 자발/강제 이동 공통 발동, 재배치는 비발동.' },
-    '피격 시': { t: '피격 시', d: '가해 인스턴스에게 피해를 받을 때 발동(기본 공격·능력 피해 공통). 반사·반격류는 이때 가해 인스턴스를 대상으로 한다. 포인터 등 가해 인스턴스가 없는 피해에는 비발동.' },
-    '피격 후': { t: '피격 후', d: '가해 인스턴스에게 피해를 받은 뒤 처리(피해 계산 이후). 「피격 시」와 동일 조건 — 생존/체력 판정 등에 쓰인다.' },
+    '피격 시': { t: '피격 시', d: '가해 인스턴스에게 피해를 받을 때 발동(기본 공격·능력 피해 공통). 피해 계산 이후의 생존/체력 판정도 이 시점으로 통일한다. 반사·반격류는 이때 가해 인스턴스를 대상으로 한다. 포인터 등 가해 인스턴스가 없는 피해에는 비발동.' },
     '앞직선': { t: '앞직선N', d: '전방 같은 열 광선. N ∈ {숫자, 끝}. 끝=보드 끝까지.' },
     '앞 직선': { t: '앞 직선', d: '적 본체 방향으로 뻗는 직선 사거리.' },
     '대각': { t: '대각N', d: '4대각 방향으로 각 N칸 뻗는 사거리 = diagonal(N).' },
@@ -486,7 +492,21 @@
     if (!kwtip) { kwtip = el('div', { style: { position: 'fixed', zIndex: 200, maxWidth: '244px', background: '#1d1d24', color: '#e9eaee', boxShadow: '3px 3px 0 rgba(28,28,38,.4)', padding: '8px 10px', display: 'none', pointerEvents: 'none' } }); document.body.appendChild(kwtip); }
     return kwtip;
   }
+  var _kwTipT = null, _kwDismissWired = false;
+  // 터치기기: hover 종료(mouseleave)가 안 오는 기기가 있어 툴팁이 고착 → 자동 타이머 + 밖 탭/스크롤 해제로 보강.
+  function wireKwDismiss() {
+    if (_kwDismissWired) return; _kwDismissWired = true;
+    document.addEventListener('pointerdown', function (e) {
+      if (!kwtip || kwtip.style.display === 'none') return;
+      var tg = e.target;
+      // 칩(글로서리) 위 탭이면 유지, 그 외 어디든 탭하면 해제.
+      if (tg && tg.closest && tg.closest('[data-kwchip]')) return;
+      hideKwTip();
+    }, true);
+    window.addEventListener('scroll', function () { if (kwtip && kwtip.style.display !== 'none') hideKwTip(); }, true);
+  }
   function showKwTip(elm, g) {
+    wireKwDismiss();
     var t = ensureTip(); t.innerHTML = '';
     t.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: '#fff', marginBottom: '3px', letterSpacing: '.03em' } }, [g.t]));
     t.appendChild(el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: '#cfd0d6' } }, [g.d]));
@@ -494,13 +514,16 @@
     var r = elm.getBoundingClientRect(), top = r.bottom + 6, left = Math.max(6, Math.min(r.left, window.innerWidth - 252));
     if (top + (t.offsetHeight || 70) > window.innerHeight) top = Math.max(6, r.top - (t.offsetHeight || 70) - 6);
     t.style.top = top + 'px'; t.style.left = left + 'px';
+    // 터치기기: 일정 시간 후 자동 해제(mouseleave 미발생 대비). 마우스는 leave 로 해제되므로 타이머 무해.
+    clearTimeout(_kwTipT);
+    if (isTouchDevice()) _kwTipT = setTimeout(hideKwTip, 2800);
   }
-  function hideKwTip() { if (kwtip) kwtip.style.display = 'none'; }
+  function hideKwTip() { clearTimeout(_kwTipT); if (kwtip) kwtip.style.display = 'none'; }
   var MODE_KW = { If: 1, When: 1, Once: 1, While: 1, For: 1 };
   // 옆칸 = 기본 공격과 같은 칸 → 텍스트에서도 빨강으로 색통일(보드 ⚔칸·기본공격 뱃지와 동색).
   var ATTACK_KW = { '옆칸': 1, '옆 칸': 1 };
-  // 피격 트리거 강조(이슈 7). 룰상 「피격 시/후」로 단일화 — 가독성을 위해 앰버칩으로 강조.
-  var DMG_TRIGGER = { '피격 시': 1, '피격 후': 1 };
+  // 피격 트리거 강조(이슈 7). 룰상 「피격 시」로 단일화 — 가독성을 위해 앰버칩으로 강조.
+  var DMG_TRIGGER = { '피격 시': 1 };
   var KW_PHRASES = Object.keys(GLOSS).sort(function (a, b) { return b.length - a.length; });
   function richText(text) {
     if (!text) return [];
@@ -517,7 +540,7 @@
         else if (DMG_TRIGGER[m]) style = Object.assign({}, chip, { background: '#c8791f' });        // 피격 시/후 = 앰버칩
         else if (ATTACK_KW[m]) style = { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 };
         else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 600 };
-        nodes.push(el('span', { style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip }, [label]));
+        nodes.push(el('span', { 'data-kwchip': '1', style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip, onclick: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]) }, [label]));
         i += m.length;
       } else { buf += text[i]; i++; }
     }
@@ -918,9 +941,9 @@
   // 스테이지별 날씨 — 오를수록 가혹. 1=평온, 2~3=완만(공격력 보정), 4+=전종, 보스(5·10…)=피해/차폐형.
   function challengeWeather(stage) {
     if (stage <= 1) return 'clear';
-    if (isBossStage(stage)) return chalPick(['memleak', 'firewall', 'gc']);
+    if (isBossStage(stage)) return chalPick(['memleak', 'deadlock', 'gc']);
     if (stage <= 3) return chalPick(['overclock', 'throttle']);
-    return chalPick(['overclock', 'throttle', 'memleak', 'gc', 'firewall']);
+    return chalPick(['overclock', 'throttle', 'memleak', 'gc', 'deadlock']);
   }
   // 상대 덱 — 보스 스테이지는 강덱 풀(밸런스 측정상 강함)에서, 그 외 랜덤 견본덱.
   function challengeOpponent(stage) {
@@ -1386,8 +1409,9 @@
     // 배경(블러 · 상호작용 차단) — 실제 게임 화면 레이아웃. 세로 중앙 정렬, 넘치면 크롭.
     // 딜 배출점(deckslot-HUMAN)·코인 기준(#board)이 여기 존재해 애니메이션 좌표가 실제 필드에 정확히 맞음.
     var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', filter: 'blur(3px)', transform: 'scale(1.02)', pointerEvents: 'none' } });
-    var main = el('div', { style: { display: 'flex', gap: '13px', padding: 'clamp(10px,1.6vw,18px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1180px' } });
-    var left = el('div', { style: { flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '7px' } });
+    // renderMatch 데스크톱 레이아웃과 정렬(gap 8px · 좌측 덱트래커 컬럼 포함 · left gap 2px) — 블러 배경이 실게임과 일치하도록.
+    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%' } });
+    var left = el('div', { style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl(false, deskBoardMaxW()));
     left.appendChild(deckDispenser(HUMAN));
@@ -1396,6 +1420,7 @@
       el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음'])
     ]));
     left.appendChild(controls(false));
+    main.appendChild(leftTrackPanel());   // 좌측: 날씨 배너 + 덱 트래커(실게임과 동일 컬럼)
     main.appendChild(left);
     main.appendChild(sidePanel());
     bg.appendChild(main);
@@ -1731,13 +1756,14 @@
   }
   // 중립 벽(FIREWALL 날씨) — OWNER_* 배열 미참조. 회색 벽돌 룩 + HP. 공격 가능·이동 불가.
   function wallTile(u, key) {
-    var hp = G.curHp(u), mx = G.effMaxHp(u), col = '#8a8a94';
-    var brick = 'repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 2px, transparent 2px 9px), repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 2px, transparent 2px 15px)';
-    var st = { position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: '#484850', backgroundImage: brick, color: '#e9eaee', border: '2px solid ' + col, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.28), 3px 3px 0 rgba(0,0,0,.28)' };
+    var hp = G.curHp(u), mx = G.effMaxHp(u), col = '#b8823a';
+    // 교착(DEADLOCK) — 대각 크로스해치(체인/잠김 뉘앙스)로 벽돌 패턴 대체.
+    var hatch = 'repeating-linear-gradient(45deg, rgba(0,0,0,.32) 0 3px, transparent 3px 10px), repeating-linear-gradient(-45deg, rgba(184,130,58,.22) 0 3px, transparent 3px 10px)';
+    var st = { position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: '#3a3026', backgroundImage: hatch, color: '#f0e6d6', border: '2px solid ' + col, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.30), 3px 3px 0 rgba(0,0,0,.30)' };
     if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
     return el('div', { style: st }, [
-      el('span', { style: { fontSize: '8px', letterSpacing: '.16em', color: 'rgba(255,255,255,.62)' } }, ['중립 벽']),
-      el('span', { style: { fontSize: 'clamp(14px,2.6vw,22px)', lineHeight: 1 } }, ['🧱']),
+      el('span', { style: { fontSize: '8px', letterSpacing: '.16em', color: 'rgba(240,230,214,.66)' } }, ['교착']),
+      el('span', { style: { fontSize: 'clamp(14px,2.6vw,22px)', lineHeight: 1 } }, ['⛓️']),
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '2px' } }, [
         el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700 } }, [String(hp)]),
         el('span', { class: 'mono', style: { fontSize: '8px', color: 'rgba(255,255,255,.55)' } }, ['/' + mx])
@@ -1813,7 +1839,7 @@
         statusChips(u)
       ]),
       // 마이크로 상태바 — ATK 필드 | HP 뉴트럴 미터
-      statusStrip(a, hp, mx, { atkW: 26, fs: 9, icoPx: 8, meterH: 5, margin: '0 2px 2px', buffed: a > (card.atk || 0) })
+      statusStrip(a, hp, mx, { atkW: 26, fs: 9, icoPx: 8, meterH: 5, margin: '0 2px 2px', buffed: a > (card.atk || 0), baseHp: (card.hp || 0) })
     ]);
   }
 
@@ -2225,6 +2251,8 @@
       var out = left <= 0;
       var row = el('div', {
         onclick: function () { pinned = { id: id }; refreshInspector(); if (Sound.ui) Sound.ui(); },
+        onmouseenter: function (e) { showCardTip(e.currentTarget.getBoundingClientRect(), id, null); },
+        onmouseleave: hideCardTip,
         title: c.name,
         style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 5px', cursor: 'pointer', borderLeft: '2px solid ' + cl, background: out ? 'transparent' : hexa(cl, 0.08), opacity: out ? 0.4 : 1, borderRadius: '2px' }
       }, [
@@ -2433,7 +2461,7 @@
   // 날씨 규칙 행 — WEATHER_INFO 재사용. 이번 판 날씨(G.weather)는 강조 배지 + 배경 틴트.
   function weatherRuleRows() {
     var cur = G && G.weather;
-    return ['clear', 'overclock', 'throttle', 'memleak', 'gc', 'firewall'].map(function (id) {
+    return ['clear', 'overclock', 'throttle', 'memleak', 'gc', 'deadlock'].map(function (id) {
       var wi = weatherInfo(id), active = (id === cur);
       return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line, background: active ? hexa(wi.color, .1) : 'transparent' } }, [
         el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' } }, [

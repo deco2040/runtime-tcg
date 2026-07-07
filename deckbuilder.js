@@ -360,6 +360,8 @@
         style: { position: 'relative', display: 'inline-flex', cursor: 'pointer' }
       }, [face]);
       w.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '19px', textAlign: 'center', fontSize: '11px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '10px', padding: '1px 5px', boxShadow: '0 1px 4px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + counts[id]]));
+      // 모바일: 호버가 없으므로 덱리스트 미니 카드에도 🔍 탭 확대(풀 타일과 동일). 탭=제거와 겹치지 않게 stopPropagation.
+      if (isMobileDB()) w.appendChild(el('button', { title: '크게 보기', onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', bottom: '-7px', right: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
       // ★ 대표(표지) 카드 지정 토글 — 클릭 시 카드 제거와 겹치지 않게 stopPropagation.
       (function (cid, cname) {
         var isCover = bDeck.cover === cid;
