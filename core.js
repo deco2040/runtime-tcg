@@ -631,7 +631,6 @@
         el('div', { class: isP ? 'mono' : 'grot', style: { fontWeight: 700, fontSize: '16px', marginBottom: '5px' } }, [card.name]),
         isP ? null : el('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px' } }, [statBar('ATK', atk, ATK_MAX, SKIN.heat, unit ? card.atk : null), statBar('HP', hp, HP_MAX, SKIN.own)]),
         el('div', { style: { fontSize: '11px', color: SKIN.txt, lineHeight: 1.5, marginBottom: '6px' } }, richText(effectOnly(card.text))),
-        (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.own, fontWeight: 700, marginBottom: '5px' } }, ['시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
         condLine(condSpec(card), { fs: 9, margin: '0 0 5px' }),
         deckRuleLine(card, { fs: 9, margin: '0 0 5px' }),
         isP ? null : el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, fontWeight: 700, marginBottom: '5px' } }, ['⚔ 기본 공격 · 옆칸 1칸']),
@@ -2060,7 +2059,6 @@
     if (isP) {
       // 포인터 = 다이얼로그: 타이틀바(사거리 컨트롤) + 뷰포트(일러스트) + 효과·사거리·시전조건 패널 + [시전] 버튼.
       // 상태바 부재(=시전 버튼) 로 인스턴스와 실루엣 분리(§5). 일러스트는 뷰포트로 복원.
-      var prI = RT.pointerRangeInfo(id);
       return mullWrap(el('button', props, [
         winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9 }),
         viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
@@ -2070,8 +2068,7 @@
           el('div', { style: { display: 'flex', gap: '6px', alignItems: 'flex-start' } }, [
             el('div', { style: { width: '20px', height: '20px', flex: 'none', borderRadius: '50%', background: '#d8472b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' } }, ['⚡']),
             el('div', { style: { minWidth: 0, lineHeight: 1.65 } }, richText(effectOnly(card.text)))
-          ]),
-          prI ? el('div', { class: 'mono', style: { fontSize: '0.85em', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + prI.text]) : null
+          ])
         ]),
         el('div', { style: { display: 'flex', justifyContent: 'center', margin: '3px 2px 2px' } }, [
           el('span', { class: 'mono', style: Object.assign({ fontSize: big ? '10px' : '9px', fontWeight: 700, color: SKIN.effTxt, background: SKIN.face, padding: '3px 22px' }, raisedBev()) }, ['▶ 시전'])
@@ -2136,8 +2133,6 @@
       isP ? el('span', { class: 'mono', style: { fontSize: '9px', color: '#d8472b', fontWeight: 700 } }, ['포인터']) : null
     ])];
     rows.push(el('div', { style: { fontSize: '12.5px', lineHeight: 1.5 } }, richText(effectOnly(card.text))));
-    var pr = isP ? RT.pointerRangeInfo(id) : null;
-    if (pr) rows.push(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: SKIN.own } }, ['◆ 시전 사거리 · ' + pr.text]));
     var pcond = condSpec(card);
     if (pcond) rows.push(condLine(pcond, { fs: 10, margin: '0' }));
     if (card.deckRule) rows.push(deckRuleLine(card, { fs: 10, margin: '0' }));
@@ -2225,8 +2220,7 @@
     row.appendChild(el('span', { class: 'mono', style: { fontSize: '11px' } }, [G.actions + '/2 액션']));
     // 날씨(필드 환경)는 좌측 패널 배너(weatherBanner)에 상시 표시되므로 액션 바에는 중복 표기하지 않는다.
     if (ptr) {
-      var pi = RT.pointerRangeInfo(ptr.card.id);
-      row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, [COMPACT ? ('◆ ' + ptr.card.name + ' 시전') : ('◆ ' + ptr.card.name + ' 시전 — ' + (pi ? '시전 사거리 ' + pi.text + ' · ' : '') + '파란 구역 안 빨강 대상 클릭/드래그')]));
+      row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, [COMPACT ? ('◆ ' + ptr.card.name + ' 시전') : ('◆ ' + ptr.card.name + ' 시전 — 파란 구역 안 빨강 대상 클릭/드래그')]));
     } else if (!COMPACT) row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['손패 카드를 드래그 또는 클릭 · 내 유닛 클릭 → 행동']));
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
@@ -2412,7 +2406,6 @@
         (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.faint, marginBottom: '7px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
         card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ OP 카드 · 덱당 ' + card.deckLimit + '장 제한']) : null,
         el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(effectOnly(card.text))),
-        (isP && RT.pointerRangeInfo(id)) ? el('div', { class: 'mono', style: { fontSize: '11.5px', color: SKIN.own, fontWeight: 700, marginBottom: '9px' } }, ['◆ 시전 사거리 · ' + RT.pointerRangeInfo(id).text]) : null,
         condLine(condSpec(card), { fs: 11.5, margin: '0 0 9px' }),
         deckRuleLine(card, { fs: 11.5, margin: '0 0 9px' }),
         forLeftLines(card, bu),
