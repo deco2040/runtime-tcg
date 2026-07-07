@@ -21,6 +21,16 @@
   // ----------------------------------------------------------------- board helpers
   var COLS = 5, ROWS = 4;
   var BODY_HP = 40; // 100 → 50 (basic-attack rule, §5) → 40 (pacing: games felt loose at 50)
+
+  // ----------------------------------------------------------------- RUNTIME WEATHER (판 전체 환경 효과)
+  // 매 게임 1종이 결정적으로 지정된다(온라인은 seed 파생 → 양 클라 동일). clear 는 랜덤 풀에서 제외(무언가는 반드시 일어난다).
+  var WEATHERS_ALL = ['overclock', 'throttle', 'memleak', 'gc', 'firewall'];
+  var WEATHER_HAZARD_START = 8; // memleak/gc 발동 시작 ply(초반 숨통)
+  var WEATHER_GC_PERIOD = 4;    // gc 회수 주기 ply
+  var WALL_OWNER = 2;           // 중립 벽 소유자(플레이어 0/1 아님)
+  // FNV-1a — 문자열/숫자 seed 모두 안전한 결정적 해시(rng 스트림을 건드리지 않음).
+  function hashStr(s) { s = '' + s; var h = 2166136261 >>> 0; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function weatherFromSeed(seed) { return WEATHERS_ALL[hashStr(seed + '|w') % WEATHERS_ALL.length]; }
   function inB(c, r) { return c >= 1 && c <= COLS && r >= 1 && r <= ROWS; }
   function K(c, r) { return c + ',' + r; }
   function P(k) { var a = k.split(','); return [+a[0], +a[1]]; }
@@ -85,6 +95,8 @@
     this.rng = makeRng(opts.seed || 12345);
     this.board = {};           // key -> unit
     this.players = [newPlayer(0), newPlayer(1)];
+    this.players[WALL_OWNER] = newPlayer(WALL_OWNER); // 중립 슬롯: destroy/deal/polymorphActive 의 players[owner] 인덱싱이 owner=2 에도 안전(빈 덱·deckMeta null → 오라 자동 무효). players 를 길이로 순회하는 코드 없음.
+    this.weather = null;       // RUNTIME WEATHER — newGame 에서 지정
     this.turnNo = 0;           // ply counter
     this.active = (opts.first != null ? opts.first : 0);
     this.firstPlayer = this.active;
@@ -169,6 +181,8 @@
     if (this.polymorphActive(u.owner)) a += 1;
     // 임시 공격력 디버프(inject 등 「-N (N턴)」)
     if (u.tempAtk && u.tempAtk.length) { var self2 = this; u.tempAtk.forEach(function (t) { if (t.until > self2.turnNo) a -= t.amt; }); }
+    // RUNTIME WEATHER — 전역 공격력 보정(중립 벽 제외)
+    if (!(u.flags && u.flags.wall)) { if (this.weather === 'overclock') a += 1; else if (this.weather === 'throttle') a -= 1; }
     return Math.max(0, a);
   };
   Game.prototype.debuffAtkTurns = function (u, amt, turns) { if (u.type !== 'object') return; u.tempAtk = u.tempAtk || []; u.tempAtk.push({ amt: amt, until: this.turnNo + turns * 2 }); this._statFx(u, 'atk', -amt); };
@@ -358,6 +372,7 @@
   //  teleport  = 이동(자발, 경로 무시): 진입/이동 트리거 발동 (goto·trace·swap·Jump·Symlink).
   //  forceMove = 강제 이동: 강제이동 트리거(Thrash) + 진입 트리거 발동 (pull·push·glitch·memcpy·jitter·rotate·splice적).
   Game.prototype.relocate = function (u, toKey) {
+    if (u && u.flags && u.flags.wall) return false;   // 중립 벽 = 이동 불가(모든 강제이동의 단일 진입점)
     var from = unitKey(this, u); if (!from || this.board[toKey]) return false;
     delete this.board[from]; this.board[toKey] = u; return true;
   };
@@ -495,9 +510,26 @@
     this.note('— P' + p + ' 턴 시작 (turn ' + this.turnNo + ') —');
     // onTurnStart triggers (auto for When; For are user/AI-activated)
     this.fireTurnStart(p);
+    // RUNTIME WEATHER — 피해형 날씨(메모리 누수·GC)는 매 턴 시작 시 환경 효과 적용
+    this.applyWeatherTick();
     // (구 '런타임 과열' 제거 — 스톨 방지는 이제 덱 소진 피로(draw)로 대체)
     this.checkTurnCap();
     this.emit();
+  };
+  // 날씨 틱 — memleak: 8ply부터 매 ply 전 유닛 HP−1 / gc: 8ply부터 4ply마다 HP 최저 유닛 1기 회수.
+  Game.prototype.applyWeatherTick = function () {
+    var w = this.weather; if (!w || this.turnNo < WEATHER_HAZARD_START) return;
+    if (w === 'memleak') {
+      var objs = this.objects(); if (!objs.length) return;
+      this.fx({ type: 'weather', weather: w });
+      for (var i = 0; i < objs.length; i++) { if (this.winner !== undefined) break; if (this.board[unitKey(this, objs[i])]) this.deal(objs[i], 1, { direct: true, weather: true }); }
+    } else if (w === 'gc') {
+      if ((this.turnNo - WEATHER_HAZARD_START) % WEATHER_GC_PERIOD !== 0) return;
+      var os = this.objects(); if (!os.length) return;
+      var self = this; os.sort(function (a, b) { return (self.curHp(a) - self.curHp(b)) || (a.uid - b.uid); });
+      this.fx({ type: 'weather', weather: w });
+      this.destroy(os[0], { weather: true });
+    }
   };
   Game.prototype.fireTurnStart = function (owner) {
     var self = this;
@@ -1091,11 +1123,28 @@
     // bodies
     g.board[bodyKey(0)] = { uid: g.uidSeq++, owner: 0, cardId: '__body0', type: 'body', baseAtk: 0, baseHp: BODY_HP, atkMod: 0, hpMod: 0, dmg: 0, onceUsed: {}, flags: {} };
     g.board[bodyKey(1)] = { uid: g.uidSeq++, owner: 1, cardId: '__body1', type: 'body', baseAtk: 0, baseHp: BODY_HP, atkMod: 0, hpMod: 0, dmg: 0, onceUsed: {}, flags: {} };
+    // RUNTIME WEATHER 지정 — 명시(opts.weather: 튜토리얼 clear·챌린지 스테이지) 우선, 없으면 seed 파생(단일/온라인 랜덤·양 클라 동일).
+    g.weather = (opts.weather !== undefined) ? opts.weather : weatherFromSeed(opts.seed != null ? opts.seed : 12345);
+    if (g.weather === 'firewall') placeFirewallWalls(g);
     g.startMatch();
     return g;
   }
+  // 방화벽 날씨 — 통로(row 2·3)에서 결정적으로 3칸을 골라 중립 벽(공0/체12·이동불가) 배치.
+  function placeFirewallWalls(g) {
+    var cells = [], c;
+    for (c = 1; c <= COLS; c++) { cells.push(K(c, 2)); cells.push(K(c, 3)); }
+    // seed rng 로 셔플(양 클라 동일) 후 앞 3칸 — 본체/유닛 없는 통로라 항상 빈 칸.
+    for (var i = cells.length - 1; i > 0; i--) { var j = Math.floor(g.rng() * (i + 1)); var t = cells[i]; cells[i] = cells[j]; cells[j] = t; }
+    var n = Math.min(3, cells.length);
+    for (var w = 0; w < n; w++) {
+      var cell = cells[w]; if (g.board[cell]) continue;
+      var u = g.makeUnit(WALL_OWNER, '__wall'); u.flags.wall = true; u.boundPerm = true;
+      g.board[cell] = u;
+    }
+  }
   CARDS.__body0 = { id: '__body0', name: '본체', cls: 'none', kind: 'body', atk: 0, hp: BODY_HP, abilities: [] };
   CARDS.__body1 = { id: '__body1', name: '본체', cls: 'none', kind: 'body', atk: 0, hp: BODY_HP, abilities: [] };
+  CARDS.__wall = { id: '__wall', name: '방화벽', cls: 'none', kind: 'object', atk: 0, hp: 12, text: '중립 벽 — 공격 가능·이동 불가', abilities: [] }; // FIREWALL 날씨 중립 벽
 
   // ============================================================== range display metadata
   // Origin-relative shape of each card's PRIMARY range, for the card-UI mini-grid.

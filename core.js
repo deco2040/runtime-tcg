@@ -12,6 +12,16 @@
   var bodyKey = RT.bodyKey;
   var CLS = { thread: '#d8472b', memory: '#2456a6', process: '#c8951b', generic: '#6b6b75', mixed: '#8a6fb0', none: '#1d1d24' };
   var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
+  // RUNTIME WEATHER — 게임마다 1종 지정(engine G.weather). 발동 턴 문구는 엔진 상수(8ply·4ply주기)와 일치.
+  var WEATHER_INFO = {
+    clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '특이 효과 없음 — 표준 런타임.' },
+    overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '모든 유닛 공격력 +1 (양측).' },
+    throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '모든 유닛 공격력 −1 (최소 0).' },
+    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴부터 매 턴 모든 유닛 HP −1.' },
+    gc: { name: '가비지 컬렉션', en: 'GC SWEEP', icon: '🧹', color: '#8a6fb0', desc: '8턴부터 4턴마다 HP 최저 유닛 1기 회수(파괴).' },
+    firewall: { name: '방화벽', en: 'FIREWALL', icon: '🧱', color: '#8a8a94', desc: '중립 벽이 필드를 가로막는다 — 공격 가능·이동 불가.' }
+  };
+  function weatherInfo(id) { return WEATHER_INFO[id] || WEATHER_INFO.clear; }
   var HUMAN = 0, AI = 1;
 
   function isBodyKey(k) { return k === bodyKey(0) || k === bodyKey(1); }
@@ -40,8 +50,12 @@
   window.addEventListener('orientationchange', function () { computeCompact(); setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
   var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false, aiRevealPause = false, handScroll = 0;
   var myDeck = 'T1', oppDeck = '__random';
-  var challenge = null;   // 도전 모드: { stage, wins, baseBest } 또는 null
+  var challenge = null;   // 도전 모드: { stage, wins, baseBest, boss } 또는 null
   var tutorial = null;    // 실습 튜토리얼: { step, finished, steps } 또는 null
+  var weatherShown = false;                 // 이번 게임 날씨 리빌 재생 여부(게임당 1회)
+  var ONLINE_TURN_SECS = 90;                // 온라인 턴 제한(초)
+  var turnClock = null, turnClockRunning = false; // 온라인 턴 타이머 상태
+  function perfNow() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
   var _bestMem = {};      // localStorage 불가 시 메모리 폴백 (덱별 최고연승 맵)
   function bestMap() { try { var v = window.localStorage.getItem('rt_challenge_bests'); var o = v ? JSON.parse(v) : null; return (o && typeof o === 'object') ? o : {}; } catch (e) { return _bestMem; } }
   function bestStreak(deck) { return bestMap()[deck] || 0; }
@@ -651,6 +665,41 @@
     anim(bar, [{ opacity: 0, transform: 'scaleX(.3)' }, { opacity: 1, transform: 'scaleX(1)', offset: 0.3 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: 1100, easing: 'ease-out' });
     anim(n, [{ opacity: 0, transform: 'translateX(-40px) scale(.9)' }, { opacity: 1, transform: 'translateX(0) scale(1)', offset: 0.3 }, { opacity: 1, offset: 0.7 }, { opacity: 0, transform: 'translateX(40px) scale(1.05)' }], { duration: 1100, easing: 'cubic-bezier(.2,.7,.3,1)' });
   }
+  // 날씨 지정 리빌 — 게임 시작 시 이번 판 날씨를 대형 카드로 공개(줌인→홀드→페이드). 게임당 1회.
+  function weatherIntro(id) {
+    var wi = weatherInfo(id);
+    var scrim = el('div', { style: { position: 'fixed', inset: 0, zIndex: 110, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 42%,' + hexa(wi.color, .28) + ',rgba(20,20,28,.62) 70%)' } });
+    var card = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '42%', transform: 'translate(-50%,-50%)', zIndex: 111, pointerEvents: 'none', textAlign: 'center', padding: 'clamp(18px,4vw,34px) clamp(26px,6vw,54px)', background: 'rgba(24,24,32,.94)', color: '#fff', border: '2px solid ' + wi.color, boxShadow: '0 0 0 4px ' + hexa(wi.color, .3) + ', 0 18px 46px rgba(0,0,0,.6), inset 0 0 40px ' + hexa(wi.color, .18) } }, [
+      el('div', { style: { fontSize: '11px', letterSpacing: '.32em', color: hexa('#ffffff', .62), marginBottom: '6px' } }, ['RUNTIME WEATHER']),
+      el('div', { style: { fontSize: 'clamp(44px,10vw,88px)', lineHeight: 1, margin: '2px 0 8px' } }, [wi.icon]),
+      el('div', { style: { fontWeight: 700, fontSize: 'clamp(24px,5vw,44px)', letterSpacing: '.06em', color: wi.color } }, [wi.name]),
+      el('div', { class: 'mono', style: { fontSize: '12px', letterSpacing: '.24em', color: hexa('#ffffff', .5), margin: '3px 0 10px' } }, [wi.en]),
+      el('div', { style: { fontSize: 'clamp(12px,2.4vw,15px)', color: hexa('#ffffff', .85), maxWidth: '440px', lineHeight: 1.5 } }, [wi.desc])
+    ]);
+    fxLayer().appendChild(scrim); fxLayer().appendChild(card);
+    try { Sound.weather(); } catch (e) {}
+    anim(scrim, [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.78 }, { opacity: 0 }], { duration: 2100, easing: 'ease-out' });
+    var a = anim(card, [{ opacity: 0, transform: 'translate(-50%,-50%) scale(.7)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.22 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.78 }, { opacity: 0, transform: 'translate(-50%,-50%) scale(1.08)' }], { duration: 2100, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    var done = function () { if (scrim.parentNode) scrim.parentNode.removeChild(scrim); if (card.parentNode) card.parentNode.removeChild(card); };
+    if (a && 'onfinish' in a) a.onfinish = done; else setTimeout(done, 2200);
+  }
+  // 상시 날씨 배지 — HUD 에 현재 날씨 표시(클릭 시 설명 플래시). onlineMatch/오프라인 공통.
+  function weatherChip() {
+    if (!G || !G.weather) return null;
+    var wi = weatherInfo(G.weather);
+    return el('button', { class: 'mono', title: wi.name + ' — ' + wi.desc, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, color: wi.color, background: hexa(wi.color, .14), border: '1px solid ' + hexa(wi.color, .5), borderRadius: '3px', padding: '2px 6px', cursor: 'pointer', lineHeight: 1.1 }, onclick: function () { flash(wi.icon + ' ' + wi.name + ' — ' + wi.desc); } }, [wi.icon, wi.name]);
+  }
+  // 날씨 피해 틱(memleak/gc) 순간 — 짧은 화면 틴트 + 라벨(과하지 않게).
+  function weatherTickFx(id) {
+    var wi = weatherInfo(id);
+    var tint = el('div', { style: { position: 'fixed', inset: 0, zIndex: 44, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 30%,' + hexa(wi.color, .22) + ',transparent 68%)' } });
+    var tag = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '20%', transform: 'translateX(-50%)', zIndex: 45, pointerEvents: 'none', fontWeight: 700, fontSize: 'clamp(13px,2.4vw,18px)', letterSpacing: '.08em', color: '#fff', textShadow: '0 0 12px ' + wi.color + ',0 2px 0 rgba(0,0,0,.4)' } }, [wi.icon + ' ' + wi.name]);
+    fxLayer().appendChild(tint); fxLayer().appendChild(tag);
+    var rm = function () { if (tint.parentNode) tint.parentNode.removeChild(tint); if (tag.parentNode) tag.parentNode.removeChild(tag); };
+    anim(tint, [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: 900, easing: 'ease-out' });
+    var a = anim(tag, [{ opacity: 0, transform: 'translateX(-50%) translateY(6px)' }, { opacity: 1, transform: 'translateX(-50%) translateY(0)', offset: 0.25 }, { opacity: 1, offset: 0.7 }, { opacity: 0, transform: 'translateX(-50%) translateY(-6px)' }], { duration: 900, easing: 'ease-out' });
+    if (a && 'onfinish' in a) a.onfinish = rm; else setTimeout(rm, 950);
+  }
   // 피해 명중 순간 = 모든 연출을 한 번에 (타격감)
   function doImpact(key, amount, isBody) {
     var rect = rectOf(key), heavy = isBody || amount >= 5, power = isBody ? 2 : Math.min(2, 0.7 + amount * 0.18);
@@ -680,6 +729,7 @@
     }
     else if (ev.type === 'heal') { floatNum(rectOf(ev.key), '+' + ev.amount, '#3c8a66'); ringFx(rectOf(ev.key), '#3c8a66'); Sound.heal(); pushFeed({ actor: G.board[ev.key] ? G.board[ev.key].owner : undefined, icon: '＋', kind: 'heal', card: cardAtId(ev.key), text: labelAt(ev.key) + ' +' + ev.amount + ' 회복' }); }
     else if (ev.type === 'attack') { setImpactDelay(180); lungeClone(ev.from, ev.to); Sound.whoosh(); }
+    else if (ev.type === 'weather') { weatherTickFx(ev.weather); }
     else if (ev.type === 'cast') { if (ev.player === HUMAN && pendingPlay) { cardFly(pendingPlay.rect, ev.targetKey || bodyKey(ev.player), CLS[(CARDS[ev.cardId] || {}).cls] || CLS.generic, cardNm(ev.cardId)); pendingPlay = null; } if (ev.player !== HUMAN) revealCard(ev.cardId, ev.player); var tr = ev.targetKey ? rectOf(ev.targetKey) : null; if (tr) { setImpactDelay(185); orb(rectOf(bodyKey(ev.player)), tr, '#3f7bd6', 185); ringFx(tr, '#2456a6'); } Sound.cast(); setActionToast(ev.player, '◆ ' + cardNm(ev.cardId) + ' 시전'); pushFeed({ actor: ev.player, icon: '◆', kind: 'cast', card: ev.cardId, text: cardNm(ev.cardId) + ' 시전' + (ev.targetKey ? ' → ' + labelAt(ev.targetKey) : '') }); }
     else if (ev.type === 'move') { var u = G.board[ev.to]; travel(rectOf(ev.from), rectOf(ev.to), GLY[(u && cardCls(u)) || 'generic'] || '◆', '#1d1d24', 16); Sound.move(); }
     else if (ev.type === 'spawn') { if (ev.key) fxSpawn[ev.key] = 1; scheduleFxClear(); var scol = CLS[(CARDS[ev.card] || {}).cls] || CLS.generic; if (ev.owner === HUMAN && pendingPlay) { cardFly(pendingPlay.rect, ev.key, scol, ev.card ? cardNm(ev.card) : ''); pendingPlay = null; } var sr = rectOf(ev.key); if (sr) { ringFx(sr, scol); shards(sr, scol, 8, 1.1); } Sound.spawn(); if (ev.card) { setActionToast(ev.owner, '＋ ' + cardNm(ev.card) + ' 선언'); pushFeed({ actor: ev.owner, icon: '＋', kind: 'spawn', card: ev.card, text: cardNm(ev.card) + ' 선언 (' + ev.key + ')' }); } }
@@ -759,8 +809,10 @@
     HUMAN = 0; AI = 1; onlineMatch = null;                  // 로컬전: 관점/온라인 상태 초기화
     if (!DECKS[myDeck]) myDeck = presetKeys()[0] || 'T1';   // 커스텀 덱 삭제 등으로 선택이 무효하면 복구
     var first = Math.random() < 0.5 ? 0 : 1;
-    G = RT.newGame(myDeck, opp, { seed: (Date.now() & 0x7fffffff) >>> 0, first: first });
+    var wx = challenge ? challengeWeather(challenge.stage) : undefined; // 챌린지=스테이지별, 단일=seed 파생(랜덤)
+    G = RT.newGame(myDeck, opp, { seed: (Date.now() & 0x7fffffff) >>> 0, first: first, weather: wx });
     G.oppKey = opp;
+    weatherShown = false;
     if (challenge) applyChallengeHandicap(G, challenge.stage);
     sel = ptr = hover = pinned = null; mullPick = {};
     // mulligan intro state — coin flip(선후공) → deal → 필드 위 교체 선택 → play
@@ -770,15 +822,31 @@
     renderMulligan();
   }
   function randomDeck() { var ks = presetKeys(); return ks[Math.floor(Math.random() * ks.length)]; }
-  // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡)
-  function startChallenge() { if (!myDeckStartable()) return; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck) }; beginMatch(randomDeck()); }
-  function nextChallenge() { challenge.wins++; challenge.stage++; beginMatch(randomDeck()); }
+  function chalPick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function isBossStage(stage) { return stage >= 5 && stage % 5 === 0; }
+  // 스테이지별 날씨 — 오를수록 가혹. 1=평온, 2~3=완만(공격력 보정), 4+=전종, 보스(5·10…)=피해/차폐형.
+  function challengeWeather(stage) {
+    if (stage <= 1) return 'clear';
+    if (isBossStage(stage)) return chalPick(['memleak', 'firewall', 'gc']);
+    if (stage <= 3) return chalPick(['overclock', 'throttle']);
+    return chalPick(['overclock', 'throttle', 'memleak', 'gc', 'firewall']);
+  }
+  // 상대 덱 — 보스 스테이지는 강덱 풀(밸런스 측정상 강함)에서, 그 외 랜덤 견본덱.
+  function challengeOpponent(stage) {
+    if (isBossStage(stage)) { var strong = ['P1', 'M2', 'N1', 'X1', 'C1'].filter(function (k) { return DECKS[k]; }); if (strong.length) return chalPick(strong); }
+    return randomDeck();
+  }
+  // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡 + 스테이지별 날씨 + 보스전)
+  function startChallenge() { if (!myDeckStartable()) return; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck), boss: false }; beginMatch(challengeOpponent(1)); }
+  function nextChallenge() { challenge.wins++; challenge.stage++; beginMatch(challengeOpponent(challenge.stage)); }
   function endChallenge() { challenge = null; G = null; UI.renderTitle(); }
   function applyChallengeHandicap(g, stage) {
+    var boss = isBossStage(stage);
+    if (challenge) challenge.boss = boss;
     if (stage <= 1) return;                                  // 1스테이지는 기본 난이도
-    var b = g.body(AI); if (b) b.hpMod += (stage - 1) * 8;   // 점점 단단해지는 본체
+    var b = g.body(AI); if (b) b.hpMod += (stage - 1) * 8 + (boss ? 16 : 0);   // 점점 단단해지는 본체(+보스 추가)
     var extraCards = Math.min(stage - 1, 4); if (extraCards) g.draw(AI, extraCards); // 카드 우위
-    var tokens = Math.min(Math.floor((stage - 1) / 2), 3);   // 선발 유닛(분신 공5/체2)
+    var tokens = Math.min(Math.floor((stage - 1) / 2), 3) + (boss ? 1 : 0);   // 선발 유닛(분신 공5/체2, 보스 +1)
     for (var i = 0; i < tokens; i++) { var c = g.firstEmptyHome(AI); if (c) g.summon(AI, 'Token5', c); }
   }
   var mullPick = {}, mullBusy = false, mullPhase = false, mullReady = false, mullCoinDone = false, mullFirst = 0, mullHideIdx = [];
@@ -1040,6 +1108,9 @@
     if (tutorial && !tutorial.finished) tutSync();
     var meTurn = G.active === HUMAN && G.winner === undefined && !aiThinking;
     if (meTurn && G.turnNo !== lastBannerTurn) { lastBannerTurn = G.turnNo; turnBanner('내 차례', '#2456a6'); }
+    // 온라인 턴 타이머 루프 기동(1회) + 이번 판 날씨 리빌(게임당 1회)
+    if (onlineMatch && !turnClockRunning) { turnClockRunning = true; RAF(turnClockTick); }
+    if (!weatherShown && G.weather && !mullPhase && !tutorial && G.winner === undefined) { weatherShown = true; weatherIntro(G.weather); }
     var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt, display: 'flex', flexDirection: 'column' } });
 
     if (COMPACT) {
@@ -1048,7 +1119,8 @@
       // 상단 상태 스트립 삭제(턴/덱/도전 정보는 titlebar·디스펜서·컨트롤과 중복) → 그만큼 보드에 세로를 양보.
       // 도전 연승만 titlebar 우측에 합쳐 표기.
       var tbText = tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app   ·   turn ' + G.turnNo + ' / ' + G.TURN_CAP;
-      if (challenge) tbText += '   ·   🏆 ' + challenge.stage + '단계 ' + challenge.wins + '연승';
+      if (challenge) tbText += '   ·   🏆 ' + challenge.stage + '단계 ' + challenge.wins + '연승' + (challenge.boss ? ' 👑BOSS' : '');
+      if (G.weather && !tutorial) { var _twi = weatherInfo(G.weather); tbText += '   ·   ' + _twi.icon + ' ' + _twi.name; }
       wrap.appendChild(titlebar(tbText));
       if (tutorial) wrap.appendChild(tutBanner());
 
@@ -1059,6 +1131,7 @@
       left.appendChild(boardEl(false, deskBoardMaxW()));
       left.appendChild(deckDispenser(HUMAN));
       left.appendChild(handBar(meTurn));
+      var dtb = turnTimerBar(); if (dtb) left.appendChild(dtb);
       left.appendChild(controls(meTurn));
       main.appendChild(left);
       main.appendChild(sidePanel());
@@ -1148,8 +1221,8 @@
     // 안전영역(펀치홀·노치·홈 인디케이터) — 테두리 텍스트/버튼이 가려지지 않게 env() 로 안쪽으로 밀어줌.
     var SAL = 'env(safe-area-inset-left,0px)', SAR = 'env(safe-area-inset-right,0px)', SAT = 'env(safe-area-inset-top,0px)', SAB = 'env(safe-area-inset-bottom,0px)';
 
-    // ── 상단: 상대 스탯 바(HP·덱·묘지·손패) ──
-    wrap.appendChild(statBarH(AI, { style: { borderBottom: '1px solid ' + SKIN.ink, paddingTop: 'calc(4px + ' + SAT + ')', paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
+    // ── 상단: 상대 스탯 바(HP·덱·묘지·손패 + 날씨 배지) ──
+    wrap.appendChild(statBarH(AI, { extra: [weatherChip()], style: { borderBottom: '1px solid ' + SKIN.ink, paddingTop: 'calc(4px + ' + SAT + ')', paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
 
     // 포인터 시전 안내(짧게)
     if (ptr) wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.enemy, padding: '3px 10px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisSunk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' } }, ['◆ ' + ptr.card.name + ' 시전 — 빨강 대상 선택']));
@@ -1160,6 +1233,9 @@
     // ── 하단: (1) 나 스탯 바 — 상단 AI 바와 대칭(HP·덱·묘지·손패). 컨트롤은 분리해 줄바꿈 방지 ──
     wrap.appendChild(statBarH(HUMAN, { style: { borderTop: '1px solid ' + SKIN.ink, paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
 
+    // ── 온라인 턴 타이머 바(컨트롤 바 위) ──
+    var ctb = turnTimerBar(); if (ctb) wrap.appendChild(ctb);
+
     // ── 하단: (2) 컨트롤 바 — 한 줄 고정(nowrap): 턴 상태 · 액션 핍 · [턴 종료] ──
     var pips = el('div', { style: { display: 'flex', gap: '3px', alignItems: 'center', flex: 'none' } });
     for (var i = 0; i < 2; i++) pips.appendChild(el('span', { style: { width: '15px', height: '10px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
@@ -1167,7 +1243,7 @@
       el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: meTurn ? SKIN.own : SKIN.muted, flex: 'none', whiteSpace: 'nowrap' } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대 차례…')]),
       el('span', { class: 'mono', style: { fontSize: '9px', color: SKIN.muted, flex: 'none' } }, ['액션']),
       pips,
-      challenge ? el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.rangeGold, flex: 'none' } }, ['🏆' + challenge.wins]) : null,
+      challenge ? el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: challenge.boss ? SKIN.enemy : SKIN.rangeGold, flex: 'none' } }, [(challenge.boss ? '👑' : '🏆') + challenge.wins]) : null,
       el('span', { style: { flex: 1, minWidth: '6px' } }),
       // ☰ 메뉴 — 항복·규칙 요약 바텀시트를 여는 작은 버튼(튜토리얼 중엔 숨김). 턴 종료 옆에 붙여 둔다.
       tutorial ? null : el('button', { class: 'btn ghost', title: '메뉴', style: { fontSize: '15px', fontWeight: 700, padding: '9px 12px', flex: 'none', lineHeight: 1, textAlign: 'center' }, onclick: function () { menuView = 'menu'; render(); } }, ['☰']),
@@ -1527,7 +1603,8 @@
     var kids = [];
     if (!u) { kids.push(el('span', { class: 'mono', style: { fontSize: '9px', color: SKIN.faint, letterSpacing: '.05em' } }, [addr])); }
     if (marker && (!u || hi === 'target' || hi === 'attack')) kids.push(el('span', { class: 'mono', style: { position: 'absolute', top: u ? '1px' : '50%', left: u ? 'auto' : '50%', right: u ? '2px' : 'auto', transform: u ? 'none' : 'translate(-50%,-50%)', color: mc, fontWeight: 700, fontSize: u ? '14px' : '20px', pointerEvents: 'none', zIndex: 5, textShadow: '0 1px 2px rgba(0,0,0,.45)' } }, [marker]));
-    if (u && u.type === 'body') kids.push(bodyTile(u));
+    if (u && u.flags && u.flags.wall) kids.push(wallTile(u, key));
+    else if (u && u.type === 'body') kids.push(bodyTile(u));
     else if (u) kids.push(objTile(u, key));
     var props = { 'data-key': key, style: st, onclick: function () { if (suppressCellClick) { suppressCellClick = false; return; } clickCell(key); } };
     // 호버(범위 미리보기)는 데스크톱 전용. 터치에선 onmouseenter 가 합성돼 render() 로 셀을 재생성 →
@@ -1557,6 +1634,24 @@
       el('span', { style: { fontSize: '8px', letterSpacing: '.2em', color: me ? '#9db8e6' : '#e6a3bd' } }, [me ? '내 본체' : '적 본체']),
       el('span', { class: 'mono', style: { fontWeight: 700, fontSize: 'clamp(15px,3vw,24px)' } }, [String(hp)]),
       tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', overflow: 'hidden' })
+    ]);
+  }
+  // 중립 벽(FIREWALL 날씨) — OWNER_* 배열 미참조. 회색 벽돌 룩 + HP. 공격 가능·이동 불가.
+  function wallTile(u, key) {
+    var hp = G.curHp(u), mx = G.effMaxHp(u), col = '#8a8a94';
+    var brick = 'repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 2px, transparent 2px 9px), repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 2px, transparent 2px 15px)';
+    var st = { position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: '#484850', backgroundImage: brick, color: '#e9eaee', border: '2px solid ' + col, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.28), 3px 3px 0 rgba(0,0,0,.28)' };
+    if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
+    return el('div', { style: st }, [
+      el('span', { style: { fontSize: '8px', letterSpacing: '.16em', color: 'rgba(255,255,255,.62)' } }, ['중립 벽']),
+      el('span', { style: { fontSize: 'clamp(14px,2.6vw,22px)', lineHeight: 1 } }, ['🧱']),
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: '2px' } }, [
+        el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700 } }, [String(hp)]),
+        el('span', { class: 'mono', style: { fontSize: '8px', color: 'rgba(255,255,255,.55)' } }, ['/' + mx])
+      ]),
+      el('div', { style: { width: '74%', height: '4px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', overflow: 'hidden' } }, [
+        el('div', { style: { position: 'absolute', inset: '0', width: Math.max(0, Math.min(100, mx ? hp / mx * 100 : 0)) + '%', background: col } })
+      ])
     ]);
   }
   // 상태이상 칩 — 필드 인스턴스의 부정 상태(ATK0·봉쇄)를 뷰포트 상단에 크고 선명한 배지로.
@@ -1944,6 +2039,7 @@
     for (var i = 0; i < 2; i++) pips.appendChild(el('span', { style: { width: COMPACT ? '16px' : '22px', height: '12px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
     row.appendChild(pips);
     row.appendChild(el('span', { class: 'mono', style: { fontSize: '11px' } }, [G.actions + '/2 액션']));
+    var _wc = weatherChip(); if (_wc) row.appendChild(_wc);
     if (ptr) {
       var pi = RT.pointerRangeInfo(ptr.card.id);
       row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, [COMPACT ? ('◆ ' + ptr.card.name + ' 시전') : ('◆ ' + ptr.card.name + ' 시전 — ' + (pi ? '시전 사거리 ' + pi.text + ' · ' : '') + '파란 구역 안 빨강 대상 클릭/드래그')]));
@@ -2118,7 +2214,7 @@
           el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['스테이지 ' + challenge.stage + ' 클리어']),
           el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승']),
           stat, recordLine,
-          el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginBottom: '12px' } }, ['다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 추가 카드/선발 유닛']),
+          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? '👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 날씨' : '다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 날씨 · 추가 카드/선발 유닛']),
           btnRow(el('button', { class: 'btn', onclick: function () { nextChallenge(); } }, ['다음 스테이지 ▶']))
         ];
       } else {
@@ -2451,7 +2547,7 @@
     mullPhase = true; mullFirst = opts.first; mullBusy = true; mullReady = false; mullCoinDone = false;
     mullHideIdx = G.players[HUMAN].hand.map(function (_, i) { return i; });
     mullIdxByPlayer = { 0: null, 1: null }; mullResolved = false;
-    reviewMode = false; winSoundDone = false; aiThinking = false; lastBannerTurn = -1;
+    reviewMode = false; winSoundDone = false; aiThinking = false; lastBannerTurn = -1; weatherShown = false;
     resetFx(); G.onfx = handleFx;
     renderMulligan();
   }
@@ -2518,6 +2614,30 @@
     if (UI.renderLobby) UI.renderLobby(); else UI.renderTitle();
   }
 
+  // ---- 온라인 턴 타이머 (온라인 전용). 결정적 락스텝이라 turnNo 로 리셋. 자기 턴일 때만 0에서 자동 턴종료(브로드캐스트).
+  function turnClockTick() {
+    if (!G || !onlineMatch || G.winner !== undefined || mullPhase) { turnClockRunning = false; turnClock = null; return; }
+    if (!turnClock || turnClock.turnNo !== G.turnNo) turnClock = { turnNo: G.turnNo, endAt: perfNow() + ONLINE_TURN_SECS * 1000, fired: false, lastBeep: -1 };
+    var rem = Math.max(0, turnClock.endAt - perfNow());
+    var frac = rem / (ONLINE_TURN_SECS * 1000);
+    var mine = G.active === HUMAN, warn = mine && rem <= 15000;
+    var fill = document.getElementById('rt-turnbar-fill'), txt = document.getElementById('rt-turnbar-txt');
+    if (fill) { fill.style.width = (frac * 100) + '%'; fill.style.background = mine ? (warn ? SKIN.heat : SKIN.own) : hexa(SKIN.enemy, .55); }
+    if (txt) { var s = Math.ceil(rem / 1000); txt.textContent = (mine ? '⏱ 내 턴 ' : '⏱ 상대 턴 ') + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); txt.style.color = warn ? SKIN.heat : (mine ? SKIN.own : SKIN.muted); }
+    if (mine && rem > 0 && rem <= 5000) { var sec = Math.ceil(rem / 1000); if (turnClock.lastBeep !== sec) { turnClock.lastBeep = sec; try { Sound.tick(); } catch (e) {} } }
+    if (mine && rem <= 0 && !turnClock.fired) { turnClock.fired = true; if (G.active === HUMAN && G.winner === undefined && !mullPhase) { sel = ptr = null; endTurn(); } }
+    RAF(turnClockTick);
+  }
+  function turnTimerBar() {
+    if (!onlineMatch || !G || G.winner !== undefined) return null;
+    var mine = G.active === HUMAN;
+    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 10px', background: SKIN.chassisAlt, borderTop: '1px solid ' + SKIN.ink } }, [
+      el('span', { id: 'rt-turnbar-txt', class: 'mono', style: { fontSize: '11px', fontWeight: 700, flex: 'none', color: mine ? SKIN.own : SKIN.muted } }, ['⏱ ' + (mine ? '내 턴' : '상대 턴')]),
+      el('div', { style: { flex: 1, height: '7px', background: SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, position: 'relative', overflow: 'hidden' } }, [
+        el('div', { id: 'rt-turnbar-fill', style: { position: 'absolute', inset: '0', width: '100%', background: mine ? SKIN.own : hexa(SKIN.enemy, .55) } })
+      ])
+    ]);
+  }
   function endTurn() {
     if (G.active !== HUMAN || G.winner !== undefined) return;
     if (tutorial) { // 실습에선 AI로 넘기지 않고 마지막 단계에서 완료 처리
@@ -2599,8 +2719,9 @@
   }
   function startTutorialPractice() {
     challenge = null;
-    G = RT.newGame('T1', 'T1', { seed: 1, first: HUMAN });
+    G = RT.newGame('T1', 'T1', { seed: 1, first: HUMAN, weather: 'clear' }); // 튜토리얼은 날씨 영향 없음
     G.oppKey = '튜토리얼';
+    weatherShown = true;                                     // 튜토리얼 리빌 생략
     G.players[HUMAN].hand = ['Race'];                       // 선언할 유닛 1장만
     for (var c = 1; c <= 5; c++) G.summon(AI, 'Token2', K(c, 2)); // 앞줄에 연습용 표적(공2 체2)
     sel = ptr = hover = pinned = null; mullPick = {}; mullPhase = false;

@@ -146,7 +146,7 @@
       el('button', { class: 'crt-btn ghost', style: { fontSize: '17px', minWidth: '132px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE'])
     ]));
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
-      'CHALLENGE — 선택한 내 덱으로 점점 강해지는 AI와 연속 대결. ',
+      'CHALLENGE — 내 덱으로 연속 대결. 스테이지마다 날씨가 바뀌고, 5·10…단계는 👑보스전(강덱·가혹한 날씨). ',
       el('span', { style: { color: AMB } }, ['BEST ' + myDeck + ' ' + UI.bestStreak(myDeck) + 'W'])
     ]));
     var recs = UI.bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });

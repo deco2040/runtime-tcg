@@ -43,7 +43,11 @@
       // UI 확인음 — 매치메이킹 버튼 등 짧은 상승 비프
       ui: guard(function () { tone({ f: 520, f2: 720, type: 'square', a: 0.003, d: 0.07, peak: 0.15 }); tone({ f: 1040, type: 'triangle', a: 0.003, d: 0.05, peak: 0.06, delay: 0.05 }); }),
       // 매칭 성사 — 상대 발견 상승 아르페지오 + 밝은 핑
-      match: guard(function () { chord([440, 587.33, 880], 'triangle', 0.01, 0.28, 0.18, 0.08); tone({ f: 1174.66, type: 'sine', a: 0.008, d: 0.36, peak: 0.1, delay: 0.24 }); tone({ f: 300, f2: 760, type: 'square', a: 0.005, d: 0.12, peak: 0.12 }); })
+      match: guard(function () { chord([440, 587.33, 880], 'triangle', 0.01, 0.28, 0.18, 0.08); tone({ f: 1174.66, type: 'sine', a: 0.008, d: 0.36, peak: 0.1, delay: 0.24 }); tone({ f: 300, f2: 760, type: 'square', a: 0.005, d: 0.12, peak: 0.12 }); }),
+      // 턴 타이머 카운트다운 — 짧고 또렷한 고음 비프(막판 초읽기)
+      tick: guard(function () { tone({ f: 1320, type: 'square', a: 0.002, d: 0.05, peak: 0.12 }); }),
+      // 날씨 발동/공개 — 저음 스윕 + 필터 노이즈(환경이 바뀌는 느낌)
+      weather: guard(function () { tone({ f: 220, f2: 84, type: 'sawtooth', a: 0.02, d: 0.5, peak: 0.18 }); tone({ f: 90, type: 'sine', a: 0.02, d: 0.55, peak: 0.14 }); noise({ d: 0.5, freq: 480, peak: 0.14, filter: 'lowpass', curve: 1.2 }); })
     };
   })();
   UI.Sound = Sound;
