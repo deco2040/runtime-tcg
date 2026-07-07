@@ -416,6 +416,19 @@
     var props = opts.fit === false ? { style: st } : { style: st, 'data-fit': '1', 'data-fit-fs': fs };
     return el('div', props, richText(effectOnly(card.text)));
   }
+  // 카드 표시 텍스트 총량(선언조건 문구 + 효과문 길이). 폰트 자동축소 규칙 판정용.
+  function combinedTextLen(card) {
+    if (!card) return 0;
+    var et = (effectOnly(card.text) || '').length, ct = 0;
+    try { var cs = condSpec(card); if (cs && cs.text) ct = cs.text.length; } catch (e) {}
+    return et + ct;
+  }
+  // 디자인 규칙 기준 = Singleton(선언조건+효과 합산 길이). 이 길이 이상인 카드는 효과/조건 폰트를 살짝 축소해 마지막 줄 잘림을 막는다.
+  var _singletonTextLen = null;
+  function longEffectCard(card) {
+    if (_singletonTextLen == null) _singletonTextLen = CARDS.Singleton ? combinedTextLen(CARDS.Singleton) : 9999;
+    return combinedTextLen(card) >= _singletonTextLen;
+  }
   // HP 뉴트럴 미터 — 정수1=칸1. 채움=hpFill, 저체력(≤34%)=heat. 빈칸=트랙.
   function hpMeter(cur, max, opts) {
     opts = opts || {}; max = Math.max(1, Math.round(max || 1)); cur = Math.max(0, Math.min(Math.round(cur), max));
@@ -2003,6 +2016,10 @@
       var br = W / 176; MINH = Math.round(250 * br); VPH = Math.round(116 * br);
     }
     else { W = 158; MINH = 220; VPH = 78; }   // 고정 높이(이슈 3): 카드 키 통일. 뷰포트를 줄여 효과문 공간을 넉넉히(잘림 방지 + 큰 폰트).
+    // 디자인 규칙: 선언조건+효과 합산 텍스트가 Singleton 이상 길면 효과/조건 폰트를 살짝 축소(마지막 줄 잘림 방지). fitHand 는 그래도 넘치면 추가 축소.
+    var _long = longEffectCard(card);
+    var condFs = (big ? 9 : 8.5) - (_long ? 0.5 : 0);
+    var effFs = (big ? 10 : 9.5) - (_long ? 1 : 0);
     var shadow = '0 2px 5px rgba(0,0,0,.4)';
     // 프레임 = 창 페이스 + raised 베벨(손패는 뉴트럴). 링·그림자는 boxShadow(베벨과 분리). height 고정 → 모든 카드 동일 크기.
     // wordBreak:keep-all → 한글은 띄어쓰기 단위로만 줄바꿈(음절 단독 widow 방지). overflowWrap:break-word → 칸보다 긴 토큰만 예외 분해(넘침 방지). 상속되어 효과문·조건문 등 모든 텍스트에 적용.
@@ -2042,8 +2059,8 @@
         winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9 }),
         viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
         // 시전 조건 = 효과문 위 독립 행(인스턴스 선언 조건과 동일 위치로 통일 · 여러 줄 허용).
-        condLine(condSpec(card), { fs: big ? 9 : 8.5 }),
-        el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, background: SKIN.effBg, color: SKIN.effTxt, fontSize: (big ? 10 : 9.5) + 'px', padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()), 'data-fit': '1', 'data-fit-fs': (big ? 10 : 9.5) }, [
+        condLine(condSpec(card), { fs: condFs }),
+        el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, background: SKIN.effBg, color: SKIN.effTxt, fontSize: effFs + 'px', padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()), 'data-fit': '1', 'data-fit-fs': effFs }, [
           el('div', { style: { display: 'flex', gap: '6px', alignItems: 'flex-start' } }, [
             el('div', { style: { width: '20px', height: '20px', flex: 'none', borderRadius: '50%', background: '#d8472b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' } }, ['⚡']),
             el('div', { style: { minWidth: 0, lineHeight: 1.45 } }, richText(effectOnly(card.text)))
@@ -2061,9 +2078,9 @@
     return mullWrap(el('button', props, [
       winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9 }),
       viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
-      condLine(condSpec(card), { fs: big ? 9 : 8.5 }),
+      condLine(condSpec(card), { fs: condFs }),
       deckRuleLine(card, { fs: big ? 8.5 : 8 }),
-      effectPanel(card, { fs: big ? 10 : 9.5, flex: true, min: 24 }),
+      effectPanel(card, { fs: effFs, flex: true, min: 24 }),
       statusStrip(card.atk, card.hp, card.hp, { fs: big ? 12 : 11, icoPx: big ? 11 : 10, meterH: big ? 9 : 8 })
     ]));
   }
