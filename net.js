@@ -10,7 +10,12 @@
  *   ensureGuest()      → Promise<session|null> 세션 없으면 익명 로그인 + 프로필 확보
  *   client()/session()/profile()   현재 캐시 접근자
  *   reloadProfile()    → Promise<profile|null>
- *   updateNickname(s)  → Promise<profile|null>
+ *   loadDecks()        커스텀 덱 서버 맵 반환(로드된 프로필 기준, 없으면 null)
+ *   saveDecks(map)     → Promise<{ok,error}>            커스텀 덱 맵 전체 계정 저장
+ *   updateNickname(s)  → Promise<{ok,error,profile}>  (유니크 충돌 시 ok:false)
+ *   checkNickname(s)   → Promise<{available}>          (사전 체크·UX용)
+ *   changePassword(p)  → Promise<{ok,error}>           (로그인 회원 비번 변경)
+ *   deleteAccount()    → Promise<{ok,error}>           (Edge Function 경유 본인 탈퇴)
  *   randomNick()       재미있는 랜덤 닉네임 생성
  *   onAuth(cb)         인증 상태 변화 구독
  */
@@ -223,9 +228,13 @@
     });
   }
 
+  // 닉네임 저장 — 대소문자 무시 유니크(0006). 충돌(23505) 시 사용자 친화 메시지.
+  // 반환: { ok, error, profile }.
   function updateNickname(nick) {
     nick = (nick || '').trim().slice(0, 24);
-    if (!_client || !_session || !nick) return Promise.resolve(_profile);
+    if (!_client || !_session)
+      return Promise.resolve({ ok: false, error: '로그인이 필요해요', profile: _profile });
+    if (!nick) return Promise.resolve({ ok: false, error: '닉네임을 입력하세요', profile: _profile });
     return _client
       .from('profiles')
       .update({ nickname: nick })
@@ -233,9 +242,32 @@
       .select()
       .maybeSingle()
       .then(function (r) {
+        if (r.error) {
+          var dup = r.error.code === '23505' || /duplicate|unique/i.test(r.error.message || '');
+          return {
+            ok: false,
+            error: dup ? '이미 사용 중인 닉네임이에요' : (r.error.message || '저장 실패'),
+            profile: _profile,
+          };
+        }
         if (r.data) _profile = r.data;
-        return _profile;
+        return { ok: true, error: '', profile: _profile };
       });
+  }
+
+  // 닉네임 사용 가능 여부(사전 체크·UX용). RPC 실패 시 true 폴백(가입 막지 않음 — 유니크 인덱스가 최종 방어).
+  function checkNickname(nick) {
+    nick = (nick || '').trim();
+    if (!nick) return Promise.resolve({ available: false });
+    return loadClient().then(function (c) {
+      if (!c) return { available: true };
+      return c.rpc('nickname_available', { name: nick })
+        .then(function (r) {
+          if (r.error) return { available: true };
+          return { available: r.data === true };
+        })
+        .catch(function () { return { available: true }; });
+    });
   }
 
   // 아바타(이모지 프리셋 문자열). 로컬 우선 저장 → 게스트/오프라인/컬럼 미적용에도 항상 동작.
@@ -255,6 +287,34 @@
       .maybeSingle()
       .then(function (r) { if (r && r.data) { _profile = r.data; _profile.avatar = av; } return _profile; })
       .catch(function () { return _profile; });   // 컬럼 미적용 시에도 로컬 유지
+  }
+
+  // ─────────────────────────────────────────── 커스텀 덱 계정 연동(profiles.custom_decks)
+  // 로그인 회원의 커스텀 덱을 계정에 저장/조회 → 기기 간 동기화. 저장 구조는 클라
+  // localStorage(rt_custom_decks)와 동일한 맵: { U1:{name,cls,list,cover?}, ... }.
+  // 컬럼(0007) 미적용이나 게스트/오프라인이면 우아하게 실패(로컬 저장은 core.js가 유지).
+
+  // 서버에 저장된 커스텀 덱 맵 반환. 로드된 프로필에서 즉시 반환(profiles.* 를 통째로 읽으므로).
+  // 반환: 맵 객체 | null(컬럼 미적용/미로그인/미로드 — "서버 데이터 없음").
+  function loadDecks() {
+    if (_profile && _profile.custom_decks && typeof _profile.custom_decks === 'object') return _profile.custom_decks;
+    return null;
+  }
+  // 커스텀 덱 맵 전체를 계정에 저장(덮어쓰기). 반환: Promise<{ok, error}>.
+  function saveDecks(map) {
+    if (!_client || !_session) return Promise.resolve({ ok: false, error: '로그인이 필요해요' });
+    if (!map || typeof map !== 'object') map = {};
+    return _client
+      .from('profiles')
+      .update({ custom_decks: map })
+      .eq('id', _session.user.id)
+      .select()
+      .maybeSingle()
+      .then(function (r) {
+        if (r && r.data) _profile = r.data;
+        return { ok: !(r && r.error), error: r && r.error ? r.error.message : '' };
+      })
+      .catch(function (e) { return { ok: false, error: (e && e.message) || '저장 실패' }; });
   }
 
   var ADJ = [
@@ -469,6 +529,42 @@
     });
   }
 
+  // 로그인 회원의 비밀번호 변경 — 현재 세션에 새 비번 적용(재설정 링크 흐름과 별개, recovery 플래그 무관).
+  function changePassword(newPass) {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if ((newPass || '').length < 6) return { ok: false, error: '비밀번호는 6자 이상이어야 해요' };
+      return c.auth.updateUser({ password: newPass }).then(function (r) {
+        if (r.error) return { ok: false, error: r.error.message };
+        return refreshSession().then(function () { return { ok: true }; });
+      });
+    });
+  }
+
+  // 회원 본인 탈퇴 — Edge Function(delete-account, service role)이 auth.users 를 삭제.
+  // 성공 시 로컬 세션 정리 후 새 게스트로 복귀. 함수 미배포/오류면 ok:false.
+  function deleteAccount() {
+    return loadClient().then(function (c) {
+      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!_session) return { ok: false, error: '로그인이 필요해요' };
+      return c.functions
+        .invoke('delete-account', { body: {} })
+        .then(function (r) {
+          var data = r && r.data;
+          if (r && r.error) return { ok: false, error: (data && data.error) || r.error.message || '탈퇴 실패(함수 미배포일 수 있어요)' };
+          if (data && data.ok === false) return { ok: false, error: data.error || '탈퇴 실패' };
+          // 삭제 성공 → 세션 완전 정리 후 새 게스트 확보
+          return c.auth.signOut().then(function () {
+            _session = null; _profile = null;
+            return ensureGuest().then(function () { return { ok: true }; });
+          });
+        })
+        .catch(function (e) {
+          return { ok: false, error: (e && e.message) || '탈퇴 요청 실패' };
+        });
+    });
+  }
+
   // 로그아웃 → 항상 세션 유지되도록 새 게스트로 재로그인
   function signOut() {
     return loadClient().then(function (c) {
@@ -526,6 +622,9 @@
     signInOAuth: signInOAuth,
     resetPassword: resetPassword,
     updatePassword: updatePassword,
+    changePassword: changePassword,
+    deleteAccount: deleteAccount,
+    checkNickname: checkNickname,
     resendConfirmation: resendConfirmation,
     pendingEmail: function () {
       return _pendingEmail;
@@ -558,6 +657,8 @@
     fetchProfile: fetchProfile,
     updateNickname: updateNickname,
     updateAvatar: updateAvatar,
+    loadDecks: loadDecks,
+    saveDecks: saveDecks,
     localAvatar: getLocalAvatar,
     randomNick: randomNick,
     onAuth: function (cb) {

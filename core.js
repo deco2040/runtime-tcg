@@ -128,9 +128,62 @@
     else box.appendChild(el('span', { style: { fontSize: Math.round(size * 0.42) + 'px' } }, [avatarInitials(nick)]));
     return box;
   }
-  function saveCustomDeck(key, name, list, cover) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice(), cover: (cover && list.indexOf(cover) >= 0) ? cover : undefined }; persistCustom(); syncCustomDecks(); }
-  function deleteCustomDeck(key) { delete _customMem[key]; persistCustom(); syncCustomDecks(); if (myDeck === key) myDeck = presetKeys()[0] || 'T1'; }
+  function saveCustomDeck(key, name, list, cover) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice(), cover: (cover && list.indexOf(cover) >= 0) ? cover : undefined }; persistCustom(); tagDecksOwner(); syncCustomDecks(); pushDecksToServer(); }
+  function deleteCustomDeck(key) { delete _customMem[key]; persistCustom(); tagDecksOwner(); syncCustomDecks(); if (myDeck === key) myDeck = presetKeys()[0] || 'T1'; pushDecksToServer(); }
   syncCustomDecks();
+
+  // ---- 커스텀 덱 계정 연동(서버 저장). 로그인 회원이면 profiles.custom_decks 와 로컬을
+  //      병합해 양쪽에 반영하고, 이후 저장/삭제는 서버로도 push(net.js). 게스트/오프라인/
+  //      컬럼(0007) 미적용이면 자동으로 로컬 저장만 유지된다(우아한 폴백).
+  //
+  //      localStorage(rt_custom_decks)는 브라우저 전역이라 "지금 로컬 덱이 누구 것인지"를
+  //      함께 기록(rt_decks_owner=uid)한다. 이게 없으면 A가 덱을 만든 브라우저에서 B가
+  //      로그인할 때 A의 덱이 B 계정으로 잘못 편입된다. 게스트→회원 승격은 같은 uid 라
+  //      태그가 일치하므로 게스트 때 만든 덱이 그대로 계정에 올라간다.
+  var OWNER_LS = 'rt_decks_owner';
+  function netUid() { try { return (UI.Net && UI.Net.userId && UI.Net.userId()) || ''; } catch (e) { return ''; } }
+  function getDecksOwner() { try { return window.localStorage.getItem(OWNER_LS) || ''; } catch (e) { return ''; } }
+  function setDecksOwner(uid) { try { window.localStorage.setItem(OWNER_LS, uid || ''); } catch (e) {} }
+  function tagDecksOwner() { var u = netUid(); if (u) setDecksOwner(u); }   // 로컬 저장 시 현재 소유자 각인
+  function serverDecksReady() { return !!(UI.Net && UI.Net.enabled && UI.Net.saveDecks && UI.Net.isMember && UI.Net.isMember()); }
+  function pushDecksToServer() { if (!serverDecksReady()) return; try { UI.Net.saveDecks(_customMem); setDecksOwner(netUid()); } catch (e) {} }
+  // 덱 동일성 지문 — name + 정렬한 카드목록. 같은 덱을 중복 편입하지 않기 위한 키.
+  function deckSig(d) { return d ? JSON.stringify([d.name || '', (d.list || []).slice().sort()]) : ''; }
+  function freshCustomKeyIn(map) { var n = 1; while (map['U' + n]) n++; return 'U' + n; }
+  // 서버↔로컬 병합. 반환: 로컬 반영 변경 여부(true 면 재렌더).
+  //  - 로컬 덱이 현재 계정 소유(태그 일치 or 무주공산 게스트)면: 서버 기준 + 로컬 전용 덱 편입.
+  //  - 남의 로컬 덱(다른 uid 태그)이면: 편입하지 않고 서버 덱으로 대체(계정 교차오염 방지).
+  function mergeServerDecks() {
+    if (!serverDecksReady()) return false;
+    var uid = netUid();
+    var owner = getDecksOwner();
+    var localMine = (!owner || owner === uid);                       // 무주공산(게스트)도 내 것으로 간주
+    var srv = (UI.Net.loadDecks && UI.Net.loadDecks()) || null;
+    var local = _customMem || {};
+
+    if (srv == null) {                                               // 서버 미보유(신규/컬럼 미적용)
+      if (localMine && Object.keys(local).length) { pushDecksToServer(); return false; }
+      if (!localMine) {                                             // 남의 로컬 덱 + 서버 빔 → 로컬 비움
+        _customMem = {}; persistCustom(); syncCustomDecks(); setDecksOwner(uid);
+        if (!DECKS[myDeck]) myDeck = presetKeys()[0] || 'T1';
+        return true;
+      }
+      return false;
+    }
+
+    var merged = {}, sig = {};
+    Object.keys(srv).forEach(function (k) { if (srv[k] && srv[k].list) { merged[k] = srv[k]; sig[deckSig(srv[k])] = 1; } });
+    var imported = false;
+    if (localMine) Object.keys(local).forEach(function (k) {         // 내 로컬 전용 덱만 편입
+      var d = local[k]; if (!d || sig[deckSig(d)]) return;          // 서버에 동일 덱 존재 → 스킵
+      var nk = merged[k] ? freshCustomKeyIn(merged) : k;            // 키 충돌 시 새 키
+      merged[nk] = d; sig[deckSig(d)] = 1; imported = true;
+    });
+    _customMem = merged; persistCustom(); syncCustomDecks(); setDecksOwner(uid);
+    if (!DECKS[myDeck]) myDeck = presetKeys()[0] || 'T1';           // 선택 덱이 병합으로 사라졌으면 폴백
+    if (imported) pushDecksToServer();                             // 로컬 전용 덱을 서버에도 반영
+    return true;
+  }
 
   // ---- tiny element helper
   function el(tag, props, kids) {
@@ -3303,6 +3356,18 @@
     var f = ['isLobbyActive', 'isBuilderActive', 'isMatchmakingActive', 'isAuthActive', 'isLeaderboardActive'];
     for (var i = 0; i < f.length; i++) { try { if (UI[f[i]] && UI[f[i]]()) return false; } catch (e) {} }
     return true;
+  }
+  // 로그인(회원) 상태가 되면 계정의 커스텀 덱을 로컬과 병합·동기화. 게스트 이벤트는 무시.
+  // 로그인 성공(signIn/signUp)·새로고침 세션 복원 모두 onAuth 를 거치므로 한 곳에서 처리.
+  if (UI.Net && UI.Net.enabled && UI.Net.onAuth) {
+    UI.Net.onAuth(function (sess) {
+      if (!(sess && sess.user && sess.user.email)) return;   // 회원(이메일 보유)만
+      var reload = UI.Net.reloadProfile ? UI.Net.reloadProfile() : Promise.resolve();
+      reload.then(function () {
+        var changed = mergeServerDecks();
+        if (changed && onTitleScreen() && UI.renderTitle) UI.renderTitle();
+      }).catch(function () {});
+    });
   }
   if (!window.RT_NO_BOOT) {
     var _boot = function () {
