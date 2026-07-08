@@ -170,8 +170,10 @@
     var wr = g > 0 ? Math.round(100 * w / g) : 0;
     var badge = member ? 'MEMBER' : 'GUEST';
     var ini = ((nick || '?').replace(/[^A-Za-z0-9가-힣]/g, '').slice(0, 2).toUpperCase()) || '::';
+    // 선택한 이모지 아바타 — 프로필(클라우드) 우선, 게스트/오프라인은 로컬 rt_avatar. 있으면 이니셜 대신 이모지 표시.
+    var emo = (prof && prof.avatar) || (Net && Net.localAvatar && Net.localAvatar()) || '';
     var box = dark ? 'rgba(255,176,0,.30)' : 'rgba(29,29,36,.22)';
-    var av = el('span', { class: 'grot', style: { flex: 'none', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, color: AMB_HI, border: '1px solid ' + box, letterSpacing: '.02em' } }, [ini]);
+    var av = el('span', { class: 'grot', style: { flex: 'none', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: (emo ? '22px' : '16px'), fontWeight: 700, color: AMB_HI, border: '1px solid ' + box, letterSpacing: '.02em', lineHeight: 1 } }, [emo || ini]);
     var line1 = el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' } }, [
       el('span', { style: { fontSize: '14px', fontWeight: 700, color: AMB_HI, letterSpacing: '.03em' } }, [nick]),
       el('span', { class: 'mono', style: { fontSize: '9px', color: AMB_DIM, border: '1px solid ' + box, padding: '1px 5px', letterSpacing: '.12em' } }, [badge])
