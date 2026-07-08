@@ -596,7 +596,7 @@
   function ensureBigTip() { if (_bigTip) return _bigTip; _bigTip = el('div', { style: { position: 'fixed', zIndex: 99999, pointerEvents: 'none', display: 'none', left: '0', top: '0' } }); if (document.body) document.body.appendChild(_bigTip); return _bigTip; }
   function fullFaceNode(id) { var sc = COMPACT; COMPACT = false; try { return handCardEl(id, 0, 'idle'); } catch (e) { return null; } finally { COMPACT = sc; } }
   function hideCardBig() { if (_bigTip) _bigTip.style.display = 'none'; }
-  function showCardBig(rect, id) {
+  function showCardBig(rect, id, opts) {
     if (!id || !CARDS[id]) { hideCardBig(); return; }
     var face = fullFaceNode(id); if (!face) { hideCardBig(); return; }
     var t = ensureBigTip(); t.innerHTML = '';
@@ -605,7 +605,12 @@
     var box = el('div', { style: { width: w + 'px', height: h + 'px', filter: 'drop-shadow(0 12px 30px rgba(0,0,0,.6))' } }, [inner]);
     t.appendChild(box); t.style.display = 'block';
     var vw = window.innerWidth || 1200, vh = window.innerHeight || 800, gap = 12;
-    var left = rect.left - w - gap; if (left < 8) left = rect.right + gap; if (left + w > vw - 8) left = Math.max(8, vw - w - 8);   // 기본은 행 왼쪽(요청), 공간 없으면 오른쪽
+    var left;
+    if (opts && opts.side === 'right') {   // 전투 기록: 행 오른쪽에 우선 배치(공간 없으면 왼쪽)
+      left = rect.right + gap; if (left + w > vw - 8) left = rect.left - w - gap; if (left < 8) left = Math.max(8, vw - w - 8);
+    } else {   // 기본(덱 트래커): 행 왼쪽 우선, 공간 없으면 오른쪽
+      left = rect.left - w - gap; if (left < 8) left = rect.right + gap; if (left + w > vw - 8) left = Math.max(8, vw - w - 8);
+    }
     var top = rect.top + rect.height / 2 - h / 2; if (top + h > vh - 8) top = vh - h - 8; if (top < 8) top = 8;
     t.style.left = left + 'px'; t.style.top = top + 'px';
     fitHand(box);   // 긴 효과문 잘림 방지(인게임 손패와 동일)
@@ -1289,7 +1294,7 @@
       if (tutorial) wrap.appendChild(tutBanner());
 
       var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap' } });
-      var left = el('div', { style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
+      var left = el('div', { id: 'boardcol', style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
 
       left.appendChild(deckDispenser(AI));
       left.appendChild(boardEl(false, deskBoardMaxW()));
@@ -1306,6 +1311,7 @@
       // render() 진입 때 #handrow 에서 포착한 handScroll 을 그대로 재적용(동기 + 다음 프레임 보정).
       var dhr = document.getElementById('handrow');
       if (dhr) { dhr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
+      RAF(installPanelSync);   // 좌우 패널 높이를 보드 컬럼에 맞춰 고정 + ResizeObserver 로 아트 로딩 후 재동기화
     }
 
     var pop = fieldPopover(); if (pop) app.appendChild(pop);
@@ -1732,9 +1738,9 @@
     // 손패는 카드 내용(포인터·2줄 효과문)에 따라 가변 → 최악치로 잡아 어떤 패에서도 스크롤이 안 나게 한다.
     // 보드 외 세로 크롬(상단바+디스펜서2+손패+컨트롤+갭). 손패 헤드룸 제거(호버 확대는 fixed 승격) + 열/메인 갭 축소로
     // 이전(410)보다 더 낮춤 → 남는 세로를 전부 보드에 준다(데스크톱은 넘쳐도 클리핑 아닌 페이지 스크롤이라 안전).
-    var chrome = 398 + (tutorial ? 48 : 0);
-    var boardH = Math.max(150, Math.min(600, vh - chrome)); // 세로가 남으면 최대 600px까지 보드로 채움(기존 512 상향), 좁으면 축소
-    return Math.round(Math.min(760, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 760)
+    var chrome = 410 + (tutorial ? 48 : 0); // 크롬 여유 +12(398→410): 전체 페이지 높이를 살짝 낮춰 페이지 스크롤 여지를 줄임
+    var boardH = Math.max(150, Math.min(590, vh - chrome)); // 세로가 남으면 최대 590px까지 보드로 채움, 좁으면 축소
+    return Math.round(Math.min(748, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 748 = 큰 화면에서도 보드 ~590 유지)
   }
   function boardEl(fill, deskMaxW) {
     var H = highlights();
@@ -2221,7 +2227,7 @@
     // 날씨(필드 환경)는 좌측 패널 배너(weatherBanner)에 상시 표시되므로 액션 바에는 중복 표기하지 않는다.
     if (ptr) {
       row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, [COMPACT ? ('◆ ' + ptr.card.name + ' 시전') : ('◆ ' + ptr.card.name + ' 시전 — 파란 구역 안 빨강 대상 클릭/드래그')]));
-    } else if (!COMPACT) row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['손패 카드를 드래그 또는 클릭 · 내 유닛 클릭 → 행동']));
+    }
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
     // ☰ 메뉴 — 항복·규칙 요약(모바일과 동일한 바텀시트). 턴 종료 옆에. 튜토리얼 중엔 숨김.
@@ -2232,11 +2238,19 @@
 
   // ---- side panel: inspector + log
   function glossaryBox() {
+    // 키워드 축약 설명 — 현재 룰(v15) 기준 한 줄 요약. 넓힌 좌측 컬럼에서 각 설명이 한 줄에 들어가도록 압축. 상세 정의는 GLOSS(칩 호버 툴팁)에 그대로 유지.
+    var KWSHORT = {
+      'If': '조건 충족 시, 원할 때 선택 발동.',
+      'When': '조건마다 자동으로 강제 발동.',
+      'Once': '조건 충족 시 한 번만 발동.',
+      'While': '조건 유지되는 동안 상시 적용.',
+      'For': '내 턴 1회, 게임당 총 N회(무료).',
+      'require': '필드에 존재하기 위한 선언 조건.'
+    };
     function line(k) {
-      var g = GLOSS[k];
-      return el('div', { style: { display: 'flex', gap: '8px', marginBottom: '4px' } }, [
-        el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.txt, width: '50px', flex: 'none', fontSize: '11.5px' } }, [k]),
-        el('span', { style: { fontSize: '11.5px', color: SKIN.panelText, lineHeight: 1.45 } }, [g.d])
+      return el('div', { style: { display: 'flex', gap: '6px', marginBottom: '4px', alignItems: 'baseline' } }, [
+        el('span', { class: 'mono', style: { fontWeight: 700, color: SKIN.txt, width: '46px', flex: 'none', fontSize: '11px' } }, [k]),
+        el('span', { style: { flex: 1, minWidth: 0, fontSize: '11px', color: SKIN.panelText, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, [KWSHORT[k] || (GLOSS[k] || {}).d])
       ]);
     }
     return el('div', { style: { borderTop: '1.5px solid ' + SKIN.line, paddingTop: '9px' } }, [
@@ -2328,7 +2342,8 @@
         style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 5px', cursor: 'pointer', borderLeft: '2px solid ' + cl, background: out ? 'transparent' : hexa(cl, 0.08), opacity: out ? 0.4 : 1, borderRadius: '2px' }
       }, [
         el('span', { style: { fontSize: '10px', color: cl, flex: 'none', width: '11px', textAlign: 'center' } }, [GLY[c.cls] || GLY.generic]),
-        el('span', { class: 'grot', style: { flex: 1, minWidth: 0, fontSize: '11px', fontWeight: 700, color: SKIN.txt, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [c.name || id]),
+        el('span', { class: 'grot', style: { flex: 1, minWidth: 0, fontSize: '11px', fontWeight: 700, color: c.deckLimit ? SKIN.gold : SKIN.txt, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [c.name || id]),
+        c.deckLimit ? opBadge(13) : null,   // OP 카드(덱당 N) — 금색 젬 배지로 일반 카드와 구분
         el('span', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: out ? SKIN.faint : (left <= 1 ? SKIN.heat : SKIN.gold) } }, [left + (tot > 1 ? '/' + tot : '')])
       ]);
       list.appendChild(row);
@@ -2336,40 +2351,72 @@
     box.appendChild(list);
     return box;
   }
-  // 좌측 컬럼(날씨 배너 + 덱 트래커) — 데스크톱 렌더에서만 삽입.
+  // 좌측 컬럼(날씨 배너 + 덱 트래커 + 키워드 사전) — 데스크톱 렌더에서만 삽입.
+  // 높이는 렌더 후 syncPanelHeights()가 보드 컬럼(#boardcol) 높이에 맞춰 명시적 px 로 고정한다(내용이 길어도 내부 스크롤).
   function leftTrackPanel() {
-    var panel = el('div', { id: 'lefttrack', style: { flex: '0 0 186px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '10px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
+    var panel = el('div', { id: 'lefttrack', style: { flex: '0 0 236px', minWidth: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '10px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
     if (G.weather && !tutorial) panel.appendChild(weatherBanner());
     panel.appendChild(deckTrackerPanel());
+    panel.appendChild(glossaryBox());
     return panel;
   }
 
   function sidePanel() {
-    var panel = el('div', { id: 'side', style: { flex: '0 0 300px', width: '300px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '12px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
-    panel.appendChild(el('div', { id: 'inspector' }, [inspectorContent()]));
-    panel.appendChild(glossaryBox());
+    // 세로 배치: 인스펙터(flex:1 · 넘치면 내부 스크롤) → 전투 기록(하단 고정칸). 키워드 사전은 좌측 컬럼으로 이동.
+    // 높이는 렌더 후 syncPanelHeights()가 보드 컬럼(#boardcol) 높이에 맞춰 명시적 px 로 고정 → 포인터 등 카드 상세가 아무리 길어도
+    // 패널은 절대 커지지 않고 인스펙터 안에서만 스크롤된다. (명시적 px 높이라 flex/overflow 해석이 브라우저 무관하게 결정적)
+    var panel = el('div', { id: 'side', style: { flex: '0 0 300px', width: '300px', maxWidth: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '12px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
+    panel.appendChild(el('div', { id: 'inspector', style: { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' } }, [inspectorContent()]));
     panel.appendChild(feedPanel());
     return panel;
   }
+  // 좌우 패널 높이를 보드 컬럼(#boardcol)에 맞춰 명시적 px 로 고정한다. 렌더 직후 RAF 에서 호출(페인트 전 실행 → 깜빡임 없음).
+  // 먼저 패널을 0 으로 접어 라인 높이가 보드 컬럼 실제 높이가 되게 한 뒤 측정 → 패널을 그 높이로 설정(패널이 라인을 부풀리지 않음).
+  function syncPanelHeights() {
+    var bc = document.getElementById('boardcol'); if (!bc) return;
+    var ps = [document.getElementById('lefttrack'), document.getElementById('side')];
+    ps.forEach(function (p) { if (p) p.style.height = '0px'; });
+    var h = bc.offsetHeight;
+    ps.forEach(function (p) { if (p) p.style.height = h + 'px'; });
+  }
+  // 보드 컬럼 높이는 카드 아트(배경 이미지) 로딩·컨트롤 줄바꿈 등으로 렌더 직후보다 나중에 바뀔 수 있다.
+  // ResizeObserver 로 #boardcol 크기 변화를 감지해 그때마다 패널 높이를 재동기화 → 높이가 stale 해지지 않게 한다.
+  // (패널만 건드리고 boardcol 은 안 건드리므로 관찰 루프는 발생하지 않음.)
+  var _panelRO = null;
+  function installPanelSync() {
+    syncPanelHeights();
+    try {
+      if (_panelRO) { _panelRO.disconnect(); _panelRO = null; }
+      var bc = document.getElementById('boardcol');
+      if (bc && window.ResizeObserver) { _panelRO = new ResizeObserver(function () { syncPanelHeights(); }); _panelRO.observe(bc); }
+    } catch (e) {}
+  }
   function feedPanel() {
-    var box = el('div', { style: { marginTop: 'auto', borderTop: '1.5px solid ' + SKIN.line, paddingTop: '8px' } }, [
-      el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.22em', color: SKIN.muted, marginBottom: '5px' } }, ['전투 기록'])
+    // 전투 기록: 하단 고정 영역(height clamp). 카드 상세(인스펙터)가 flex:1 로 위를 채우므로 이 영역까지 내려오지 않는다.
+    // 항목은 최하단 기준으로 채워지고(inner marginTop:auto → 적을 땐 바닥에 붙음), 오래된 것이 위·최신이 맨 아래.
+    var box = el('div', { style: { flex: 'none', height: 'clamp(150px, 27vh, 250px)', minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: '1.5px solid ' + SKIN.line, paddingTop: '8px' } }, [
+      el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.22em', color: SKIN.muted, marginBottom: '5px', flex: 'none' } }, ['전투 기록'])
     ]);
-    var list = el('div', { style: { maxHeight: '184px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' } });
-    if (!feed.length) list.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.faint } }, ['행동이 여기 기록됩니다.']));
-    feed.forEach(function (en) {
+    var list = el('div', { id: 'feedlist', style: { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' } });
+    var inner = el('div', { style: { marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' } });
+    if (!feed.length) inner.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.faint } }, ['행동이 여기 기록됩니다.']));
+    // feed 는 unshift 저장(최신이 앞)이므로, 역순으로 그려 오래된 것이 위·최신이 맨 아래(우최하단 기준)로 쌓이게 한다.
+    feed.slice().reverse().forEach(function (en) {
       var col = en.actor === HUMAN ? SKIN.own : (en.actor === AI ? SKIN.enemy : SKIN.muted);
       var death = en.kind === 'death';
-      list.appendChild(el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '5px', fontSize: '10.5px', lineHeight: 1.4, padding: '2px 5px', borderLeft: '3px solid ' + col, background: death ? hexa(col, .12) : (en.actor === AI ? hexa(SKIN.enemy, .05) : 'transparent'), cursor: en.card ? 'help' : 'default' }, onmouseenter: en.card ? function (e) { showCardTip(e.currentTarget.getBoundingClientRect(), en.card, null); } : null, onmouseleave: en.card ? hideCardTip : null }, [
+      inner.appendChild(el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '5px', fontSize: '10.5px', lineHeight: 1.4, padding: '2px 5px', borderLeft: '3px solid ' + col, background: death ? hexa(col, .12) : (en.actor === AI ? hexa(SKIN.enemy, .05) : 'transparent'), cursor: en.card ? 'help' : 'default' }, onmouseenter: en.card ? function (e) { showCardBig(e.currentTarget.getBoundingClientRect(), en.card, { side: 'right' }); } : null, onmouseleave: en.card ? hideCardBig : null }, [
         el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: col, flex: 'none', width: '16px' } }, [en.actor === HUMAN ? '나' : (en.actor === AI ? '상대' : '·')]),
         el('span', { style: { flex: 'none', color: col } }, [en.icon || '']),
         el('span', { style: { color: death ? col : SKIN.panelText, fontWeight: death ? 700 : 400 } }, [en.text])
       ]));
     });
+    list.appendChild(inner);
     box.appendChild(list);
+    // 최신 항목이 맨 아래이므로, 넘칠 땐 스크롤을 바닥으로 내려 최신이 보이게 한다.
+    RAF(function () { var l = document.getElementById('feedlist'); if (l) l.scrollTop = l.scrollHeight; });
     return box;
   }
-  function refreshInspector() { var ins = document.getElementById('inspector'); if (ins) { while (ins.firstChild) ins.removeChild(ins.firstChild); ins.appendChild(inspectorContent()); } }
+  function refreshInspector() { var ins = document.getElementById('inspector'); if (ins) { while (ins.firstChild) ins.removeChild(ins.firstChild); ins.appendChild(inspectorContent()); RAF(syncPanelHeights); } }
   function forLeftLines(card, bu) {
     var lines = (card.abilities || []).map(function (ab, idx) {
       if (ab.kw !== 'For') return null;
