@@ -60,9 +60,10 @@
   computeCompact();
   // 멀리건 인트로(코인플립·딜링) 중엔 재렌더 금지 — 모바일 URL바 접힘/방향전환이 resize 를 발생시켜
   // clear() 로 애니메이션(코인·딜)이 지워지는 걸 막는다. 코인은 fxLayer 라 살아남지만 딜 연출까지 보호.
-  window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); if (mullPhase && mullBusy) return; render(); }, 150); });
-  window.addEventListener('orientationchange', function () { computeCompact(); setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
+  window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); _vfitIter = 0; if (mullPhase && mullBusy) return; render(); }, 150); });
+  window.addEventListener('orientationchange', function () { computeCompact(); _vfitIter = 0; setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
   var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false, aiRevealPause = false, handScroll = 0;
+  var _vfit = 0, _vfitIter = 0;   // 필드 세로 자동보정: 렌더 후 실측 여유(slack)만큼 보드를 키워 스크롤 없이 화면을 꽉 채운다.
   var myDeck = 'T1', oppDeck = '__random';
   var challenge = null;   // 도전 모드: { stage, wins, baseBest, boss } 또는 null
   var tutorial = null;    // 실습 튜토리얼: { step, finished, steps } 또는 null
@@ -1355,6 +1356,7 @@
       var dhr = document.getElementById('handrow');
       if (dhr) { dhr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
       RAF(installPanelSync);   // 좌우 패널 높이를 보드 컬럼에 맞춰 고정 + ResizeObserver 로 아트 로딩 후 재동기화
+      RAF(fitBoardVertical);   // 필드 세로 자동보정 — 스크롤 없는 최대 크기로 수렴
     }
 
     var pop = fieldPopover(); if (pop) app.appendChild(pop);
@@ -1509,7 +1511,7 @@
     // 상단 정렬·무스케일 + main 을 #app(max-width 1180·중앙) 과 동일 폭/위치로 복제 → 블러 배경이 실게임과 같은 비율·크기(#7).
     var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden', filter: 'blur(3px)', transform: 'none', pointerEvents: 'none' } });
     // renderMatch 데스크톱 레이아웃과 정렬(gap 8px · 좌측 덱트래커 컬럼 포함 · left gap 2px) — 블러 배경이 실게임과 일치하도록.
-    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1280px', margin: '0 auto' } });
+    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1340px', margin: '0 auto' } });
     var left = el('div', { style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl(false, deskBoardMaxW()));
@@ -1783,9 +1785,24 @@
     // 이전(410)보다 더 낮춤 → 남는 세로를 전부 보드에 준다(데스크톱은 넘쳐도 클리핑 아닌 페이지 스크롤이라 안전).
     // chrome = 보드 외 세로 크롬 실측 보정(디스펜서2+손패240+컨트롤+상단바+여백 ≈ 430). 튜토리얼 배너(≈94px)는 +96 로 반영.
     // 필드는 보통 좌측 컬럼 '폭'에 걸려 세로 여유를 못 쓰므로(폭 제한), 컨테이너 폭 확대+우측 패널 축소와 함께 캡을 올려 필드를 키운다.
-    var chrome = 452 + (tutorial ? 96 : 0); // 실측 보정(비튜토리얼 nonBoard≈429+보드패딩); 소폭 여유로 1px 스크롤 방지
-    var boardH = Math.max(150, Math.min(620, vh - chrome)); // 세로가 남으면 최대 620px까지 보드로 채움
-    return Math.round(Math.min(820, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 820)
+    var chrome = 452 + (tutorial ? 96 : 0); // 초기 추정(안전측). 실제 여백은 fitBoardVertical 이 _vfit 로 보정해 꽉 채운다.
+    var boardH = Math.max(150, Math.min(760, vh - chrome + _vfit)); // 세로가 남으면 최대 760px까지 보드로 채움(_vfit=실측보정)
+    return Math.round(Math.min(980, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 980, 큰 모니터 대응)
+  }
+  // 필드 세로 자동보정 — 렌더 직후 실제 페이지 여유(뷰포트−페이지)를 재어 보드를 그만큼 키운다(목표: 여유 4px).
+  // chrome 추정이 화면·브라우저마다 달라도 "스크롤 없는 최대 크기"로 수렴. 감쇠(0.6)+수렴가드+반복상한으로 무한루프 방지.
+  function fitBoardVertical() {
+    if (COMPACT || !G || mullPhase || G.winner !== undefined) return;
+    var vh = window.innerHeight || 800;
+    // 실제 콘텐츠 하단으로 여유를 잰다 — documentElement.scrollHeight 는 뷰포트로 하한 클램프돼(빈 공간을 못 봄) 사용 불가.
+    var appEl = document.getElementById('app'); if (!appEl) return;
+    var slack = vh - appEl.getBoundingClientRect().bottom;    // >0: 콘텐츠가 화면보다 짧음(더 키울 수 있음), <0: 넘침(스크롤)
+    var delta = slack - 7;                                     // 목표: 7px 여유만 남기고 꽉 채움(스크롤 방지 안전폭)
+    if (Math.abs(delta) <= 4 || _vfitIter > 14) return;        // 충분히 수렴 or 반복 상한 → 정지
+    _vfitIter++;
+    _vfit += delta * 0.7;                                      // 감쇠 적용해 목표로 수렴
+    if (_vfit < -80) _vfit = -80; if (_vfit > 320) _vfit = 320;
+    render();                                                  // 재렌더 → 다음 프레임에 다시 측정(수렴 시 자동 정지)
   }
   function boardEl(fill, deskMaxW) {
     var H = highlights();
