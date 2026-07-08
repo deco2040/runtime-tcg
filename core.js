@@ -2327,6 +2327,7 @@
         viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
         // 시전 조건 = 효과문 위 독립 행(인스턴스 선언 조건과 동일 위치로 통일 · 여러 줄 허용).
         condLine(condSpec(card), { fs: condFs }),
+        deckRuleLine(card, { fs: big ? 8.5 : 8 }), // 클래스 단일(◈) 칩 — 포인터도 인스턴스와 동일하게 표시
         el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, minHeight: '0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: effFs + 'px', padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()), 'data-fit': '1', 'data-fit-fs': effFs }, [
           el('div', { style: { display: 'flex', gap: '6px', alignItems: 'flex-start' } }, [
             el('div', { style: { width: '20px', height: '20px', flex: 'none', borderRadius: '50%', background: '#d8472b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' } }, ['⚡']),
