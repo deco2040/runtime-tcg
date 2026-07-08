@@ -995,14 +995,15 @@
       if (counts[id] > lim) errs.push(card.name + ' ' + counts[id] + '장 (제한 ' + lim + ')');
     }
     var a = analyzeDeck(list);
-    // B-type deck rules
-    ['Hivemind', 'Bedrock', 'Conduit'].forEach(function (id) {
-      if (counts[id]) {
-        var need = id === 'Hivemind' ? 'thread' : id === 'Bedrock' ? 'memory' : 'process';
-        var onlyClass = a.classes.length === 0 || (a.classes.length === 1 && a.classes[0] === need);
-        if (!onlyClass) errs.push(CARDS[id].name + '은 ' + need + ' 단일 클래스 덱에서만 가능');
-      }
-    });
+    // 클래스 단일(◈) 규칙 — deckRule='{cls}Single' 카드는 해당 클래스 단일 덱에서만 가능(generic 혼합 허용).
+    // 구: Hivemind/Bedrock/Conduit 3장 하드코딩 → 스택 시 위험한 교차-클래스 splash 방지 위해 일반화.
+    for (var rid in counts) {
+      var rc = CARDS[rid]; if (!rc || !rc.deckRule) continue;
+      var rm = /^(thread|memory|process)Single$/.exec(rc.deckRule); if (!rm) continue;
+      var need = rm[1];
+      var onlyClass = a.classes.length === 0 || (a.classes.length === 1 && a.classes[0] === need);
+      if (!onlyClass) errs.push(rc.name + '은(는) ' + need + ' 단일 클래스 덱에서만 가능');
+    }
     return { ok: errs.length === 0, errors: errs, meta: a };
   }
 

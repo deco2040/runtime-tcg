@@ -164,9 +164,9 @@
 <!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → sound → theme → core → title → tutorial.
      부트는 막고(RT_NO_BOOT) window.__RT_UI.cardFaceEl 등 렌더 헬퍼만 사용. -->
 <!-- 게임 스크립트 재사용: 순서 = cards → decks → engine → art-map → ui. 부트는 막고 렌더 헬퍼만 사용. -->
-<script src="cards.js?v=67"></script>
-<script src="decks.js?v=66"></script>
-<script src="engine.js?v=66"></script>
+<script src="cards.js?v=87"></script>
+<script src="decks.js?v=83"></script>
+<script src="engine.js?v=90"></script>
 <!-- art-map.js: 저장 후 새로고침 시 항상 최신 매니페스트를 읽도록 캐시 무력화(고정 ?v= 는 브라우저 캐시로 옛 파일이 뜰 수 있음) -->
 <script>document.write('<scr'+'ipt src="art-map.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
 <script>window.RT_NO_BOOT = true;</script>
