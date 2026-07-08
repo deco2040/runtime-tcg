@@ -15,11 +15,11 @@
   // 전투 연출용 클래스 팔레트 — 타격 시 클래스별 색/파티클 모양/시그니처 이펙트를 결정.
   // col=주광, spark=파편·스파크, ring=충격파 링, shape=파편 모양(dot/shard/crystal/block).
   var FX_CLASS = {
-    thread: { col: '#ff5a3c', spark: '#ffb03c', ring: '#ff5a3c', shape: 'shard' },   // 어그로 — 참격/불꽃
-    memory: { col: '#3f7bd6', spark: '#8fd0ff', ring: '#2456a6', shape: 'crystal' },  // 방어/반사 — 크리스탈 파쇄
-    process: { col: '#e0a92e', spark: '#ffe08a', ring: '#c8951b', shape: 'block' },   // 변칙 — 디지털 글리치
-    generic: { col: '#ff8a5c', spark: '#ffd34d', ring: '#ffd34d', shape: 'dot' },     // 무색 — 정제 기본
-    mixed: { col: '#b07fe0', spark: '#e0c8ff', ring: '#8a6fb0', shape: 'crystal' }     // 혼합 — 프리즘
+    thread: { col: '#ff4526', spark: '#ffb03c', ring: '#ff5a3c', shape: 'shard' },   // 어그로 — 붉은 화염 참격
+    memory: { col: '#2f8fff', spark: '#a8e0ff', ring: '#2456a6', shape: 'crystal' },  // 방어/반사 — 청색 크리스탈 파쇄
+    process: { col: '#ffcf2e', spark: '#00e5ff', ring: '#e0a92e', shape: 'block' },   // 변칙 — 금+시안 디지털 글리치
+    generic: { col: '#d4d9e2', spark: '#ffffff', ring: '#aab2c0', shape: 'dot' },     // 무색 — 은백색 정제(적/금과 확실히 구분)
+    mixed: { col: '#c07fff', spark: '#e6ccff', ring: '#8a6fb0', shape: 'crystal' }     // 혼합 — 보라 프리즘
   };
   function fxClass(cls) { return FX_CLASS[cls] || FX_CLASS.generic; }
   // 저사양·접근성: 화려한 신규 프리미티브(참격선·글리치·별폭발·빔·잔광)를 생략. 숫자·기본 플래시는 유지.
@@ -753,6 +753,42 @@
     fxLayer().appendChild(n);
     anim(n, [{ transform: 'translate(-50%,-40px) scaleY(.3)', opacity: 0 }, { transform: 'translate(-50%,0) scaleY(1)', opacity: 1, offset: .4 }, { transform: 'translate(-50%,0) scaleY(1)', opacity: 0 }], { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)' });
   }
+  // ── 데미지 tier·클래스·사거리 차별화용 추가 프리미티브(화려함 강화) ──
+  // 고데미지 백열 플래시 — tier3 순간 중심에서 터지는 백색 방사(강타 임팩트).
+  function critFlash(rect, color) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    var n = el('div', { style: { position: 'fixed', left: cx + 'px', top: cy + 'px', width: '46px', height: '46px', borderRadius: '50%', zIndex: 91, background: 'radial-gradient(circle,#fff 0%,' + color + ' 46%,transparent 72%)', mixBlendMode: 'screen', filter: 'blur(.5px)' } });
+    fxLayer().appendChild(n);
+    anim(n, [{ transform: 'translate(-50%,-50%) scale(.35)', opacity: 1 }, { transform: 'translate(-50%,-50%) scale(3.4)', opacity: 0 }], { duration: 340, easing: 'cubic-bezier(.15,.7,.3,1)' });
+  }
+  // 방사 스포크 — 고데미지 순간 사방으로 뻗는 광선(강타 화려함).
+  function radialRays(rect, color, n) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    for (var i = 0; i < n; i++) (function (i) {
+      var ang = (360 / n) * i + (Math.random() * 12 - 6);
+      var ray = el('div', { style: { position: 'fixed', left: cx + 'px', top: cy + 'px', width: '58px', height: '3px', background: 'linear-gradient(90deg,' + color + ',transparent)', transformOrigin: 'left center', zIndex: 90, boxShadow: '0 0 8px ' + color, borderRadius: '2px' } });
+      fxLayer().appendChild(ray);
+      var base = 'translate(0,-50%) rotate(' + ang + 'deg)';
+      anim(ray, [{ transform: base + ' scaleX(.1)', opacity: 1 }, { transform: base + ' scaleX(1.5)', opacity: 0 }], { duration: 300 + Math.random() * 130, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    })(i);
+  }
+  // 겹 충격 링 — memory 방어형 시그니처(연속 확장 링으로 '파쇄' 강조).
+  function ringPulse(rect, color, rings) { for (var i = 0; i < rings; i++) (function (i) { setTimeout(function () { ringFx(rect, color); }, i * 75); })(i); }
+  // 원거리(함수범위·포인터) 조준 브래킷 — 낙하 빔과 함께 '원거리 명중'을 명확히(근접과 구분).
+  function reticle(rect, color) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2, s = rect.width * 1.15;
+    var n = el('div', { style: { position: 'fixed', left: cx + 'px', top: cy + 'px', width: s + 'px', height: s + 'px', zIndex: 89, border: '2px solid ' + color, borderRadius: '4px', boxShadow: '0 0 10px ' + color + ', inset 0 0 8px ' + hexa(color, .5), clipPath: 'polygon(0 0,32% 0,32% 8%,8% 8%,8% 32%,0 32%, 0 68%,8% 68%,8% 92%,32% 92%,32% 100%,0 100%, 100% 100%,68% 100%,68% 92%,92% 92%,92% 68%,100% 68%, 100% 0,68% 0,68% 8%,92% 8%,92% 32%,100% 32%)' } });
+    fxLayer().appendChild(n);
+    anim(n, [{ transform: 'translate(-50%,-50%) scale(1.7) rotate(-8deg)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1) rotate(0deg)', opacity: 1, offset: .45 }, { transform: 'translate(-50%,-50%) scale(.94) rotate(0deg)', opacity: 0 }], { duration: 360, easing: 'cubic-bezier(.2,.7,.3,1)' });
+  }
+  // 근접 참격 슬래시 — 근접(옆칸) 타격에 백심(白心) 대각 참격을 얹어 '근접 강타'를 원거리(빔)와 구분.
+  function meleeCrescent(rect, color) {
+    if (!rect || REDUCE) return; var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2, len = rect.width * 1.6;
+    var n = el('div', { style: { position: 'fixed', left: cx + 'px', top: cy + 'px', width: len + 'px', height: '5px', background: 'linear-gradient(90deg,transparent,' + color + ',#fff,' + color + ',transparent)', transformOrigin: 'center', zIndex: 91, boxShadow: '0 0 11px ' + color, borderRadius: '3px' } });
+    fxLayer().appendChild(n);
+    var base = 'translate(-50%,-50%) rotate(-42deg)';
+    anim(n, [{ transform: base + ' scaleX(0)', opacity: 0 }, { transform: base + ' scaleX(1)', opacity: 1, offset: .35 }, { transform: base + ' scaleX(1)', opacity: 0 }], { duration: 230, easing: 'cubic-bezier(.2,.8,.3,1)' });
+  }
   // 근접 돌진 경로 잔광 — 공격 유닛→대상 60% 지점까지 색 궤적.
   function attackTrail(fromKey, toKey, color) {
     if (REDUCE) return; var fr = rectOf(fromKey), tr = rectOf(toKey); if (!fr || !tr) return;
@@ -864,22 +900,29 @@
       flashTile(rect, isBody ? 'rgba(255,140,100,.95)' : hexa(f.col, .9), heavy ? 200 : 150);
       shockwave(rect, isBody ? '#ff5a3c' : f.ring, heavy ? 1.6 : 1);
       shardsShaped(rect, isBody ? '#ff7a4c' : f.spark, isBody ? 'dot' : f.shape, heavy ? 16 : Math.max(6, amount * 3), power);
-      // 클래스 시그니처
-      if (!isBody && cls === 'thread' && via === 'basic') slashStreak(rect, f.col, tier);
-      else if (!isBody && cls === 'memory') ringFx(rect, f.ring);
-      else if (!isBody && cls === 'process') glitchTint(rect, f.spark);
-      // 사거리(원거리·함수범위) 강조 — 근접이 아닌 능력/포인터 피해엔 낙하 빔
-      if (via === 'ability') beamIn(rect, f.ring);
+      // ── 클래스 시그니처(항상 재생·tier 로 강도 스케일) — 어느 클래스의 피해인지 한눈에 구분 ──
+      if (!isBody) {
+        if (cls === 'thread') slashStreak(rect, f.col, tier);                                            // 붉은 참격(데미지만큼 교차)
+        else if (cls === 'memory') ringPulse(rect, f.ring, tier >= 3 ? 3 : 2);                             // 청색 겹 파쇄 링
+        else if (cls === 'process') { glitchTint(rect, f.spark); if (tier >= 2) glitchTint(rect, f.col); } // 디지털 글리치(강도↑)
+        else if (cls === 'mixed') { ringFx(rect, f.ring); shardsShaped(rect, f.spark, 'crystal', 6, power); } // 보라 프리즘 파편
+        else ringFx(rect, f.ring);                                                                         // generic 은백 링
+      }
+      // ── 사거리 시그니처 — 근접(옆칸) vs 원거리(함수범위/포인터) 확실히 구분 ──
+      if (via === 'ability') { beamIn(rect, f.ring); reticle(rect, f.spark); }                            // 원거리 = 낙하 빔 + 조준 브래킷
+      else if (via === 'basic' && !isBody) meleeCrescent(rect, f.col);                                    // 근접 = 참격 크레센트
       squashTile(key);
-      if (tier >= 3) impactStar(rect, isBody ? '#ff5a3c' : f.col);   // 강타 별폭발
-      var sz = isBody ? 42 : (amount >= 7 ? 36 : amount >= 4 ? 30 : 23);
-      punchNum(rect, '−' + amount, sz, isBody ? '#ff5a3c' : (amount >= 5 ? f.spark : f.col));
+      // ── 데미지 tier 에스컬레이션 — 셀수록 화려하게(약타→중타→강타) ──
+      if (tier >= 2) shockwave(rect, isBody ? '#ff5a3c' : f.col, 1.35);                                   // 중타: 추가 충격파
+      if (tier >= 3) { critFlash(rect, isBody ? '#ff8a5c' : f.spark); radialRays(rect, isBody ? '#ff7a4c' : f.col, 9); impactStar(rect, isBody ? '#ff5a3c' : f.col); } // 강타: 백열+방사+별폭발
+      var sz = isBody ? 44 : (amount >= 7 ? 38 : amount >= 4 ? 30 : 23);
+      punchNum(rect, '−' + amount, sz, isBody ? '#ff5a3c' : (tier >= 3 ? '#fff' : amount >= 5 ? f.spark : f.col));
     }
     // 효과음 — 클래스별 타격음(폴백=기존). 본체·크리티컬은 기존 강조음 유지.
     if (isBody) Sound.bodyhit();
     else if (amount >= 6) { (Sound.crit || function () {})(); }
     else { var sf = Sound['hit' + (cls.charAt(0).toUpperCase() + cls.slice(1))]; (sf || Sound.hit)(); }
-    screenShake(heavy ? 2 : 1); hitstop(heavy ? 70 : 42);
+    screenShake(tier >= 3 ? 3 : heavy ? 2 : 1); hitstop(tier >= 3 ? 85 : heavy ? 70 : 42);
   }
   function handleFx(ev) {
     if (!ev) return;
@@ -1466,7 +1509,7 @@
     // 상단 정렬·무스케일 + main 을 #app(max-width 1180·중앙) 과 동일 폭/위치로 복제 → 블러 배경이 실게임과 같은 비율·크기(#7).
     var bg = el('div', { style: { position: 'absolute', inset: '0', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden', filter: 'blur(3px)', transform: 'none', pointerEvents: 'none' } });
     // renderMatch 데스크톱 레이아웃과 정렬(gap 8px · 좌측 덱트래커 컬럼 포함 · left gap 2px) — 블러 배경이 실게임과 일치하도록.
-    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1180px', margin: '0 auto' } });
+    var main = el('div', { style: { display: 'flex', gap: '8px', padding: 'clamp(2px,0.3vw,4px)', alignItems: 'stretch', flexWrap: 'wrap', width: '100%', maxWidth: '1280px', margin: '0 auto' } });
     var left = el('div', { style: { position: 'relative', zIndex: 1, flex: 2, minWidth: '340px', display: 'flex', flexDirection: 'column', gap: '2px' } });
     left.appendChild(deckDispenser(AI));
     left.appendChild(boardEl(false, deskBoardMaxW()));
@@ -1738,9 +1781,11 @@
     // 손패는 카드 내용(포인터·2줄 효과문)에 따라 가변 → 최악치로 잡아 어떤 패에서도 스크롤이 안 나게 한다.
     // 보드 외 세로 크롬(상단바+디스펜서2+손패+컨트롤+갭). 손패 헤드룸 제거(호버 확대는 fixed 승격) + 열/메인 갭 축소로
     // 이전(410)보다 더 낮춤 → 남는 세로를 전부 보드에 준다(데스크톱은 넘쳐도 클리핑 아닌 페이지 스크롤이라 안전).
-    var chrome = 410 + (tutorial ? 48 : 0); // 크롬 여유 +12(398→410): 전체 페이지 높이를 살짝 낮춰 페이지 스크롤 여지를 줄임
-    var boardH = Math.max(150, Math.min(590, vh - chrome)); // 세로가 남으면 최대 590px까지 보드로 채움, 좁으면 축소
-    return Math.round(Math.min(748, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 748 = 큰 화면에서도 보드 ~590 유지)
+    // chrome = 보드 외 세로 크롬 실측 보정(디스펜서2+손패240+컨트롤+상단바+여백 ≈ 430). 튜토리얼 배너(≈94px)는 +96 로 반영.
+    // 필드는 보통 좌측 컬럼 '폭'에 걸려 세로 여유를 못 쓰므로(폭 제한), 컨테이너 폭 확대+우측 패널 축소와 함께 캡을 올려 필드를 키운다.
+    var chrome = 452 + (tutorial ? 96 : 0); // 실측 보정(비튜토리얼 nonBoard≈429+보드패딩); 소폭 여유로 1px 스크롤 방지
+    var boardH = Math.max(150, Math.min(620, vh - chrome)); // 세로가 남으면 최대 620px까지 보드로 채움
+    return Math.round(Math.min(820, boardH * 1.25)); // 5:4 → 폭 = 높이 × 1.25 (폭 상한 820)
   }
   function boardEl(fill, deskMaxW) {
     var H = highlights();
@@ -2225,8 +2270,10 @@
     row.appendChild(pips);
     row.appendChild(el('span', { class: 'mono', style: { fontSize: '11px' } }, [G.actions + '/2 액션']));
     // 날씨(필드 환경)는 좌측 패널 배너(weatherBanner)에 상시 표시되므로 액션 바에는 중복 표기하지 않는다.
-    if (ptr) {
-      row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, [COMPACT ? ('◆ ' + ptr.card.name + ' 시전') : ('◆ ' + ptr.card.name + ' 시전 — 파란 구역 안 빨강 대상 클릭/드래그')]));
+    // 포인터 시전 안내: 데스크톱은 우측 패널(전투 기록 위, ptrCastBanner)에 표시 → 컨트롤 바가 줄바꿈으로 늘어나지 않게 한다.
+    // 모바일(COMPACT)만 액션 바에 간략 표기.
+    if (ptr && COMPACT) {
+      row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, ['◆ ' + ptr.card.name + ' 시전']));
     }
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
@@ -2365,10 +2412,15 @@
     // 세로 배치: 인스펙터(flex:1 · 넘치면 내부 스크롤) → 전투 기록(하단 고정칸). 키워드 사전은 좌측 컬럼으로 이동.
     // 높이는 렌더 후 syncPanelHeights()가 보드 컬럼(#boardcol) 높이에 맞춰 명시적 px 로 고정 → 포인터 등 카드 상세가 아무리 길어도
     // 패널은 절대 커지지 않고 인스펙터 안에서만 스크롤된다. (명시적 px 높이라 flex/overflow 해석이 브라우저 무관하게 결정적)
-    var panel = el('div', { id: 'side', style: { flex: '0 0 300px', width: '300px', maxWidth: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '12px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
+    var panel = el('div', { id: 'side', style: { flex: '0 0 268px', width: '268px', maxWidth: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, padding: '12px', boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } });
     panel.appendChild(el('div', { id: 'inspector', style: { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' } }, [inspectorContent()]));
+    if (ptr && !COMPACT) panel.appendChild(ptrCastBanner());   // 포인터 시전 안내 — 전투 기록 바로 위(데스크톱)
     panel.appendChild(feedPanel());
     return panel;
+  }
+  // 데스크톱 포인터 시전 안내 배너 — 우측 패널 전투 기록 바로 위. 컨트롤 바 대신 여기에 표시해 하단 필드 세로를 아낀다.
+  function ptrCastBanner() {
+    return el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: '#fff', background: SKIN.enemy, border: '1px solid ' + SKIN.ink, padding: '7px 9px', lineHeight: 1.45, boxShadow: '2px 2px 0 rgba(0,0,0,.3)', wordBreak: 'keep-all' } }, ['◆ ' + ptr.card.name + ' 시전 — 파란 구역 안 빨강 대상 클릭/드래그']);
   }
   // 좌우 패널 높이를 보드 컬럼(#boardcol)에 맞춰 명시적 px 로 고정한다. 렌더 직후 RAF 에서 호출(페인트 전 실행 → 깜빡임 없음).
   // 먼저 패널을 0 으로 접어 라인 높이가 보드 컬럼 실제 높이가 되게 한 뒤 측정 → 패널을 그 높이로 설정(패널이 라인을 부풀리지 않음).
@@ -2668,7 +2720,8 @@
       if (!G.canCast(HUMAN, id)) { flash(castWhy(card)); return; }
       // 모바일: 포인터는 탭이 아니라 필드로 드래그해서 놓을 때만 시전(오발동 방지).
       if (COMPACT) { flash('포인터는 필드로 드래그해서 시전하세요'); return; }
-      if (card.need === 'none') { aCast(HUMAN, i, null, false); afterAction(); return; }
+      // 무대상 포인터(overtime 등)도 클릭만으로 즉시 시전하지 않고 필드로 드래그해야 시전(오발동 방지). 클릭은 상세만 고정.
+      if (card.need === 'none') { flash('필드로 드래그해 시전하세요'); render(); return; }
       ptr = { i: i, card: card, need: card.need, picks: [] };
       // if no legal targets, just resolve with null (e.g., area pointers)
       if (pointerTargets(ptr).length === 0) { if (/ally|enemy|twoAlly|cell/.test(card.need)) { flash('대상 없음'); ptr = null; return; } aCast(HUMAN, i, null, false); ptr = null; afterAction(); return; }
@@ -2809,12 +2862,18 @@
     // 실제 카드가 손가락 위로 떠오르며(팝) 따라다님. invalid 이면 붉게 흐림.
     // 고스트 = 손패 원본과 동일한 풀사이즈 카드(handCardEl idle) → '원본 카드가 패에서 빠져나와 따라오는' 느낌.
     // 누른 지점(slot 근처)에서 팝업돼 커서를 따라간다. 원본 슬롯은 흐린 빈자리로 남는다(위 st 흐림 처리).
-    var g = el('div', { id: 'draghost', style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,-104%) scale(.82) rotate(-3deg)', filter: 'drop-shadow(0 16px 26px rgba(0,0,0,.6))', opacity: drag.invalid ? .5 : 1, transition: 'transform .12s ease' } }, [COMPACT ? dragGhostEl(id) : handCardEl(id, -1, 'idle')]);
+    // 데스크톱: 드래그 고스트를 '축소·반투명'으로 → 하단 필드(드롭 대상)를 가리지 않게 한다(확대 금지).
+    // 모바일: 기존 팝업 느낌 유지.
+    var desk = !COMPACT;
+    var offY = desk ? '-58%' : '-104%';
+    var baseScale = desk ? '.5' : '.82', popScale = desk ? '.55' : '.94';
+    var op = drag.invalid ? (desk ? .32 : .5) : (desk ? .58 : 1);
+    var g = el('div', { id: 'draghost', style: { position: 'fixed', zIndex: 95, pointerEvents: 'none', transformOrigin: 'center bottom', transform: 'translate(-50%,' + offY + ') scale(' + baseScale + ') rotate(-3deg)', filter: 'drop-shadow(0 10px 18px rgba(0,0,0,.5))', opacity: op, transition: 'transform .12s ease' } }, [COMPACT ? dragGhostEl(id) : handCardEl(id, -1, 'idle')]);
     g.style.left = drag.sx + 'px'; g.style.top = drag.sy + 'px';
     fxLayer().appendChild(g); drag.ghost = g;
-    // 다음 프레임에 확대(집어드는 팝 애니메이션)
+    // 다음 프레임에 살짝 팝(확대 아님 — 데스크톱은 반투명 축소 유지)
     void g.offsetWidth;
-    g.style.transform = 'translate(-50%,-104%) scale(.94) rotate(-3deg)';
+    g.style.transform = 'translate(-50%,' + offY + ') scale(' + popScale + ') rotate(-3deg)';
     render();
   }
   function cellKeyAt(x, y) { try { var e = document.elementFromPoint(x, y); var c = e && e.closest ? e.closest('[data-key]') : null; return c ? c.getAttribute('data-key') : null; } catch (err) { return null; } }
@@ -2822,8 +2881,8 @@
     var id = G.players[HUMAN].hand[d.i], card = id ? CARDS[id] : null;
     if (d.invalid || !card) { sel = ptr = null; render(); return; }
     if (card.kind === 'pointer') {
-      // 무대상 포인터도 '필드 위'에 놓아야 시전(모바일). 필드 밖에 놓으면 취소.
-      if (card.need === 'none') { if (COMPACT && !key) { flash('필드에 놓아 시전하세요'); sel = ptr = null; render(); return; } aCast(HUMAN, d.i, null, false); afterAction(); return; }
+      // 무대상 포인터도 '필드 위'에 놓아야 시전(데스크톱·모바일 공통). 필드 밖에 놓으면 취소.
+      if (card.need === 'none') { if (!key) { flash('필드에 놓아 시전하세요'); sel = ptr = null; render(); return; } aCast(HUMAN, d.i, null, false); afterAction(); return; }
       var legal = ptr ? pointerTargets(ptr) : [];
       if (key && legal.indexOf(key) >= 0) {
         if (card.need === 'twoAlly') aCast(HUMAN, d.i, key, false, { second: legal.filter(function (k) { return k !== key; })[0] });
