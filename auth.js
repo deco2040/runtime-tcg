@@ -100,7 +100,13 @@
       el('div', { style: { fontSize: '11px', color: p.dim, lineHeight: 1.5 } }, ['대전 상대에게 이 아바타가 보입니다. 이모지를 고르거나 이니셜로 둘 수 있어요.']),
     ]));
     var grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(42px,1fr))', gap: '6px' } });
+    var crownOk = !(UI.crownUnlocked) || UI.crownUnlocked();   // 👑 은 CHALLENGE 10단계 정복 시에만 해금
     (UI.AVA_EMOJI || []).forEach(function (em) {
+      var locked = (em === '👑') && !crownOk;
+      if (locked) {
+        grid.appendChild(el('button', { disabled: true, title: '🔒 CHALLENGE 10단계 정복 시 해금', class: 'crt-opt', style: { fontSize: '20px', padding: '6px 0', textAlign: 'center', opacity: .38, cursor: 'not-allowed', position: 'relative' } }, [em, el('span', { style: { position: 'absolute', right: '3px', bottom: '1px', fontSize: '9px' } }, ['🔒'])]));
+        return;
+      }
       grid.appendChild(el('button', { onclick: function () { doSetAvatar(em); }, class: 'crt-opt' + (cur === em ? ' on' : ''), style: { fontSize: '20px', padding: '6px 0', textAlign: 'center' } }, [em]));
     });
     grid.appendChild(el('button', { onclick: function () { doSetAvatar(''); }, class: 'crt-opt' + (cur === '' ? ' on' : ''), style: { fontSize: '11px', padding: '6px 0', textAlign: 'center' } }, ['이니셜']));

@@ -118,7 +118,7 @@
   }
   function newPlayer(i) {
     return { idx: i, deck: [], hand: [], graveyard: [], destroyedAlly: 0, pointersCast: 0, turnsTaken: 0,
-      deckMeta: null, bodyShield: 0, fatigueNext: 3, deferredActions: 0 };
+      deckMeta: null, bodyShield: 0, fatigueNext: 3, deferredActions: 0, pointerFree: false };
   }
 
   Game.prototype.emit = function () { for (var i = 0; i < this.listeners.length; i++) try { this.listeners[i](this); } catch (e) {} };
@@ -143,7 +143,7 @@
     if (u.type !== 'object') return hp;
     // Persist aura: each friendly Persist (other) grants +2 to my memory units
     if (cardCls(u) === 'memory') hp += 2 * this.countBoard(function (x) { return x.owner === u.owner && x.uid !== u.uid && x.cardId === 'Persist'; });
-    // Polymorph: single-class deck -> +1
+    // Polymorph: 내 필드 클래스 3종+ 이면 +1
     if (this.polymorphActive(u.owner)) hp += 1;
     return Math.max(1, hp);
   };
@@ -206,10 +206,13 @@
   Game.prototype.bedrockActive = function (owner) { return this.boardUnits().some(function (x) { return x.owner === owner && x.cardId === 'Bedrock'; }); };
   Game.prototype.singletonActive = function (owner) { return this.boardUnits().some(function (x) { return x.owner === owner && x.cardId === 'Singleton'; }); };
   Game.prototype.polymorphActive = function (owner) {
-    var meta = this.players[owner].deckMeta;
-    if (!meta || !meta.singleClass) return false; // single-class (incl generic-only) deck
-    // While effect of a Polymorph INSTANCE — must be alive on board
-    return this.boardUnits().some(function (x) { return x.owner === owner && x.cardId === 'Polymorph'; });
+    // While effect of a Polymorph INSTANCE — must be alive on board (aura source).
+    var mine = this.boardUnits().filter(function (x) { return x.owner === owner && x.type === 'object'; });
+    if (!mine.some(function (x) { return x.cardId === 'Polymorph'; })) return false;
+    // Card text: 내 필드에 클래스 3종 이상이면 발동 — count distinct classes among my board objects.
+    var seen = {};
+    for (var i = 0; i < mine.length; i++) { var c = cardCls(mine[i]); if (c) seen[c] = 1; }
+    return Object.keys(seen).length >= 3;
   };
 
   // ---- binding (movement lock)
@@ -400,7 +403,10 @@
   Game.prototype.relocate = function (u, toKey) {
     if (u && u.flags && u.flags.wall) return false;   // 중립 벽 = 이동 불가(모든 강제이동의 단일 진입점)
     var from = unitKey(this, u); if (!from || this.board[toKey]) return false;
-    delete this.board[from]; this.board[toKey] = u; return true;
+    delete this.board[from]; this.board[toKey] = u;
+    // 강제이동·재배치·teleport(for 함수) 공통 이동 연출 진입점 — from+to 로 유닛 슬라이드.
+    this.fx({ type: 'move', from: from, to: toKey });
+    return true;
   };
   // 진입 트리거(Sentinel/Interrupt/Trap = 옆칸). ability.enterRange==='s1' 이면 1칸이내(대각 포함), 그 외 옆칸(직교 인접).
   Game.prototype.fireEnterTriggers = function (u) {
@@ -421,8 +427,8 @@
       .forEach(function (t) { if (self.board[unitKey(self, u)]) self.deal(u, 2, { attacker: t }); });
     if (this.board[unitKey(this, u)]) this.fireEnterTriggers(u);
   };
-  Game.prototype.forceMove = function (u, toKey) { if (!this.relocate(u, toKey)) return false; this.fx({ type: 'move', from: null, to: toKey }); this.afterForcedMove(u); return true; };
-  Game.prototype.teleport = function (u, toKey) { var from = unitKey(this, u); if (!this.relocate(u, toKey)) return false; this.fx({ type: 'move', from: from, to: toKey }); if (this.board[unitKey(this, u)]) this.fireEnterTriggers(u); return true; };
+  Game.prototype.forceMove = function (u, toKey) { if (!this.relocate(u, toKey)) return false; this.afterForcedMove(u); return true; };
+  Game.prototype.teleport = function (u, toKey) { if (!this.relocate(u, toKey)) return false; if (this.board[unitKey(this, u)]) this.fireEnterTriggers(u); return true; };
   // knockback: move the target one cell AWAY from the caster (toward the caster's enemy edge).
   Game.prototype.pushAway = function (target, fromOwner) {
     var k = unitKey(this, target); if (!k) return false; var p = P(k);
@@ -819,7 +825,10 @@
     return out;
   };
   Game.prototype.canCast = function (player, cardId) {
-    if (player !== this.active || this.actions < 1) return false;
+    var card0 = CARDS[cardId];
+    // Singularity 버프: pointerFree 이면 포인터는 액션 없이도 시전 가능(액션 게이트 면제).
+    var free0 = card0 && card0.kind === 'pointer' && this.players[player] && this.players[player].pointerFree;
+    if (player !== this.active || (this.actions < 1 && !free0)) return false;
     var card = CARDS[cardId]; if (!card || card.kind !== 'pointer') return false;
     if (!this.castConditionMet(player, card)) return false;
     var need = card.need;
@@ -840,7 +849,8 @@
     // fizzle guard: never consume a move-pointer whose chosen target can't actually move (rush/pull into a blocked cell)
     if (!free && card.castValid && targetKey != null && !card.castValid(this, player, targetKey, extra || {})) return false;
     pl.hand.splice(handIndex, 1);
-    if (!free) this.actions--;
+    // Singularity 버프: pointerFree 이면 포인터는 액션 소비 없음.
+    if (!free && !(card.kind === 'pointer' && pl.pointerFree)) this.actions--;
     pl.pointersCast++;
     this.turnFlags.pointerCastThisTurn++;
     this.note(card.name + ' 시전' + (targetKey ? ' → ' + targetKey : ''));

@@ -75,6 +75,10 @@
   function bestMap() { try { var v = window.localStorage.getItem('rt_challenge_bests'); var o = v ? JSON.parse(v) : null; return (o && typeof o === 'object') ? o : {}; } catch (e) { return _bestMem; } }
   function bestStreak(deck) { return bestMap()[deck] || 0; }
   function setBestStreak(deck, n) { var m = bestMap(); if (n > (m[deck] || 0)) { m[deck] = n; _bestMem = m; try { window.localStorage.setItem('rt_challenge_bests', JSON.stringify(m)); } catch (e) {} } }
+  var CHAL_MAX_STAGE = 10;            // CHALLENGE 최대 단계(10단계 정복 시 왕관 해금)
+  var _crownMem = false;             // localStorage 불가 시 왕관 해금 메모리 폴백
+  function crownUnlocked() { try { return window.localStorage.getItem('rt_crown_unlocked') === '1'; } catch (e) { return _crownMem; } }
+  function unlockCrown() { _crownMem = true; try { window.localStorage.setItem('rt_crown_unlocked', '1'); } catch (e) {} }
 
   // ---- 커스텀 덱: localStorage 영속 + 공유 DECKS 로 병합. 키 = 'U1','U2'… (프리셋 T/M/P/N/X/C 와 충돌 없음)
   var CUSTOM_LS = 'rt_custom_decks';
@@ -449,9 +453,11 @@
   // 상태바 = 좌 ATK 필드 | 우 HP 뉴트럴 미터. (인스턴스 전용 — 포인터엔 없음)
   function statusStrip(atk, hp, maxHp, opts) {
     opts = opts || {};
+    // ATK 상태 색: 기본보다 높으면 녹(과충전), 낮으면 빨강(약화), 같으면 기본. baseAtk 미전달 시 기존 buffed 동작(하위호환).
+    var atkColor = (opts.baseAtk != null) ? (atk > opts.baseAtk ? SKIN.buff : (atk < opts.baseAtk ? SKIN.heat : null)) : (opts.buffed ? SKIN.buff : null);
     var atkEl = el('div', { style: Object.assign({ flex: '0 0 ' + (opts.atkW || 42) + 'px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', padding: '2px 0', background: SKIN.atkField, color: SKIN.effTxt }, sunkenBev()) }, [
-      svgIco(SERIES_PATH.attack, opts.icoPx || 10, 'currentColor', 2),
-      el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, color: opts.buffed ? SKIN.buff : 'inherit', lineHeight: 1 } }, [String(atk)])
+      svgIco(SERIES_PATH.attack, opts.icoPx || 10, atkColor || 'currentColor', 2),
+      el('b', { class: 'mono', style: { fontSize: (opts.fs || 11) + 'px', fontWeight: 700, color: atkColor || 'inherit', lineHeight: 1 } }, [String(atk)])
     ]);
     // 모바일: 체력을 미터 대신 '숫자'로 표시(작은 카드에서 한눈에). 데스크톱: 뉴트럴 미터 + 숫자 병기.
     // HP 상태 색: 피격(현재<최대)=빨강(우선), 과충전(최대>기본)=녹/강조. 정상=기본. baseHp 미전달 시 기본색(하위호환).
@@ -468,7 +474,7 @@
 
   // ---- keyword glossary + hover tooltips
   var GLOSS = {
-    'If': { t: 'If · 선택 발동', d: '조건이 맞을 때, 내가 원하면 골라서 발동(횟수 제한 없음).' },
+    'If': { t: 'If · 선택 발동', d: '조건 충족 시, 원할 때 선택 발동.' },
     'When': { t: 'When · 자동 발동', d: '조건이 맞을 때마다 강제로 자동 발동.' },
     'Once': { t: 'Once · 1회 발동', d: '조건이 맞으면 게임 중 딱 한 번만 발동.' },
     'While': { t: 'While · 지속 효과', d: '조건이 유지되는 동안 계속 적용되는 상시 효과.' },
@@ -847,6 +853,29 @@
       a.onfinish = done;
     } else setTimeout(done, 400);
   }
+  // 이동 슬라이드: 유닛 DOM 을 복제해 from→to 전체거리로 미끄러뜨린다(강제이동·재배치·for·일반 이동 공통).
+  // 도착 셀 유닛은 클론 착지 전까지 lungingKeys[toKey] 로 숨겨 재빌드 후에도 이중표시를 막는다.
+  function slideUnit(fromKey, toKey) {
+    if (!fromKey || !toKey || fromKey === toKey) return false;
+    var src = app.querySelector('[data-key="' + fromKey + '"]'), toR = rectOf(toKey);
+    if (!src || !toR) return false;
+    var fr = src.getBoundingClientRect(); if (!fr.width) return false;
+    var clone = src.cloneNode(true); clone.removeAttribute('data-key');
+    var s = clone.style; s.position = 'fixed'; s.left = fr.left + 'px'; s.top = fr.top + 'px'; s.width = fr.width + 'px'; s.height = fr.height + 'px'; s.margin = '0'; s.zIndex = 92; s.pointerEvents = 'none';
+    fxLayer().appendChild(clone);
+    var dx = toR.left - fr.left, dy = toR.top - fr.top;
+    lungingKeys[toKey] = 1;
+    var done = function () { if (clone.parentNode) clone.remove(); delete lungingKeys[toKey]; if (G && G.winner === undefined) render(); };
+    if (clone.animate) {
+      var a = clone.animate([
+        { transform: 'translate(0,0) scale(1)' },
+        { transform: 'translate(' + (dx * 0.5) + 'px,' + (dy * 0.5) + 'px) scale(1.07)', offset: 0.5 },
+        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(1)' }
+      ], { duration: 250, easing: 'cubic-bezier(.25,.6,.3,1)' });
+      a.onfinish = done; a.oncancel = done;
+    } else setTimeout(done, 250);
+    return true;
+  }
   // 턴 시작 시네마틱 배너 (한 번 휙 지나감)
   function turnBanner(text, color) {
     var n = el('div', { class: 'grot', style: { position: 'fixed', left: 0, right: 0, top: '38%', textAlign: 'center', zIndex: 96, pointerEvents: 'none', fontWeight: 700, fontSize: 'clamp(28px,6vw,64px)', letterSpacing: '.12em', color: '#fff', textShadow: '0 0 18px ' + color + ',0 3px 0 rgba(0,0,0,.4)' } }, [text]);
@@ -943,7 +972,7 @@
     else if (ev.type === 'attack') { setImpactDelay(180); lungeClone(ev.from, ev.to); attackTrail(ev.from, ev.to, fxClass(ev.cls).col); Sound.whoosh(); }
     else if (ev.type === 'weather') { weatherTickFx(ev.weather); }
     else if (ev.type === 'cast') { if (ev.player === HUMAN && pendingPlay) { cardFly(pendingPlay.rect, ev.targetKey || bodyKey(ev.player), CLS[(CARDS[ev.cardId] || {}).cls] || CLS.generic, cardNm(ev.cardId)); pendingPlay = null; } if (ev.player !== HUMAN) revealCard(ev.cardId, ev.player); var tr = ev.targetKey ? rectOf(ev.targetKey) : null; if (tr) { setImpactDelay(185); orb(rectOf(bodyKey(ev.player)), tr, '#3f7bd6', 185); ringFx(tr, '#2456a6'); } Sound.cast(); setActionToast(ev.player, '◆ ' + cardNm(ev.cardId) + ' 시전'); pushFeed({ actor: ev.player, icon: '◆', kind: 'cast', card: ev.cardId, text: cardNm(ev.cardId) + ' 시전' + (ev.targetKey ? ' → ' + labelAt(ev.targetKey) : '') }); }
-    else if (ev.type === 'move') { var u = G.board[ev.to]; travel(rectOf(ev.from), rectOf(ev.to), GLY[(u && cardCls(u)) || 'generic'] || '◆', '#1d1d24', 16); Sound.move(); }
+    else if (ev.type === 'move') { var slid = (ev.from && ev.to) ? slideUnit(ev.from, ev.to) : false; if (!slid) { var u = G.board[ev.to]; travel(rectOf(ev.from), rectOf(ev.to), GLY[(u && cardCls(u)) || 'generic'] || '◆', '#1d1d24', 16); } Sound.move(); }
     else if (ev.type === 'spawn') { if (ev.key) fxSpawn[ev.key] = 1; scheduleFxClear(); var scol = CLS[(CARDS[ev.card] || {}).cls] || CLS.generic; if (ev.owner === HUMAN && pendingPlay) { cardFly(pendingPlay.rect, ev.key, scol, ev.card ? cardNm(ev.card) : ''); pendingPlay = null; } var sr = rectOf(ev.key); if (sr) { ringFx(sr, scol); shards(sr, scol, 8, 1.1); } Sound.spawn(); if (ev.card) { setActionToast(ev.owner, '＋ ' + cardNm(ev.card) + ' 선언'); pushFeed({ actor: ev.owner, icon: '＋', kind: 'spawn', card: ev.card, text: cardNm(ev.card) + ' 선언 (' + ev.key + ')' }); } }
     else if (ev.type === 'death') { var dcol = CLS[ev.cls] || '#6b6b75'; var r = rectOf(ev.key); if (r) { var n = el('div', { style: { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', background: hexa(dcol, .5), borderRadius: '3px', zIndex: 86 } }); fxLayer().appendChild(n); anim(n, [{ transform: 'scale(1)', opacity: .6 }, { transform: 'scale(.3) rotate(12deg)', opacity: 0 }], { duration: 360, easing: 'ease-in' }); shockwave(r, dcol, 1.3); shards(r, dcol, 18, 1.6); shards(r, '#1d1d24', 8, 1.3); } setTimeout(function () { screenShake(1); hitstop(40); }, 60); Sound.death(); pushFeed({ actor: ev.byOwner, icon: '✕', kind: 'death', card: ev.byCard || ev.victim, text: (ev.byCard ? cardNm(ev.byCard) + ' 로 ' : '') + sideLabel(ev.owner) + ' ' + cardNm(ev.victim) + ' (' + ev.key + ') 파괴' }); }
     else if (ev.type === 'stat') {
@@ -1050,7 +1079,7 @@
   }
   // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡 + 스테이지별 날씨 + 보스전)
   function startChallenge() { if (!myDeckStartable()) return; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck), boss: false }; beginMatch(challengeOpponent(1)); }
-  function nextChallenge() { challenge.wins++; challenge.stage++; beginMatch(challengeOpponent(challenge.stage)); }
+  function nextChallenge() { if (challenge.stage >= CHAL_MAX_STAGE) { unlockCrown(); endChallenge(); return; } challenge.wins++; challenge.stage++; beginMatch(challengeOpponent(challenge.stage)); }
   function endChallenge() { challenge = null; G = null; UI.renderTitle(); }
   function applyChallengeHandicap(g, stage) {
     var boss = isBossStage(stage);
@@ -1058,8 +1087,15 @@
     if (stage <= 1) return;                                  // 1스테이지는 기본 난이도
     var b = g.body(AI); if (b) b.hpMod += (stage - 1) * 8 + (boss ? 16 : 0);   // 점점 단단해지는 본체(+보스 추가)
     var extraCards = Math.min(stage - 1, 4); if (extraCards) g.draw(AI, extraCards); // 카드 우위
-    var tokens = Math.min(Math.floor((stage - 1) / 2), 3) + (boss ? 1 : 0);   // 선발 유닛(분신 공5/체2, 보스 +1)
-    for (var i = 0; i < tokens; i++) { var c = g.firstEmptyHome(AI); if (c) g.summon(AI, 'Token5', c); }
+    if (boss) {
+      // 보스(5·10단계): 적 본체(3,1)를 유닛으로 둘러싼 방어 진형으로 개시 → 도달 난이도↑, AI 유리하게 시작.
+      var ring = ['2,1', '4,1', '2,2', '3,2', '4,2'];        // 본체 인접 측면 + 전면
+      if (stage >= 10) ring = ring.concat(['1,2', '5,2']);   // 10단계: 전면 벽을 좌우로 확장(더 단단)
+      for (var r = 0; r < ring.length; r++) { if (!g.board[ring[r]]) g.summon(AI, 'Token5', ring[r]); }
+    } else {
+      var tokens = Math.min(Math.floor((stage - 1) / 2), 3);   // 선발 유닛(분신 공5/체2)
+      for (var i = 0; i < tokens; i++) { var c = g.firstEmptyHome(AI); if (c) g.summon(AI, 'Token5', c); }
+    }
   }
   var mullPick = {}, mullBusy = false, mullPhase = false, mullReady = false, mullCoinDone = false, mullFirst = 0, mullHideIdx = [];
   var handFlyIn = null; // 멀리건→대국 전환 시 손패로 날아 들어오는 카드 인덱스(도착 전까지 숨김)
@@ -1500,7 +1536,7 @@
       el('span', { style: { color: SKIN.muted } }, ['상대 ' + (G.oppKey || '?')]),
       el('span', { style: { flex: 1 } })
     ]);
-    if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']));
+    if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + '연승']));
     wrap.appendChild(strip);
 
     // stage: 남은 높이를 채우는 무대(블러 배경 + 정중앙 멀리건 오버레이). 넘치는 배경은 크롭.
@@ -1535,7 +1571,7 @@
     ov.appendChild(el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '19px', color: SKIN.own, textShadow: '0 1px 4px rgba(0,0,0,.6)' } }, ['◈ 멀리건']),
       el('span', { class: 'mono', style: { fontSize: '12px', color: '#e9eaee', opacity: .85 } }, [(DECKS[myDeck] ? myDeck : '') + ' vs ' + (G.oppKey || '?')]),
-      challenge ? el('span', { class: 'mono', style: { fontSize: '12px', fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + ' · ' + challenge.wins + '연승']) : null
+      challenge ? el('span', { class: 'mono', style: { fontSize: '12px', fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + '연승']) : null
     ]));
     ov.appendChild(el('div', { class: 'mono', style: { fontSize: '12px', color: '#e9eaee', opacity: .8, textAlign: 'center', minHeight: '15px', maxWidth: '92%', textShadow: '0 1px 3px rgba(0,0,0,.6)' } }, [mullReady ? '바꿀 카드를 클릭 → 덱으로 반환하고 새로 뽑습니다. 선택 안 하면 그대로 유지 (1회).' : '패를 나눠주는 중…']));
 
@@ -1864,29 +1900,42 @@
   function bodyTile(u) {
     var me = u.owner === HUMAN, hp = G.curHp(u), mx = G.effMaxHp(u), own = ownerColor(u.owner);
     var key = bodyKey(u.owner);
-    var st = { width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: me ? '#1d1d24' : '#3a2630', color: '#e9eaee', border: '2px solid ' + own, boxShadow: '3px 3px 0 ' + hexa(own, .3) };
+    var low = hp <= Math.max(6, mx * 0.25);              // 위기 상태면 코어 회전/맥동이 빨라진다
+    var base = me ? '#101017' : '#1b1016';
+    // 발광 리액터 코어 룩: 소유자색 방사 그라디언트 + 내부 글로우 + 회전 링 + 맥동 코어.
+    var st = {
+      position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: '2px', overflow: 'hidden', borderRadius: '7px', color: '#f2f3f7',
+      background: 'radial-gradient(circle at 50% 44%, ' + hexa(own, .52) + ' 0%, ' + hexa(own, .16) + ' 34%, ' + base + ' 72%)',
+      border: '2px solid ' + own,
+      boxShadow: 'inset 0 0 15px ' + hexa(own, .55) + ', inset 0 0 3px rgba(255,255,255,.25), 0 0 14px ' + hexa(own, low ? .25 : .5) + ', 3px 3px 0 ' + hexa(own, .28)
+    };
     if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
+    var ring = el('div', { style: { position: 'absolute', top: '50%', left: '50%', width: '52%', height: '52%', marginTop: '-26%', marginLeft: '-26%', borderRadius: '50%', border: '2px solid ' + hexa(own, .28), borderTopColor: own, borderRightColor: hexa(own, .1), animation: 'coreSpin ' + (low ? 1.0 : 2.8) + 's linear infinite', pointerEvents: 'none' } });
+    var coreDot = el('div', { style: { position: 'absolute', top: '44%', left: '50%', width: '18%', height: '18%', borderRadius: '50%', background: 'radial-gradient(circle, #fff 0%, ' + own + ' 55%, ' + hexa(own, 0) + ' 100%)', boxShadow: '0 0 12px ' + own, animation: 'coreThrob ' + (low ? .7 : 1.9) + 's ease-in-out infinite', pointerEvents: 'none' } });
     return el('div', { style: st }, [
-      el('span', { style: { fontSize: '8px', letterSpacing: '.2em', color: me ? '#9db8e6' : '#e6a3bd' } }, [me ? '내 본체' : '적 본체']),
-      el('span', { class: 'mono', style: { fontWeight: 700, fontSize: 'clamp(15px,3vw,24px)' } }, [String(hp)]),
-      tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', overflow: 'hidden' })
+      ring, coreDot,
+      el('span', { style: { position: 'relative', fontSize: '8px', letterSpacing: '.22em', fontWeight: 700, color: me ? '#aac3ea' : '#efb0c6', textShadow: '0 1px 2px rgba(0,0,0,.65)' } }, [me ? '내 본체' : '적 본체']),
+      el('span', { class: 'mono', style: { position: 'relative', fontWeight: 700, fontSize: 'clamp(16px,3.1vw,26px)', color: '#fff', textShadow: '0 0 9px ' + hexa(own, .95) + ',0 2px 3px rgba(0,0,0,.7)' } }, [String(hp)]),
+      tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', position: 'relative', background: 'rgba(255,255,255,.15)', border: '1px solid ' + hexa(own, .55), overflow: 'hidden', boxShadow: '0 0 6px ' + hexa(own, .5) })
     ]);
   }
   // 중립 벽(FIREWALL 날씨) — OWNER_* 배열 미참조. 회색 벽돌 룩 + HP. 공격 가능·이동 불가.
   function wallTile(u, key) {
     var hp = G.curHp(u), mx = G.effMaxHp(u), col = '#b8823a';
-    // 교착(DEADLOCK) — 대각 크로스해치(체인/잠김 뉘앙스)로 벽돌 패턴 대체.
-    var hatch = 'repeating-linear-gradient(45deg, rgba(0,0,0,.32) 0 3px, transparent 3px 10px), repeating-linear-gradient(-45deg, rgba(184,130,58,.22) 0 3px, transparent 3px 10px)';
-    var st = { position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', background: '#3a3026', backgroundImage: hatch, color: '#f0e6d6', border: '2px solid ' + col, boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.30), 3px 3px 0 rgba(0,0,0,.30)' };
+    // 교착(DEADLOCK) — cog-lock 일러(맞물려 잠긴 톱니 = 데드락 은유) 기반. 앰버 오버레이로 톤 통일 + HP 텍스트 대비 확보.
+    var st = { position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', color: '#f6ecdb', backgroundColor: '#2a2018', border: '2px solid ' + col, overflow: 'hidden', boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.35), 3px 3px 0 rgba(0,0,0,.30)' };
     if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
+    var art = el('div', { style: { position: 'absolute', inset: 0, backgroundImage: 'url("art/deadlock.png")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: .82, pointerEvents: 'none' } });
+    var tint = el('div', { style: { position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(184,130,58,.28) 0%, rgba(20,14,8,.22) 40%, rgba(8,6,3,.74) 100%)', pointerEvents: 'none' } });
     return el('div', { style: st }, [
-      el('span', { style: { fontSize: '8px', letterSpacing: '.16em', color: 'rgba(240,230,214,.66)' } }, ['교착']),
-      el('span', { style: { fontSize: 'clamp(14px,2.6vw,22px)', lineHeight: 1 } }, ['⛓️']),
-      el('div', { style: { display: 'flex', alignItems: 'center', gap: '2px' } }, [
-        el('span', { class: 'mono', style: { fontSize: '11px', fontWeight: 700 } }, [String(hp)]),
-        el('span', { class: 'mono', style: { fontSize: '8px', color: 'rgba(255,255,255,.55)' } }, ['/' + mx])
+      art, tint,
+      el('span', { style: { position: 'relative', fontSize: '8px', letterSpacing: '.2em', fontWeight: 700, color: '#f2d9a8', textShadow: '0 1px 3px rgba(0,0,0,.9)' } }, ['교착']),
+      el('div', { style: { position: 'relative', display: 'flex', alignItems: 'baseline', gap: '2px', textShadow: '0 1px 3px rgba(0,0,0,.9)' } }, [
+        el('span', { class: 'mono', style: { fontSize: '13px', fontWeight: 700 } }, [String(hp)]),
+        el('span', { class: 'mono', style: { fontSize: '8px', color: 'rgba(255,255,255,.7)' } }, ['/' + mx])
       ]),
-      el('div', { style: { width: '74%', height: '4px', background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', position: 'relative', overflow: 'hidden' } }, [
+      el('div', { style: { position: 'relative', width: '74%', height: '4px', background: 'rgba(0,0,0,.45)', border: '1px solid ' + hexa(col, .8), overflow: 'hidden' } }, [
         el('div', { style: { position: 'absolute', inset: '0', width: Math.max(0, Math.min(100, mx ? hp / mx * 100 : 0)) + '%', background: col } })
       ])
     ]);
@@ -1957,7 +2006,7 @@
         statusChips(u)
       ]),
       // 마이크로 상태바 — ATK 필드 | HP 뉴트럴 미터
-      statusStrip(a, hp, mx, { atkW: 26, fs: 9, icoPx: 8, meterH: 5, margin: '0 2px 2px', buffed: a > (card.atk || 0), baseHp: (card.hp || 0) })
+      statusStrip(a, hp, mx, { atkW: 26, fs: 9, icoPx: 8, meterH: 5, margin: '0 2px 2px', buffed: a > (card.atk || 0), baseAtk: (card.atk || 0), baseHp: (card.hp || 0) })
     ]);
   }
 
@@ -2593,7 +2642,17 @@
         challenge.deck + ' 덱 · ',
         isRecord ? el('b', { style: { color: SKIN.rangeGold } }, ['🎉 신기록! 최고 ' + streak + '연승']) : ('최고 기록 ' + bestStreak(challenge.deck) + '연승')
       ]);
-      if (win) {
+      if (win && challenge.stage >= CHAL_MAX_STAGE) {
+        // 최종(10) 단계 정복 — 왕관 아바타 해금
+        unlockCrown();
+        kids = [
+          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['👑 전 스테이지 정복']),
+          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승 · CHALLENGE 클리어']),
+          stat, recordLine,
+          el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.rangeGold, marginBottom: '12px', fontWeight: 700 } }, ['★ 왕관 프로필 아바타(👑)가 해금되었습니다 — 프로필에서 선택 가능']),
+          btnRow(el('button', { class: 'btn', onclick: function () { endChallenge(); } }, ['타이틀로']))
+        ];
+      } else if (win) {
         kids = [
           el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['스테이지 ' + challenge.stage + ' 클리어']),
           el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승']),
@@ -3200,7 +3259,7 @@
   // 커스텀 덱: title.js(견본/커스텀 구분) · deckbuilder.js(저장/삭제) 가 소비
   UI.GLY = GLY;
   UI.deckCoverCls = deckCoverCls; UI.deckDominantCls = deckDominantCls;
-  UI.avatarEl = avatarEl; UI.AVA_EMOJI = AVA_EMOJI;
+  UI.avatarEl = avatarEl; UI.AVA_EMOJI = AVA_EMOJI; UI.crownUnlocked = crownUnlocked;
   UI.isCustomKey = isCustomKey; UI.presetKeys = presetKeys; UI.customKeys = customKeys;
   UI.saveCustomDeck = saveCustomDeck; UI.deleteCustomDeck = deleteCustomDeck; UI.nextCustomKey = nextCustomKey;
   UI.exitToGuide = function () {

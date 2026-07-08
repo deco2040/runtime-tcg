@@ -424,8 +424,8 @@
         backBtn(p),
       ]));
     } else {
-      // search — 상대 대기 화면(디자인 중앙 정렬, #1)
-      b.appendChild(el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 0 8px' } }, [
+      // search — 상대 대기 화면(가로+세로 중앙 정렬 · 모바일 포함, #1·#8)
+      b.appendChild(el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: '52vh', padding: '20px 0 8px' } }, [
         el('div', { style: { fontSize: '15px', color: p.amb, fontWeight: 700, margin: '10px 0 4px' } }, [
           (status || '상대를 찾는 중…'),
           el('span', { class: 'crt-cursor' }),

@@ -347,8 +347,23 @@
     def({ id: 'Branch', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'If 선택 발동 · [도약] 자기 「1칸이동」 후 「옆칸」 적 하나 2 피해 / [교란] 적 인스턴스 하나를 적 진영 쪽으로 「1칸이동」',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '도약' }, { label: '교란' }],
         ready: function (G, u) { return G.moveCells(u).length > 0 || G.enemyObjects(u.owner).some(function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k), nr = q[1] + fwd(u.owner); return inB(q[0], nr) && !G.board[K(q[0], nr)]; }); },
-        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var dest = forwardDest(G, u) || G.moveCells(u)[0]; if (dest) G.move(u, dest, true); var t = G.adj(u).filter(function (x) { return x.owner !== u.owner; }).sort(function (a, b) { return G.curHp(a) - G.curHp(b); })[0]; if (t) G.deal(t, 2, { attacker: u }); } else { var e = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (e) G.pushAway(e, u.owner); } },
-        aiOpt: function (G, u) { return 0; } }] });
+        fn: function (G, u, ch) {
+          if ((ch.opt || 0) === 0) { var dest = forwardDest(G, u) || G.moveCells(u)[0]; if (dest) G.move(u, dest, true); var t = G.adj(u).filter(function (x) { return x.owner !== u.owner; }).sort(function (a, b) { return G.curHp(a) - G.curHp(b); })[0]; if (t) G.deal(t, 2, { attacker: u }); }
+          else {
+            // 교란: 반드시 「밀 수 있는」(전방칸 in-bounds & 빈칸) 적을 골라 불발 방지.
+            var pushable = function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k), nr = q[1] + fwd(u.owner); return inB(q[0], nr) && !G.board[K(q[0], nr)]; };
+            var e = ch.target ? G.board[ch.target] : null;
+            if (!e || !pushable(e)) {
+              // 내 진영쪽으로 전진한(위협적인) 적 우선 → 동률이면 최약체.
+              e = G.enemyObjects(u.owner).filter(pushable).sort(function (a, b) {
+                var ka = unitKey(G, a), kb = unitKey(G, b); var adv = P(kb)[1] * fwd(u.owner) - P(ka)[1] * fwd(u.owner);
+                return adv || (G.curHp(a) - G.curHp(b));
+              })[0];
+            }
+            if (e) G.pushAway(e, u.owner);
+          }
+        },
+        aiOpt: function (G, u) { var pushable = function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k), nr = q[1] + fwd(u.owner); return inB(q[0], nr) && !G.board[K(q[0], nr)]; }; if (G.moveCells(u).length === 0 && G.enemyObjects(u.owner).some(pushable)) return 1; return 0; } }] });
     def({ id: 'Guard', cls: 'memory', kind: 'object', atk: 1, hp: 9, text: 'If 선택 발동 · [수호] 내 본체 3 회복 / [응징] 「옆칸」 적 하나 3 피해',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onTurnStart', options: [{ label: '수호' }, { label: '응징' }],
         ready: function (G, u) { return true; },
@@ -367,8 +382,8 @@
     def({ id: 'ROM', cls: 'memory', kind: 'object', atk: 0, hp: 18, deckLimit: 1, require: { type: 'and', a: { type: 'turnCount', n: 4 }, b: { type: 'classOnBoard', cls: 'memory', n: 4 } }, text: '덱당 1 · require 내 턴 4회+ · memory 4개+ · While 이동 불가 · 받는 피해를 한 번에 최대 2까지만 받음(초과분 무효)', abilities: [] });
     def({ id: 'Snapshot', cls: 'memory', kind: 'object', atk: 0, hp: 6, deckLimit: 1, require: { type: 'and', a: { type: 'classOnBoard', cls: 'memory', n: 3 }, b: { type: 'turnCount', n: 7 } }, text: '덱당 1 · require memory 3개+ · 내 턴 7회+ · Once 선언 시 내 모든 인스턴스 전부 회복',
       abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { G.allyObjects(u.owner).forEach(function (x) { G.repair(x); }); } }] });
-    def({ id: 'Singularity', cls: 'process', kind: 'object', atk: 5, hp: 6, deckLimit: 1, require: { type: 'pointersCast', n: 6 }, text: '덱당 1 · require 포인터 시전 6회+ · Once 선언 시 손의 포인터 1장 액션 소비 없이 시전',
-      abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { var pl = G.players[u.owner], me = u.owner; var hi = -1; for (var i = 0; i < pl.hand.length; i++) { var cid = pl.hand[i], c = CARDS[cid]; if (c.kind !== 'pointer' || !G.castConditionMet(me, c)) continue; if (c.need && c.need !== 'none' && G.pointerLegalTargets(me, cid).length < (c.need === 'twoAlly' ? 2 : 1)) continue; hi = i; break; } G.turnFlags.extraPointerRange = 3; if (hi >= 0) { var tgts = G.pointerLegalTargets(me, pl.hand[hi]); G.cast(me, hi, tgts[0] || null, true, { rangeBonus: 3 }); } } }] });
+    def({ id: 'Singularity', cls: 'process', kind: 'object', atk: 5, hp: 6, deckLimit: 1, require: { type: 'pointersCast', n: 5 }, text: '덱당 1 · require 포인터 시전 5회+ · 선언 후 이번 게임 내내 포인터를 액션 소비 없이 시전',
+      abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { var pl = G.players[u.owner], me = u.owner; pl.pointerFree = true; var hi = -1; for (var i = 0; i < pl.hand.length; i++) { var cid = pl.hand[i], c = CARDS[cid]; if (c.kind !== 'pointer' || !G.castConditionMet(me, c)) continue; if (c.need && c.need !== 'none' && G.pointerLegalTargets(me, cid).length < (c.need === 'twoAlly' ? 2 : 1)) continue; hi = i; break; } G.turnFlags.extraPointerRange = 3; if (hi >= 0) { var tgts = G.pointerLegalTargets(me, pl.hand[hi]); G.cast(me, hi, tgts[0] || null, true, { rangeBonus: 3 }); } } }] });
     def({ id: 'Conduit', cls: 'process', kind: 'object', atk: 4, hp: 5, deckLimit: 1, deckRule: 'processSingle', text: '덱당 1 · process 단일 덱 · While 턴당 첫 포인터 효과 2회', abilities: [] });
     def({ id: 'Wormhole', cls: 'process', kind: 'object', atk: 4, hp: 5, deckLimit: 1, require: { type: 'and', a: { type: 'turnCount', n: 6 }, b: { type: 'classOnBoard', cls: 'process', n: 3 } }, text: '덱당 1 · require 내 턴 6회+ · process 3개+ · Once 선언 시 적 인스턴스 전부 무작위 빈 칸으로 재배치(강제 이동 아님)',
       abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { var es = G.enemyObjects(u.owner).slice(); var cells = shuffleIn(G, emptyCells(G)); es.forEach(function (e) { var k = unitKey(G, e); if (!k) return; var dest = cells.shift(); if (dest && !G.board[dest]) { delete G.board[k]; G.board[dest] = e; G.fx({ type: 'move', from: k, to: dest }); } }); } }] });
