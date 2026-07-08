@@ -6,7 +6,7 @@
  *
  * page: 'login' | 'signup' | 'account' | 'forgot' | 'reset' | 'changepw' | 'verify'
  *   login    — 이메일/비번 로그인 (+ 회원가입·비번찾기·Google 링크)
- *   signup   — 이메일/비번/닉네임(유니크) + 약관동의 → 회원가입(게스트 업그레이드, 전적 보존)
+ *   signup   — 이메일/비번/닉네임(유니크) + 약관동의 → 회원가입(순수 signUp: 게스트 로그아웃 후 새 계정, 커스텀 덱은 이어짐)
  *   account  — 회원 대시보드: 닉네임·아바타·통계 + 비번변경/로그아웃/회원탈퇴
  *   forgot   — 재설정 메일 요청
  *   reset    — 재설정 링크 복귀 후 새 비번 확정
@@ -263,19 +263,20 @@
         busy = false; nickState = { status: 'taken', text: '○ 이미 사용 중' };
         msg = '⚠ 이미 사용 중인 닉네임이에요'; redraw(); return;
       }
-      return UI.Net.signUpEmail(email.trim(), pass).then(function (r) {
+      return UI.Net.signUpEmail(email.trim(), pass, wantNick).then(function (r) {
         if (!r || !r.ok) {
           busy = false; msg = '⚠ ' + ((r && r.error) || '가입 실패'); redraw(); return;
         }
-        // 가입 성공 → 닉네임 저장(유니크 충돌이면 표면화, 그래도 계정은 생성됨)
+        if (r.needConfirm) {
+          // 순수 signUp — 아직 세션이 없어(로그아웃 상태) 닉네임은 인증 복귀 후 프로필 생성 시
+          // user_metadata 로 반영된다. 여기서 updateNickname 을 부르면 세션이 없어 실패하므로 생략.
+          busy = false; page = 'verify'; msg = ''; redraw(); return;
+        }
+        // 이메일 확인 OFF → 즉시 세션 → 닉네임 저장(유니크 충돌이면 표면화, 그래도 계정은 생성됨)
         return UI.Net.updateNickname(wantNick).then(function (nr) {
           busy = false;
-          if (r.needConfirm) {
-            page = 'verify'; msg = nr && !nr.ok ? '⚠ ' + nr.error + ' — 계정 화면에서 다시 설정하세요' : '';
-          } else {
-            msg = nr && !nr.ok ? '✔ 회원가입 완료 (닉네임은 이미 사용 중 — 계정에서 변경하세요)' : '✔ 회원가입이 완료됐어요!';
-            page = UI.Net.isMember && UI.Net.isMember() ? 'account' : 'login';
-          }
+          msg = nr && !nr.ok ? '✔ 회원가입 완료 (닉네임은 이미 사용 중 — 계정에서 변경하세요)' : '✔ 회원가입이 완료됐어요!';
+          page = UI.Net.isMember && UI.Net.isMember() ? 'account' : 'login';
           redraw();
         });
       });

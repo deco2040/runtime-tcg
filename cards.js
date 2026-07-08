@@ -28,6 +28,8 @@
     function allyOfCls(G, p, cls) { return G.allyObjects(p).filter(function (x) { return cardCls(x) === cls; }); }
     function forwardDest(G, u) { var k = unitKey(G, u); if (!k) return null; var q = P(k), nr = q[1] + fwd(u.owner); return (inB(q[0], nr) && !G.board[K(q[0], nr)]) ? K(q[0], nr) : null; }
     function emptyAround(G, key) { var q = P(key); return around8(q[0], q[1]).filter(function (x) { return !G.board[x]; }); }
+    // shoveToEmpty로 실제로 밀어낼 수 있는(직교 빈 칸 보유) 적 인스턴스만 — 최저 HP 우선 정렬
+    function shoveableEnemies(G, owner) { var e = G.enemyObjects(owner).filter(function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k); return ortho(q[0], q[1]).some(function (c) { return !G.board[c]; }); }); e.sort(function (a, b) { return G.curHp(a) - G.curHp(b); }); return e; }
     function emptyCells(G) { var o = [], r, c, k; for (r = 1; r <= ROWS; r++) for (c = 1; c <= COLS; c++) { k = K(c, r); if (!G.board[k]) o.push(k); } return o; }
     function shuffleIn(G, arr) { for (var i = arr.length - 1; i > 0; i--) { var j = Math.floor(G.rng() * (i + 1)), t = arr[i]; arr[i] = arr[j]; arr[j] = t; } return arr; }
     // 나이트 빈 칸(적 본체에 가장 가까운 순)
@@ -205,7 +207,7 @@
     def({ id: 'Exploit', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'When 선언 시 적 인스턴스 하나 공격력 -3',
       abilities: [{ kw: 'When', trigger: 'onSummon', fn: function (G, u) { var t = strongestEnemy(G, u.owner); if (t) G.buffAtk(t, -3); } }] });
     def({ id: 'Reroute', cls: 'process', kind: 'object', atk: 3, hp: 6, require: { type: 'turnCount', n: 2 }, text: 'require 내 턴 2회+ 진행 · For(1) 적 인스턴스 하나를 그 「옆칸」 빈 칸으로 강제 이동',
-      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', ready: function (G, u) { return G.enemyObjects(u.owner).some(function (x) { return emptyAround(G, unitKey(G, x)).length; }); }, fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (t) G.shoveToEmpty(t, u.owner); } }] });
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', ready: function (G, u) { return shoveableEnemies(G, u.owner).length > 0; }, fn: function (G, u, ch) { var list = shoveableEnemies(G, u.owner); var t = (ch.target && G.board[ch.target] && list.indexOf(G.board[ch.target]) >= 0) ? G.board[ch.target] : list[0]; if (t) G.shoveToEmpty(t, u.owner); } }] });
     def({ id: 'Profiler', cls: 'process', kind: 'object', atk: 2, hp: 6, text: 'While 「1칸이내」 적 인스턴스 하나당 공격력 +1', abilities: [] });
     def({ id: 'Probe', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'For(1) 「3칸이내」 가장 먼 적 하나에게 공격력만큼 피해(동거리 시 내가 선택)',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var k = unitKey(G, u); var t = (ch.target && G.board[ch.target] && k && cheb(ch.target, k) <= 3) ? G.board[ch.target] : farthestEnemy(G, u, 3); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }] });

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>RUNTIME — CHALLENGE 난이도 개발자 콘솔</title>
+    <style>
+      :root { --bg:#15130f; --panel:#1e1b15; --panel2:#26221a; --ink:#3a3226; --amb:#ffb000; --amb-dim:#c98a2e; --txt:#efe6d4; --muted:#9c8f78; --ok:#8fd6a0; --hot:#ff8a3a; }
+      * { box-sizing:border-box; }
+      body { margin:0; background:var(--bg); color:var(--txt); font-family:"Space Mono",ui-monospace,Menlo,Consolas,monospace; font-size:13px; line-height:1.5; padding:18px; }
+      h1 { font-size:16px; letter-spacing:.14em; margin:0 0 2px; color:var(--amb); }
+      .sub { color:var(--muted); font-size:11px; margin-bottom:16px; }
+      .sub code { color:var(--amb-dim); }
+      .wrap { display:grid; grid-template-columns:340px 1fr; gap:18px; align-items:start; }
+      @media (max-width:820px){ .wrap { grid-template-columns:1fr; } }
+      .panel { background:var(--panel); border:1px solid var(--ink); border-radius:8px; padding:14px; }
+      .panel h2 { font-size:11px; letter-spacing:.18em; color:var(--amb-dim); margin:0 0 12px; text-transform:uppercase; }
+      .field { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+      .field label { color:var(--muted); font-size:12px; }
+      .field input[type=number]{ width:74px; background:var(--panel2); color:var(--txt); border:1px solid var(--ink); border-radius:4px; padding:4px 6px; font-family:inherit; font-size:12px; text-align:right; }
+      .field input[type=text]{ flex:1; min-width:0; background:var(--panel2); color:var(--txt); border:1px solid var(--ink); border-radius:4px; padding:4px 6px; font-family:inherit; font-size:11px; }
+      .deckrow { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+      .deckrow label { display:inline-flex; align-items:center; gap:3px; background:var(--panel2); border:1px solid var(--ink); border-radius:4px; padding:3px 6px; font-size:11px; color:var(--txt); cursor:pointer; }
+      .hint { color:var(--muted); font-size:10px; margin:10px 0 2px; }
+      .btns { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+      button { background:var(--amb); color:#1a1710; border:none; border-radius:5px; padding:8px 12px; font-family:inherit; font-weight:700; font-size:12px; letter-spacing:.04em; cursor:pointer; }
+      button.ghost { background:transparent; color:var(--muted); border:1px solid var(--ink); }
+      button.ghost:hover { color:var(--txt); }
+      a.launch { display:inline-block; background:transparent; color:var(--ok); border:1px solid var(--ink); border-radius:5px; padding:8px 12px; font-weight:700; font-size:12px; text-decoration:none; }
+      table { border-collapse:collapse; width:100%; font-size:11.5px; }
+      th, td { border:1px solid var(--ink); padding:5px 7px; text-align:center; }
+      th { background:var(--panel2); color:var(--amb-dim); font-weight:700; letter-spacing:.06em; }
+      td.boss { color:var(--hot); font-weight:700; }
+      tr.bossrow { background:rgba(255,138,58,.07); }
+      .tag { display:inline-block; background:var(--panel2); border:1px solid var(--ink); border-radius:3px; padding:1px 5px; margin:1px; font-size:10px; color:var(--muted); }
+      .saved { color:var(--ok); font-size:11px; margin-left:8px; opacity:0; transition:opacity .2s; }
+      .saved.show { opacity:1; }
+      .legend { color:var(--muted); font-size:10.5px; margin-top:10px; }
+    </style>
+  </head>
+  <body>
+    <h1>▸ CHALLENGE 난이도 콘솔</h1>
+    <div class="sub">
+      개발자 전용. 저장하면 <code>localStorage['rt_chal_tune']</code> 에 기록되어 본 게임 CHALLENGE에 즉시 반영됩니다(기본값과 다른 항목만 저장). 같은 브라우저·도메인에서 <code>index.html</code> 을 열어 확인하세요.
+    </div>
+    <div class="wrap">
+      <div class="panel">
+        <h2>난이도 노브</h2>
+        <div class="field"><label>최대 스테이지 (maxStage)</label><input type="number" id="maxStage" min="1" max="30" /></div>
+        <div class="field"><label>보스 주기 (bossEvery)</label><input type="number" id="bossEvery" min="1" max="30" /></div>
+        <div class="field"><label>본체 HP/스테이지 (hpPerStage)</label><input type="number" id="hpPerStage" min="0" max="60" /></div>
+        <div class="field"><label>보스 HP 보너스 (bossHpBonus)</label><input type="number" id="bossHpBonus" min="0" max="200" /></div>
+        <div class="field"><label>드로우/스테이지 (drawPerStage)</label><input type="number" id="drawPerStage" min="0" max="10" /></div>
+        <div class="field"><label>드로우 상한 (drawCap)</label><input type="number" id="drawCap" min="0" max="20" /></div>
+        <div class="field"><label>토큰 나눗값 (tokenDiv)</label><input type="number" id="tokenDiv" min="1" max="10" /></div>
+        <div class="field"><label>토큰 상한 (tokenCap)</label><input type="number" id="tokenCap" min="0" max="12" /></div>
+        <div class="hint">보스 상대 덱 풀 (bossDecks)</div>
+        <div class="deckrow" id="bossDecks"></div>
+        <div class="hint">날씨 풀 (쉼표 구분)</div>
+        <div class="field"><label>초반(wEarly)</label><input type="text" id="wEarly" /></div>
+        <div class="field"><label>초반 최대 스테이지(wEarlyMax)</label><input type="number" id="wEarlyMax" min="1" max="30" /></div>
+        <div class="field"><label>전체(wFull)</label><input type="text" id="wFull" /></div>
+        <div class="field"><label>보스(wBoss)</label><input type="text" id="wBoss" /></div>
+        <div class="btns">
+          <button id="save">저장</button>
+          <button class="ghost" id="reset">기본값 복원</button>
+          <a class="launch" href="index.html">▶ 게임 열기</a>
+          <span class="saved" id="saved">✓ 저장됨</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>실시간 스테이지 분석</h2>
+        <div id="tableWrap"></div>
+        <div class="legend">
+          본체 HP버프 = <code>(stage-1)×hpPerStage + (보스?bossHpBonus)</code> · 드로우 = <code>min((stage-1)×drawPerStage, drawCap)</code> ·
+          비보스 토큰 = <code>min(⌊(stage-1)/tokenDiv⌋, tokenCap)</code> · 보스 = 방어벽 배치(최종 보스는 좌우 확장).
+          기본 본체 HP 40에 버프가 더해집니다.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 기본값 — core.js CHAL_DEFAULT 와 동일하게 유지할 것.
+      var CHAL_DEFAULT = {
+        maxStage: 10, bossEvery: 5,
+        hpPerStage: 8, bossHpBonus: 16,
+        drawPerStage: 1, drawCap: 4,
+        tokenDiv: 2, tokenCap: 3,
+        bossRing: ['2,1','4,1','2,2','3,2','4,2'], bossRing10Extra: ['1,2','5,2'],
+        wClearMax: 1, wEarly: ['overclock','throttle'], wEarlyMax: 3,
+        wFull: ['overclock','throttle','memleak','ctxswitch','deadlock'],
+        wBoss: ['memleak','deadlock'],
+        bossDecks: ['P1','M2','N1','X1','C1']
+      };
+      var ALL_DECKS = ['T1','T2','T3','T4','M1','M2','M3','P1','P2','P3','N1','N2','X1','X2','X3','C1'];
+      var LS = 'rt_chal_tune';
+      var NUMS = ['maxStage','bossEvery','hpPerStage','bossHpBonus','drawPerStage','drawCap','tokenDiv','tokenCap','wEarlyMax'];
+      var LISTS = ['wEarly','wFull','wBoss'];
+
+      function loadTune() {
+        var t = {}; for (var k in CHAL_DEFAULT) t[k] = CHAL_DEFAULT[k];
+        try { var v = localStorage.getItem(LS); if (v) { var o = JSON.parse(v); if (o && typeof o === 'object') for (var j in o) if (o[j] != null) t[j] = o[j]; } } catch (e) {}
+        return t;
+      }
+      function isBoss(stage, t) { return stage >= t.bossEvery && stage % t.bossEvery === 0; }
+      function weatherPool(stage, t) {
+        if (stage <= t.wClearMax) return ['clear'];
+        if (isBoss(stage, t)) return t.wBoss;
+        if (stage <= t.wEarlyMax) return t.wEarly;
+        return t.wFull;
+      }
+
+      function renderDeckRow(t) {
+        var row = document.getElementById('bossDecks'); row.innerHTML = '';
+        ALL_DECKS.forEach(function (d) {
+          var lab = document.createElement('label');
+          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = d;
+          cb.checked = t.bossDecks.indexOf(d) >= 0; cb.className = 'bossdeck';
+          lab.appendChild(cb); lab.appendChild(document.createTextNode(d));
+          row.appendChild(lab);
+        });
+      }
+      function fillForm(t) {
+        NUMS.forEach(function (k) { document.getElementById(k).value = t[k]; });
+        LISTS.forEach(function (k) { document.getElementById(k).value = (t[k] || []).join(', '); });
+        renderDeckRow(t);
+      }
+      function readForm() {
+        var t = {}; for (var k in CHAL_DEFAULT) t[k] = CHAL_DEFAULT[k];
+        NUMS.forEach(function (k) { var v = parseInt(document.getElementById(k).value, 10); if (!isNaN(v)) t[k] = v; });
+        LISTS.forEach(function (k) { t[k] = document.getElementById(k).value.split(',').map(function (s){ return s.trim(); }).filter(Boolean); });
+        t.bossDecks = Array.prototype.slice.call(document.querySelectorAll('.bossdeck')).filter(function (c){ return c.checked; }).map(function (c){ return c.value; });
+        return t;
+      }
+      function renderTable(t) {
+        var rows = '<table><thead><tr><th>단계</th><th>보스</th><th>본체 HP(40+버프)</th><th>추가 드로우</th><th>선발 유닛</th><th>날씨 풀</th><th>상대 덱</th></tr></thead><tbody>';
+        for (var s = 1; s <= t.maxStage; s++) {
+          var boss = isBoss(s, t);
+          var hp = (s <= 1) ? 0 : (s - 1) * t.hpPerStage + (boss ? t.bossHpBonus : 0);
+          var draw = (s <= 1) ? 0 : Math.min((s - 1) * t.drawPerStage, t.drawCap);
+          var units;
+          if (s <= 1) units = '0';
+          else if (boss) { var ring = t.bossRing.length + (s >= t.maxStage ? t.bossRing10Extra.length : 0); units = '방어벽 ' + ring + '칸'; }
+          else units = '' + Math.min(Math.floor((s - 1) / t.tokenDiv), t.tokenCap);
+          var pool = weatherPool(s, t).map(function (w){ return '<span class="tag">' + w + '</span>'; }).join('');
+          var deck = boss ? (t.bossDecks.length ? t.bossDecks.join('/') : '—') : '랜덤';
+          rows += '<tr class="' + (boss ? 'bossrow' : '') + '"><td>' + s + '</td><td class="' + (boss ? 'boss' : '') + '">' + (boss ? '★' : '') + '</td><td>' + (40 + hp) + ' <span style="color:var(--muted)">(+' + hp + ')</span></td><td>' + draw + '</td><td>' + units + '</td><td>' + pool + '</td><td>' + deck + '</td></tr>';
+        }
+        rows += '</tbody></table>';
+        document.getElementById('tableWrap').innerHTML = rows;
+      }
+
+      function refreshTable() { renderTable(readForm()); }
+      document.addEventListener('input', function (e) { if (e.target.closest('.panel')) refreshTable(); });
+      document.addEventListener('change', function (e) { if (e.target.classList.contains('bossdeck')) refreshTable(); });
+
+      document.getElementById('save').addEventListener('click', function () {
+        var t = readForm(), diff = {};
+        for (var k in CHAL_DEFAULT) { if (JSON.stringify(t[k]) !== JSON.stringify(CHAL_DEFAULT[k])) diff[k] = t[k]; }
+        try {
+          if (Object.keys(diff).length) localStorage.setItem(LS, JSON.stringify(diff));
+          else localStorage.removeItem(LS);
+          var s = document.getElementById('saved'); s.classList.add('show'); setTimeout(function(){ s.classList.remove('show'); }, 1400);
+        } catch (e) { alert('저장 실패: ' + e); }
+      });
+      document.getElementById('reset').addEventListener('click', function () {
+        try { localStorage.removeItem(LS); } catch (e) {}
+        fillForm(CHAL_DEFAULT); refreshTable();
+      });
+
+      // init
+      var t0 = loadTune(); fillForm(t0); renderTable(t0);
+    </script>
+  </body>
+</html>

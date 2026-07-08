@@ -190,21 +190,40 @@
           if (!_profile.avatar) { var la = getLocalAvatar(); if (la) _profile.avatar = la; }
           return _profile;
         }
-        // 트리거 미설정 등으로 프로필이 없으면 클라에서 생성 시도(RLS insert 정책 필요)
-        var nick = randomNick();
-        return _client
-          .from('profiles')
-          .insert({ id: uid, nickname: nick, is_guest: !_session.user.email })
-          .select()
-          .maybeSingle()
-          .then(function (r2) {
-            _profile = r2.data || { id: uid, nickname: nick, is_guest: true };
-            return _profile;
-          })
-          .catch(function () {
-            _profile = { id: uid, nickname: nick, is_guest: true };
-            return _profile;
-          });
+        // 트리거 미설정 등으로 프로필이 없으면 클라에서 생성 시도(RLS insert 정책 필요).
+        // 회원가입 폼에서 입력한 닉네임은 signUp 의 user_metadata.nickname 으로 넘어온다 —
+        // 순수 signUp 흐름에선 인증 링크 복귀 후에야 프로필이 생기므로 이 값을 이어받는다.
+        // (게스트엔 메타 닉네임이 없어 랜덤 폴백 → 기존 동작 그대로.)
+        var meta = (_session.user && _session.user.user_metadata) || {};
+        var wantNick = (meta.nickname && String(meta.nickname).trim()) || randomNick();
+        var isGuest = !_session.user.email;
+        function useRow(row) {
+          _profile = row;
+          if (!_profile.avatar) { var la = getLocalAvatar(); if (la) _profile.avatar = la; }
+          return _profile;
+        }
+        function createProfile(nick, retry) {
+          return _client
+            .from('profiles')
+            .insert({ id: uid, nickname: nick, is_guest: isGuest })
+            .select()
+            .maybeSingle()
+            .then(function (r2) {
+              if (r2.data) return useRow(r2.data);
+              // 삽입 실패 → 인증 복귀 시 loadProfile 이 겹쳐 이미 생성됐을 수 있으니 재조회(PK 경쟁 방지)
+              return _client.from('profiles').select('*').eq('id', uid).maybeSingle().then(function (r3) {
+                if (r3.data) return useRow(r3.data);
+                if (retry) return createProfile(randomNick(), false); // 없으면 닉네임 유니크 충돌 → 랜덤 닉 재시도
+                _profile = { id: uid, nickname: nick, is_guest: isGuest };
+                return _profile;
+              });
+            })
+            .catch(function () {
+              _profile = { id: uid, nickname: nick, is_guest: isGuest };
+              return _profile;
+            });
+        }
+        return createProfile(wantNick, true);
       });
   }
 
@@ -358,35 +377,6 @@
       });
   }
 
-  // 정회원 전환 — 익명 계정에 이메일/비번을 연결(같은 user id 유지 → 프로필·전적 보존).
-  // 이메일 인증이 켜져 있으면 확인 링크 클릭 전까지는 게스트(is_guest=true) 유지 →
-  // 링크 클릭 후 복귀 시 SIGNED_IN/USER_UPDATED 에서 정회원으로 승격(maybeConfirmUpgrade).
-  function upgradeEmail(email, password) {
-    return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
-      var redirectTo = appRedirect();
-      var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
-      return c.auth
-        .updateUser({ email: email, password: password }, opts)
-        .then(function (r) {
-          if (r.error) return { ok: false, error: r.error.message };
-          return refreshSession().then(function () {
-            var u = _session && _session.user;
-            // 이메일이 즉시 확정됨(대시보드에서 이메일 확인 OFF) → 바로 정회원
-            if (u && u.email && u.email_confirmed_at) {
-              _pendingEmail = null;
-              return flipMembership(false).then(function () {
-                return { ok: true, needConfirm: false };
-              });
-            }
-            // 확인 대기 — 링크 클릭 전까지 게스트 유지
-            _pendingEmail = email;
-            return { ok: true, needConfirm: true, email: email };
-          });
-        });
-    });
-  }
-
   // 이메일 인증 링크 복귀 후 정회원 승격 — email 이 확정(confirmed)되었고 아직 게스트면 플립.
   function maybeConfirmUpgrade() {
     var u = _session && _session.user;
@@ -400,7 +390,7 @@
     });
   }
 
-  // 인증 메일 재전송 — 전환(email_change) 먼저, 실패 시 신규가입(signup) 폴백.
+  // 인증 메일 재전송 — 신규가입(signup) 먼저, 실패 시 전환(email_change) 폴백.
   function resendConfirmation(email) {
     return loadClient().then(function (c) {
       if (!c) return { ok: false, error: '백엔드 미설정' };
@@ -408,11 +398,11 @@
       var redirectTo = appRedirect();
       var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
       return c.auth
-        .resend({ type: 'email_change', email: email, options: opts })
+        .resend({ type: 'signup', email: email, options: opts })
         .then(function (r) {
           if (!r.error) return { ok: true };
           return c.auth
-            .resend({ type: 'signup', email: email, options: opts })
+            .resend({ type: 'email_change', email: email, options: opts })
             .then(function (r2) {
               return r2.error ? { ok: false, error: r2.error.message } : { ok: true };
             });
@@ -420,28 +410,47 @@
     });
   }
 
-  // 회원가입 — 현재 세션이 게스트(익명)면 승격, 아니면 순수 signUp
-  function signUpEmail(email, password) {
-    if (_session && _session.user && !_session.user.email) {
-      return upgradeEmail(email, password);
-    }
+  // 회원가입 — 항상 순수 signUp() 으로 처리해 Supabase "회원가입 확인(signup)" 메일이 나가게 한다.
+  // (익명 세션을 updateUser 로 승격하면 "이메일 주소 변경(email_change)" 메일이 나가는 문제 → 폐지)
+  // 게스트 세션이면 먼저 로그아웃해 새 계정으로 가입한다. 게스트가 만든 커스텀 덱은 브라우저
+  // localStorage 에 남아 인증 후 로그인 시 mergeServerDecks(core.js)로 새 계정에 편입되는데,
+  // 소유자 태그(rt_decks_owner)가 게스트 uid 로 남으면 "남의 덱"으로 버려지므로, 이 덱들이 현재
+  // 게스트 소유(태그 없음 or 게스트 uid)일 때만 태그를 지워 새 계정이 이어받게 한다. 폼에서 입력한
+  // 닉네임은 user_metadata 로 넘겨 인증 복귀 후 loadProfile 이 프로필 생성 시 사용한다.
+  function signUpEmail(email, password, nick) {
     return loadClient().then(function (c) {
       if (!c) return { ok: false, error: '백엔드 미설정' };
-      var redirectTo = appRedirect();
-      var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
-      return c.auth
-        .signUp({ email: email, password: password, options: opts })
-        .then(function (r) {
-          if (r.error) return { ok: false, error: r.error.message };
-          if (r.data.session) {
-            _session = r.data.session;
-            return loadProfile().then(function () {
-              return { ok: true, needConfirm: false };
-            });
-          }
-          _pendingEmail = email;
-          return { ok: true, needConfirm: true, email: email }; // 이메일 확인 대기
-        });
+      var guestUid = (_session && _session.user && !_session.user.email) ? _session.user.id : null;
+      var pre;
+      if (guestUid) {
+        try {
+          var o = window.localStorage.getItem('rt_decks_owner');
+          if (!o || o === guestUid) window.localStorage.removeItem('rt_decks_owner'); // 내 게스트 덱만 새 계정에 이어줌
+        } catch (e) {}
+        pre = c.auth.signOut().then(function () { _session = null; _profile = null; });
+      } else {
+        pre = Promise.resolve();
+      }
+      return pre.then(function () {
+        var redirectTo = appRedirect();
+        var data = (nick && String(nick).trim()) ? { nickname: String(nick).trim() } : undefined;
+        var opts = {};
+        if (redirectTo) opts.emailRedirectTo = redirectTo;
+        if (data) opts.data = data;
+        return c.auth
+          .signUp({ email: email, password: password, options: opts })
+          .then(function (r) {
+            if (r.error) return { ok: false, error: r.error.message };
+            if (r.data.session) {
+              _session = r.data.session;
+              return loadProfile().then(function () {
+                return { ok: true, needConfirm: false };
+              });
+            }
+            _pendingEmail = email;
+            return { ok: true, needConfirm: true, email: email }; // 이메일 확인 대기
+          });
+      });
     });
   }
 

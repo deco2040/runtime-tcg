@@ -178,15 +178,15 @@
         ]));
         return box;
       } },
-      { t: '날씨 (RUNTIME WEATHER)', tier: '심화', build: function () {
+      { t: '런타임 환경 (RUNTIME ENV)', tier: '심화', build: function () {
         var box = el('div', {});
-        box.appendChild(tutP('**게임을 시작할 때마다 「날씨」 1종이 무작위로 지정**되어, 그 판 내내 필드 전체에 영향을 줍니다. 시작 시 어떤 날씨인지 **연출로 공개**되고, 대국 화면 상단(타이틀바)과 컨트롤 바의 **배지**로 언제든 확인할 수 있어요. (멀티플레이 대전은 양쪽에 **같은 날씨**가 적용됩니다.)'));
+        box.appendChild(tutP('**게임을 시작할 때마다 「런타임 환경」 1종이 무작위로 지정**되어, 그 판 내내 필드 전체에 영향을 줍니다. 시작 시 어떤 환경인지 **연출로 공개**되고, 대국 화면 상단(타이틀바)과 컨트롤 바의 **배지**로 언제든 확인할 수 있어요. (멀티플레이 대전은 양쪽에 **같은 환경**이 적용됩니다.)'));
         var rows = [
           ['🟢', '평온', '#3c8a66', '특이 효과 없음 — 표준 런타임.'],
           ['⚡', '오버클럭', '#c8951b', '모든 유닛 공격력 **+1** (양측·즉시).'],
           ['🧊', '스로틀링', '#3f7bd6', '모든 유닛 공격력 **−1** (최소 0·즉시).'],
           ['🩸', '메모리 누수', '#c23c70', '**8턴부터** 매 턴 모든 유닛 HP **−1** — 장기전일수록 압박이 커집니다.'],
-          ['🧹', '가비지 컬렉션', '#8a6fb0', '**8턴부터 4턴마다** 체력이 가장 낮은 유닛 1기를 **회수(파괴)**.'],
+          ['🔀', '컨텍스트 스위치', '#3fae8f', '**양측 매 턴 추가 행동 +1**(기본 2 → 3) — 전개가 빨라집니다.'],
           ['⛓️', '교착', '#b8823a', '**교착 노드**가 통로를 가로막습니다 — **양쪽 다 공격 가능·이동 불가**.']
         ];
         var list = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', margin: '6px 0 10px' } });
@@ -201,7 +201,7 @@
         box.appendChild(tutP('**교착**의 중립 벽(교착 노드)은 어느 편도 아니라서 **양쪽 모두 때려서** 부술 수 있지만, 스스로는 **움직이지 않고 공격도 하지 않습니다.** 진격로를 막거나 우회를 강요하죠.'));
         box.appendChild(tutMini({ '1,2': tutTile('⛓️ 벽', '#fff', '#3a3026'), '2,2': tutTile('⛓️ 벽', '#fff', '#3a3026'), '3,2': tutTile('⛓️ 벽', '#fff', '#3a3026'), '3,4': tutTile('내 본체', '#9db8e6', '#1d1d24'), '3,1': tutTile('적 본체', '#e6a3bd', '#3a2630') }));
         box.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, textAlign: 'center', marginBottom: '8px' } }, ['교착 예시 — 통로(2·3행)에 교착 노드가 배치된다']));
-        box.appendChild(tutP('**CHALLENGE 모드**에선 스테이지가 오를수록 날씨가 더 가혹해지고, **5·10…단계 보스전**에선 피해·차폐형 날씨가 강제됩니다. 날씨를 읽고 **덱과 전개 속도**를 맞추는 것이 새로운 공략 포인트예요.'));
+        box.appendChild(tutP('**CHALLENGE 모드**에선 스테이지가 오를수록 런타임 환경이 더 가혹해지고, **5·10…단계 보스전**에선 피해·차폐형 환경이 강제됩니다. 환경을 읽고 **덱과 전개 속도**를 맞추는 것이 새로운 공략 포인트예요.'));
         box.appendChild(el('div', { style: { textAlign: 'center', marginTop: '12px' } }, [
           el('button', { class: 'btn', style: { fontSize: '15px', padding: '12px 26px', background: SKIN.own, color: '#fff', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35), 2px 2px 0 rgba(0,0,0,.25)' }, onclick: UI.startTutorialPractice }, ['▶ 직접 해보기 (실습)'])
         ]));

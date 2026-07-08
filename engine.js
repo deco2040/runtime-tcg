@@ -23,11 +23,10 @@
   var BODY_HP = 40; // 100 → 50 (basic-attack rule, §5) → 40 (pacing: games felt loose at 50)
   var MAX_ACTION_BUDGET = 9; // 한 턴 총 행동 상한(기본 2 + 추가 액션 카드 스택, Conduit 콤보 등). 구 4 → 9.
 
-  // ----------------------------------------------------------------- RUNTIME WEATHER (판 전체 환경 효과)
+  // ----------------------------------------------------------------- RUNTIME ENV (판 전체 환경 효과)
   // 매 게임 1종이 결정적으로 지정된다(온라인은 seed 파생 → 양 클라 동일). clear 는 랜덤 풀에서 제외(무언가는 반드시 일어난다).
-  var WEATHERS_ALL = ['overclock', 'throttle', 'memleak', 'gc', 'deadlock'];
-  var WEATHER_HAZARD_START = 8; // memleak/gc 발동 시작 ply(초반 숨통)
-  var WEATHER_GC_PERIOD = 4;    // gc 회수 주기 ply
+  var WEATHERS_ALL = ['overclock', 'throttle', 'memleak', 'ctxswitch', 'deadlock'];
+  var WEATHER_HAZARD_START = 8; // memleak 발동 시작 ply(초반 숨통)
   var WALL_OWNER = 2;           // 중립 벽 소유자(플레이어 0/1 아님)
   // FNV-1a — 문자열/숫자 seed 모두 안전한 결정적 해시(rng 스트림을 건드리지 않음).
   function hashStr(s) { s = '' + s; var h = 2166136261 >>> 0; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -531,8 +530,8 @@
   Game.prototype.beginTurn = function () {
     var p = this.active, pl = this.players[p];
     this.turnNo++; pl.turnsTaken++;
-    // 행동: 기본 2 + 이월(defer) — 총 상한 MAX_ACTION_BUDGET. actionBudget = 이번 턴 배정된 총 행동 수(추가 액션 카드로 증가).
-    this.actionBudget = Math.min(MAX_ACTION_BUDGET, 2 + (pl.deferredActions || 0));
+    // 행동: 기본 2 + 이월(defer) + 컨텍스트 스위치 환경(+1) — 총 상한 MAX_ACTION_BUDGET. actionBudget = 이번 턴 배정된 총 행동 수(추가 액션 카드로 증가).
+    this.actionBudget = Math.min(MAX_ACTION_BUDGET, 2 + (pl.deferredActions || 0) + (this.weather === 'ctxswitch' ? 1 : 0));
     this.actions = this.actionBudget; pl.deferredActions = 0;
     this.turnFlags = { pointerCastThisTurn: 0, lambdaBonus: 0, proxyBonus: 0, conduitUsed: false, extraPointer: 0, extraPointerRange: 0, extraActions: 0 };
     this.forUsesThisTurn = {};
@@ -543,25 +542,19 @@
     this.note('— P' + p + ' 턴 시작 (turn ' + this.turnNo + ') —');
     // onTurnStart triggers (auto for When; For are user/AI-activated)
     this.fireTurnStart(p);
-    // RUNTIME WEATHER — 피해형 날씨(메모리 누수·GC)는 매 턴 시작 시 환경 효과 적용
+    // RUNTIME ENV — 피해형 환경(메모리 누수)은 매 턴 시작 시 효과 적용. (컨텍스트 스위치는 위 행동 예산에서 +1 처리)
     this.applyWeatherTick();
     // (구 '런타임 과열' 제거 — 스톨 방지는 이제 덱 소진 피로(draw)로 대체)
     this.checkTurnCap();
     this.emit();
   };
-  // 날씨 틱 — memleak: 8ply부터 매 ply 전 유닛 HP−1 / gc: 8ply부터 4ply마다 HP 최저 유닛 1기 회수.
+  // 런타임 환경 틱 — memleak: 8ply부터 매 ply 전 유닛 HP−1. (컨텍스트 스위치 등 비피해형 환경은 틱 없음)
   Game.prototype.applyWeatherTick = function () {
     var w = this.weather; if (!w || this.turnNo < WEATHER_HAZARD_START) return;
     if (w === 'memleak') {
       var objs = this.objects(); if (!objs.length) return;
       this.fx({ type: 'weather', weather: w });
       for (var i = 0; i < objs.length; i++) { if (this.winner !== undefined) break; if (this.board[unitKey(this, objs[i])]) this.deal(objs[i], 1, { direct: true, weather: true }); }
-    } else if (w === 'gc') {
-      if ((this.turnNo - WEATHER_HAZARD_START) % WEATHER_GC_PERIOD !== 0) return;
-      var os = this.objects(); if (!os.length) return;
-      var self = this; os.sort(function (a, b) { return (self.curHp(a) - self.curHp(b)) || (a.uid - b.uid); });
-      this.fx({ type: 'weather', weather: w });
-      this.destroy(os[0], { weather: true });
     }
   };
   Game.prototype.fireTurnStart = function (owner) {
@@ -1069,6 +1062,25 @@
     if (bodyK) return bodyK;                                                               // otherwise race the body
     tg.sort(function (a, b) { return g.curHp(g.board[a]) - g.curHp(g.board[b]); }); return tg[0];
   }
+  // 변위 전용 포인터(피해·디버프 없이 적 위치만 1칸 바꿈) — 아무 적이나 밀면 액션 낭비라, AI는 가치 있을 때만 시전.
+  var DISP_PTR = { 'push()': 'away', 'memcpy()': 'away', 'pull()': 'toward' };
+  // cellKey 로 끌려온 적(hp)을 즉시 옆칸 기본공격으로 처치할 내 유닛이 있는가(pull 킬셋업 판정).
+  function aiAdjAllyKills(g, me, cellKey, hp) {
+    var p = P(cellKey), adj = ortho(p[0], p[1]);
+    for (var i = 0; i < adj.length; i++) { var u = g.board[adj[i]]; if (u && u.type === 'object' && u.owner === me && g.canBasicAttack(u) && g.effAtk(u) >= hp) return true; }
+    return false;
+  }
+  // 변위 포인터의 유용 타깃 — push/memcpy(밀어내기)=내 본체를 노리는 적을 사거리 밖으로, pull(끌어오기)=저체력 적을 처치셋업 칸으로. 없으면 null(시전 보류).
+  function aiDisplaceTarget(g, me, card, id, ts) {
+    var dir = DISP_PTR[id], myBK = bodyKey(me);
+    var cand = ts.filter(function (k) { var u = g.board[k]; return u && u.type === 'object' && (!card.castValid || card.castValid(g, me, k)); });
+    for (var a = 0; a < cand.length; a++) {
+      var u = g.board[cand[a]];
+      if (dir === 'away') { if (aiThreatensBody(g, u, myBK)) return cand[a]; }
+      else if (g.curHp(u) <= 6) { var q = P(cand[a]), dest = K(q[0], q[1] - fwd(me)); if (inB(q[0], q[1] - fwd(me)) && aiAdjAllyKills(g, me, dest, g.curHp(u))) return cand[a]; }
+    }
+    return null;
+  }
   function aiCast(g, me) {
     var pl = g.players[me];
     for (var i = 0; i < pl.hand.length; i++) {
@@ -1077,6 +1089,7 @@
       var need = card.need, tk = null;
       if (need === 'enemy' || need === 'cell') {
         var ts = g.castTargets(me, id); if (!ts.length) continue;
+        if (DISP_PTR[id]) { var dtk = aiDisplaceTarget(g, me, card, id, ts); if (!dtk) continue; return g.cast(me, i, dtk, false); }
         var ebody = ts.filter(function (k) { return g.board[k].type === 'body'; })[0];
         var units = ts.filter(function (k) { return g.board[k].type === 'object'; });
         units.sort(function (a, b) { return g.curHp(g.board[a]) - g.curHp(g.board[b]); });

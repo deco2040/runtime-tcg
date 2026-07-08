@@ -425,6 +425,7 @@
       ]));
     } else {
       // search — 상대 대기 화면(가로+세로 중앙 정렬 · 모바일 포함, #1·#8)
+      var searchTip = el('div', { style: { marginTop: '22px', minHeight: '2.4em' } });
       b.appendChild(el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: '52vh', padding: '20px 0 8px' } }, [
         el('div', { style: { fontSize: '15px', color: p.amb, fontWeight: 700, margin: '10px 0 4px' } }, [
           (status || '상대를 찾는 중…'),
@@ -438,7 +439,9 @@
         el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
           el('button', { class: 'crt-btn ghost', onclick: leave, style: { fontSize: '13px' } }, ['취소']),
         ]),
+        searchTip,   // 대기 중 순환 팁/이스터에그 (#8)
       ]));
+      if (UI.tipTicker) UI.tipTicker(searchTip, { color: p.dim, fontSize: '11px' });
     }
 
     screen.appendChild(b);

@@ -56,6 +56,9 @@
       'READY', el('span', { class: 'crt-cursor' })
     ]));
 
+    // 하단 팁/메시지/이스터에그 — 순환 표기(재렌더 시 인터벌 자동 정리).
+    if (UI.tipTicker) { var tipBox = el('div', { style: { marginTop: '14px' } }); b.appendChild(tipBox); UI.tipTicker(tipBox, { color: AMB_DIM }); }
+
     // 푸터 — 개인정보처리방침 · 이용약관(새 탭). 상대경로라 라이브·로컬 어디서든 동작.
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', letterSpacing: '.03em' } }, [
       footLink('개인정보처리방침', 'privacy/'),
@@ -146,7 +149,7 @@
       el('button', { class: 'crt-btn ghost', style: { fontSize: '17px', minWidth: '132px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE'])
     ]));
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
-      'CHALLENGE — 내 덱으로 연속 대결. 스테이지마다 날씨가 바뀌고, 5·10…단계는 👑보스전(강덱·가혹한 날씨). ',
+      'CHALLENGE — 내 덱으로 연속 대결. 스테이지마다 런타임 환경이 바뀌고, 5·10단계는 👑보스전(10단계 클리어시 👑 프로필 선택 가능). ',
       el('span', { style: { color: AMB } }, ['BEST ' + myDeck + ' ' + UI.bestStreak(myDeck) + 'W'])
     ]));
     var recs = UI.bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });
@@ -173,7 +176,10 @@
     // 선택한 이모지 아바타 — 프로필(클라우드) 우선, 게스트/오프라인은 로컬 rt_avatar. 있으면 이니셜 대신 이모지 표시.
     var emo = (prof && prof.avatar) || (Net && Net.localAvatar && Net.localAvatar()) || '';
     var box = dark ? 'rgba(255,176,0,.30)' : 'rgba(29,29,36,.22)';
-    var av = el('span', { class: 'grot', style: { flex: 'none', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: (emo ? '22px' : '16px'), fontWeight: 700, color: AMB_HI, border: '1px solid ' + box, letterSpacing: '.02em', lineHeight: 1 } }, [emo || ini]);
+    // 프로필 아바타 — 계정 페이지와 동일한 UI.avatarEl(닉네임 파생 컬러 배경)로 통일. 부재 시 기존 투명 뱃지 폴백.
+    var av = (UI.avatarEl
+      ? UI.avatarEl({ nickname: nick, avatar: emo }, 42)
+      : el('span', { class: 'grot', style: { flex: 'none', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: (emo ? '22px' : '16px'), fontWeight: 700, color: AMB_HI, border: '1px solid ' + box, letterSpacing: '.02em', lineHeight: 1 } }, [emo || ini]));
     var line1 = el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' } }, [
       el('span', { style: { fontSize: '14px', fontWeight: 700, color: AMB_HI, letterSpacing: '.03em' } }, [nick]),
       el('span', { class: 'mono', style: { fontSize: '9px', color: AMB_DIM, border: '1px solid ' + box, padding: '1px 5px', letterSpacing: '.12em' } }, [badge])

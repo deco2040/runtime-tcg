@@ -25,13 +25,13 @@
   // 저사양·접근성: 화려한 신규 프리미티브(참격선·글리치·별폭발·빔·잔광)를 생략. 숫자·기본 플래시는 유지.
   var REDUCE = false;
   try { REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-  // RUNTIME WEATHER — 게임마다 1종 지정(engine G.weather). 발동 턴 문구는 엔진 상수(8ply·4ply주기)와 일치.
+  // RUNTIME ENV — 게임마다 1종 지정(engine G.weather). 발동 턴 문구는 엔진 상수(memleak 8ply)와 일치.
   var WEATHER_INFO = {
     clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '특이 효과 없음 — 표준 런타임.' },
     overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '모든 유닛 공격력 +1 (양측).' },
     throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '모든 유닛 공격력 −1 (최소 0).' },
     memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴부터 매 턴 모든 유닛 HP −1.' },
-    gc: { name: '가비지 컬렉션', en: 'GC SWEEP', icon: '🧹', color: '#8a6fb0', desc: '8턴부터 4턴마다 HP 최저 유닛 1기 회수(파괴).' },
+    ctxswitch: { name: '컨텍스트 스위치', en: 'CONTEXT SWITCH', icon: '🔀', color: '#3fae8f', desc: '양측 매 턴 추가 행동 +1.' },
     deadlock: { name: '교착', en: 'DEADLOCK', icon: '⛓️', color: '#b8823a', desc: '교착 노드가 필드를 가로막는다 — 공격 가능·이동 불가.' }
   };
   function weatherInfo(id) { return WEATHER_INFO[id] || WEATHER_INFO.clear; }
@@ -79,6 +79,24 @@
   var _crownMem = false;             // localStorage 불가 시 왕관 해금 메모리 폴백
   function crownUnlocked() { try { return window.localStorage.getItem('rt_crown_unlocked') === '1'; } catch (e) { return _crownMem; } }
   function unlockCrown() { _crownMem = true; try { window.localStorage.setItem('rt_crown_unlocked', '1'); } catch (e) {} }
+  // ---- CHALLENGE 난이도 튜닝: 기본값 + localStorage['rt_chal_tune'] 오버라이드(개발자 페이지 dev-challenge.html에서 편집). 오버라이드 없으면 현행과 픽셀동일.
+  var CHAL_DEFAULT = {
+    maxStage: 10, bossEvery: 5,                       // 보스 = bossEvery 배수 스테이지(≥bossEvery)
+    hpPerStage: 8, bossHpBonus: 16,                   // 적 본체 hpMod = (stage-1)*hpPerStage + (보스?bossHpBonus)
+    drawPerStage: 1, drawCap: 4,                      // 적 추가 드로우 = min((stage-1)*drawPerStage, drawCap)
+    tokenDiv: 2, tokenCap: 3,                         // 비보스 선발 토큰 = min(floor((stage-1)/tokenDiv), tokenCap)
+    bossRing: ['2,1', '4,1', '2,2', '3,2', '4,2'],    // 보스 본체 방어 진형
+    bossRing10Extra: ['1,2', '5,2'],                  // 최종 보스(=maxStage) 추가 벽
+    wClearMax: 1, wEarly: ['overclock', 'throttle'], wEarlyMax: 3,
+    wFull: ['overclock', 'throttle', 'memleak', 'ctxswitch', 'deadlock'],
+    wBoss: ['memleak', 'deadlock'],
+    bossDecks: ['P1', 'M2', 'N1', 'X1', 'C1']
+  };
+  function chalTune() {
+    var t = {}; for (var k in CHAL_DEFAULT) t[k] = CHAL_DEFAULT[k];
+    try { var v = window.localStorage.getItem('rt_chal_tune'); if (v) { var o = JSON.parse(v); if (o && typeof o === 'object') for (var j in o) if (o[j] != null) t[j] = o[j]; } } catch (e) {}
+    return t;
+  }
 
   // ---- 커스텀 덱: localStorage 영속 + 공유 DECKS 로 병합. 키 = 'U1','U2'… (프리셋 T/M/P/N/X/C 와 충돌 없음)
   var CUSTOM_LS = 'rt_custom_decks';
@@ -127,6 +145,51 @@
     if (av) box.appendChild(el('span', { style: { fontSize: Math.round(size * 0.56) + 'px', lineHeight: 1 } }, [av]));
     else box.appendChild(el('span', { style: { fontSize: Math.round(size * 0.42) + 'px' } }, [avatarInitials(nick)]));
     return box;
+  }
+  // ---- 팁/메시지/이스터에그 — 메인 하단·매칭 대기화면에서 순환 표기(전략 팁 + 프로그래밍 유머).
+  var RT_TIPS = [
+    '포인터는 액션을 소비한다 — Singularity를 세우면 남은 게임 내내 공짜로 쏟아낸다.',
+    '본체 HP는 40. 무모한 레이스보다 한 수 먼저 계산하라.',
+    '혼합덱은 클래스 밀도 시너지가 약하다 — Polymorph·Loop로 메꿔라.',
+    '덱이 바닥나면 피로가 쌓인다. 적게 뽑는 쪽이 오래 버틴다.',
+    '메모리 벽은 느리지만 쉽게 무너지지 않는다.',
+    '선공은 템포를, 후공은 오버타임 한 장을 얻는다.',
+    '옆칸 기본 공격은 액션이 공짜다 — 사거리 카드를 아껴라.',
+    '봉쇄된 적은 Collector의 밥이다.',
+    '본체를 노리는 적부터 밀어내라(push).',
+    'CHALLENGE 10단계를 정복하면 왕관 👑 아바타가 해금된다.',
+    '// TODO: 승리',
+    '세그폴트는 사랑입니다. ♥',
+    'It works on my machine. 🤷',
+    '커밋 메시지: "fix"',
+    'rm -rf 트래쉬',
+    '귀하의 콜스택이 넘쳤습니다.',
+    '핫픽스는 금요일 오후 5시에 배포된다.',
+    '이 팁은 캐시되지 않습니다.',
+    '0.1 + 0.2 !== 0.3',
+    'Ctrl+Z는 이 게임에 없습니다. 신중하게 두세요.',
+    '트래쉬로 간 카드는 돌아오지 않는다… 대부분은.',
+    '레거시 코드: 아무도 이유를 모르지만, 지우면 터진다.',
+    '한 줄 고쳤을 뿐인데 왜.',
+    '컴파일은 됐다. 하지만 안심하긴 이르다.'
+  ];
+  // 컨테이너에 팁 라인을 붙이고 주기적으로 교체. 화면 재렌더로 노드가 분리되면 인터벌을 스스로 정리(누수 방지).
+  function tipTicker(container, opts) {
+    opts = opts || {};
+    var line = el('div', { class: 'mono', style: { fontSize: (opts.fontSize || '10px'), color: (opts.color || SKIN.muted), letterSpacing: '.03em', textAlign: 'center', lineHeight: 1.5, minHeight: '1.5em', maxWidth: '92%', margin: '0 auto', transition: 'opacity .4s', opacity: '1' } });
+    var idx = Math.floor(Math.random() * RT_TIPS.length);
+    line.textContent = RT_TIPS[idx];
+    container.appendChild(line);
+    var timer = setInterval(function () {
+      if (!document.body.contains(line)) { clearInterval(timer); return; }
+      line.style.opacity = '0';
+      setTimeout(function () {
+        if (!document.body.contains(line)) { clearInterval(timer); return; }
+        idx = (idx + 1 + Math.floor(Math.random() * (RT_TIPS.length - 1))) % RT_TIPS.length;
+        line.textContent = RT_TIPS[idx]; line.style.opacity = '1';
+      }, 420);
+    }, opts.interval || 6500);
+    return line;
   }
   function saveCustomDeck(key, name, list, cover) { _customMem[key] = { name: name, cls: deckDominantCls(list), list: list.slice(), cover: (cover && list.indexOf(cover) >= 0) ? cover : undefined }; persistCustom(); tagDecksOwner(); syncCustomDecks(); pushDecksToServer(); }
   function deleteCustomDeck(key) { delete _customMem[key]; persistCustom(); tagDecksOwner(); syncCustomDecks(); if (myDeck === key) myDeck = presetKeys()[0] || 'T1'; pushDecksToServer(); }
@@ -733,8 +796,12 @@
   }
   // ===== 타격감(juice) 프리미티브 =====
   function setImpactDelay(ms) { impactDelay = ms; clearTimeout(idTimer); idTimer = setTimeout(function () { impactDelay = 0; }, 90); }
+  // 흔들림 억제 — 모바일/터치/감소모션에선 화면·타일 흔들림(translate)이 어지럼을 유발하므로 끈다(플래시·hitstop 피드백은 유지).
+  function shakeSuppressed() { return REDUCE || COMPACT || isTouchDevice(); }
+  // 피격 타일 애니 — 데스크톱=흔들림+플래시, 모바일=플래시만(흔들림 제거).
+  function hitAnim() { return shakeSuppressed() ? 'hitFlash .5s ease' : 'hitShake .32s ease, hitFlash .5s ease'; }
   function screenShake(power) {
-    if (!app) return; var name = power >= 2 ? 'hbShakeHard' : 'hbShake';
+    if (!app || shakeSuppressed()) return; var name = power >= 2 ? 'hbShakeHard' : 'hbShake';
     app.style.animation = 'none'; void app.offsetWidth; app.style.animation = name + ' ' + (power >= 2 ? '0.42s' : '0.3s') + ' cubic-bezier(.36,.07,.19,.97)';
   }
   function hitstop(ms) {
@@ -942,7 +1009,7 @@
     var wi = weatherInfo(id);
     var scrim = el('div', { style: { position: 'fixed', inset: 0, zIndex: 110, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 42%,' + hexa(wi.color, .28) + ',rgba(20,20,28,.62) 70%)' } });
     var card = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '42%', transform: 'translate(-50%,-50%)', zIndex: 111, pointerEvents: 'none', textAlign: 'center', padding: 'clamp(18px,4vw,34px) clamp(26px,6vw,54px)', background: 'rgba(24,24,32,.94)', color: '#fff', border: '2px solid ' + wi.color, boxShadow: '0 0 0 4px ' + hexa(wi.color, .3) + ', 0 18px 46px rgba(0,0,0,.6), inset 0 0 40px ' + hexa(wi.color, .18) } }, [
-      el('div', { style: { fontSize: '11px', letterSpacing: '.32em', color: hexa('#ffffff', .62), marginBottom: '6px' } }, ['RUNTIME WEATHER']),
+      el('div', { style: { fontSize: '11px', letterSpacing: '.32em', color: hexa('#ffffff', .62), marginBottom: '6px' } }, ['RUNTIME ENV']),
       el('div', { style: { fontSize: 'clamp(44px,10vw,88px)', lineHeight: 1, margin: '2px 0 8px' } }, [wi.icon]),
       el('div', { style: { fontWeight: 700, fontSize: 'clamp(24px,5vw,44px)', letterSpacing: '.06em', color: wi.color } }, [wi.name]),
       el('div', { class: 'mono', style: { fontSize: '12px', letterSpacing: '.24em', color: hexa('#ffffff', .5), margin: '3px 0 10px' } }, [wi.en]),
@@ -961,7 +1028,7 @@
     var wi = weatherInfo(G.weather);
     return el('button', { class: 'mono', title: wi.name + ' — ' + wi.desc, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, color: wi.color, background: hexa(wi.color, .14), border: '1px solid ' + hexa(wi.color, .5), borderRadius: '3px', padding: '2px 6px', cursor: 'pointer', lineHeight: 1.1 }, onclick: function () { flash(wi.icon + ' ' + wi.name + ' — ' + wi.desc); } }, [wi.icon, wi.name]);
   }
-  // 날씨 피해 틱(memleak/gc) 순간 — 짧은 화면 틴트 + 라벨(과하지 않게).
+  // 런타임 환경 피해 틱(memleak) 순간 — 짧은 화면 틴트 + 라벨(과하지 않게).
   function weatherTickFx(id) {
     var wi = weatherInfo(id);
     var tint = el('div', { style: { position: 'fixed', inset: 0, zIndex: 44, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 30%,' + hexa(wi.color, .22) + ',transparent 68%)' } });
@@ -1117,36 +1184,37 @@
   }
   function randomDeck() { var ks = presetKeys(); return ks[Math.floor(Math.random() * ks.length)]; }
   function chalPick(a) { return a[Math.floor(Math.random() * a.length)]; }
-  function isBossStage(stage) { return stage >= 5 && stage % 5 === 0; }
-  // 스테이지별 날씨 — 오를수록 가혹. 1=평온, 2~3=완만(공격력 보정), 4+=전종, 보스(5·10…)=피해/차폐형.
+  function isBossStage(stage) { var t = chalTune(); return stage >= t.bossEvery && stage % t.bossEvery === 0; }
+  // 스테이지별 런타임 환경 — 오를수록 가혹. 1=평온, 초반=완만(공격력 보정), 이후=전종, 보스=피해/차폐형. (chalTune 오버라이드 반영)
   function challengeWeather(stage) {
-    if (stage <= 1) return 'clear';
-    if (isBossStage(stage)) return chalPick(['memleak', 'deadlock', 'gc']);
-    if (stage <= 3) return chalPick(['overclock', 'throttle']);
-    return chalPick(['overclock', 'throttle', 'memleak', 'gc', 'deadlock']);
+    var t = chalTune();
+    if (stage <= t.wClearMax) return 'clear';
+    if (isBossStage(stage)) return chalPick(t.wBoss);
+    if (stage <= t.wEarlyMax) return chalPick(t.wEarly);
+    return chalPick(t.wFull);
   }
-  // 상대 덱 — 보스 스테이지는 강덱 풀(밸런스 측정상 강함)에서, 그 외 랜덤 견본덱.
+  // 상대 덱 — 보스 스테이지는 강덱 풀에서, 그 외 랜덤 견본덱. (chalTune.bossDecks 반영)
   function challengeOpponent(stage) {
-    if (isBossStage(stage)) { var strong = ['P1', 'M2', 'N1', 'X1', 'C1'].filter(function (k) { return DECKS[k]; }); if (strong.length) return chalPick(strong); }
+    if (isBossStage(stage)) { var strong = chalTune().bossDecks.filter(function (k) { return DECKS[k]; }); if (strong.length) return chalPick(strong); }
     return randomDeck();
   }
   // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡 + 스테이지별 날씨 + 보스전)
-  function startChallenge() { if (!myDeckStartable()) return; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck), boss: false }; beginMatch(challengeOpponent(1)); }
+  function startChallenge() { if (!myDeckStartable()) return; CHAL_MAX_STAGE = chalTune().maxStage; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck), boss: false }; beginMatch(challengeOpponent(1)); }
   function nextChallenge() { if (challenge.stage >= CHAL_MAX_STAGE) { unlockCrown(); endChallenge(); return; } challenge.wins++; challenge.stage++; beginMatch(challengeOpponent(challenge.stage)); }
   function endChallenge() { challenge = null; G = null; UI.renderTitle(); }
   function applyChallengeHandicap(g, stage) {
-    var boss = isBossStage(stage);
+    var t = chalTune(), boss = isBossStage(stage);
     if (challenge) challenge.boss = boss;
     if (stage <= 1) return;                                  // 1스테이지는 기본 난이도
-    var b = g.body(AI); if (b) b.hpMod += (stage - 1) * 8 + (boss ? 16 : 0);   // 점점 단단해지는 본체(+보스 추가)
-    var extraCards = Math.min(stage - 1, 4); if (extraCards) g.draw(AI, extraCards); // 카드 우위
+    var b = g.body(AI); if (b) b.hpMod += (stage - 1) * t.hpPerStage + (boss ? t.bossHpBonus : 0);   // 점점 단단해지는 본체(+보스 추가)
+    var extraCards = Math.min((stage - 1) * t.drawPerStage, t.drawCap); if (extraCards > 0) g.draw(AI, extraCards); // 카드 우위
     if (boss) {
-      // 보스(5·10단계): 적 본체(3,1)를 유닛으로 둘러싼 방어 진형으로 개시 → 도달 난이도↑, AI 유리하게 시작.
-      var ring = ['2,1', '4,1', '2,2', '3,2', '4,2'];        // 본체 인접 측면 + 전면
-      if (stage >= 10) ring = ring.concat(['1,2', '5,2']);   // 10단계: 전면 벽을 좌우로 확장(더 단단)
+      // 보스 스테이지: 적 본체(3,1)를 유닛으로 둘러싼 방어 진형으로 개시 → 도달 난이도↑, AI 유리하게 시작.
+      var ring = t.bossRing.slice();                         // 본체 인접 측면 + 전면
+      if (stage >= t.maxStage) ring = ring.concat(t.bossRing10Extra); // 최종 보스: 전면 벽 좌우 확장
       for (var r = 0; r < ring.length; r++) { if (!g.board[ring[r]]) g.summon(AI, 'Token5', ring[r]); }
     } else {
-      var tokens = Math.min(Math.floor((stage - 1) / 2), 3);   // 선발 유닛(분신 공5/체2)
+      var tokens = Math.min(Math.floor((stage - 1) / t.tokenDiv), t.tokenCap);   // 선발 유닛(분신 공5/체2)
       for (var i = 0; i < tokens; i++) { var c = g.firstEmptyHome(AI); if (c) g.summon(AI, 'Token5', c); }
     }
   }
@@ -1181,39 +1249,60 @@
   // 코인은 항상 fxLayer(뷰포트 고정, body 직속)에 그린다 → clear()/재렌더에도 지워지지 않아
   // 모바일 URL바 접힘 등으로 코인이 사라지던 문제 해결. 보드가 있으면 보드 중앙, 없으면 화면 중앙.
   function runCoinFlip(onDone) {
-    var me = (mullFirst === HUMAN), meCol = '#2456a6', aiCol = '#c23c70';
+    var me = (mullFirst === HUMAN);
+    var meCol = (typeof ownerColor === 'function') ? ownerColor(HUMAN) : '#1f9e8c';
+    var aiCol = (typeof ownerColor === 'function') ? ownerColor(AI) : '#c23c70';
     var parent = fxLayer(), cx, cy;
     var board = document.getElementById('board');
     if (board) { var r = board.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height * 0.42; }
     else { cx = (window.innerWidth || 360) / 2; cy = (window.innerHeight || 640) * 0.42; }
-    function bs(pct, px) { return { position: 'fixed', left: cx + 'px', top: px + 'px', zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }; }
-    var cap = el('div', { class: 'mono', style: Object.assign(bs('30%', cy - 76), { fontSize: '12px', color: SKIN.muted }) }, ['선 · 후공 결정']);
-    var coin = el('div', { class: 'grot', style: Object.assign(bs('48%', cy), { width: '86px', height: '86px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.gold, border: '3px solid ' + SKIN.ink, boxShadow: '0 12px 26px rgba(0,0,0,.4)', fontWeight: 700, fontSize: '24px', color: SKIN.ink }) }, ['?']);
+    function bs(px) { return { position: 'fixed', left: cx + 'px', top: px + 'px', zIndex: 96, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }; }
+    // 메탈릭 코인 면 — 금(중립) / 승자 소유자색(teal·magenta). 위쪽 하이라이트로 금속 질감.
+    var GOLD = 'linear-gradient(150deg, #fff3c4 0%, ' + SKIN.gold + ' 46%, #9f7016 100%)';
+    function metal(c) { return 'linear-gradient(150deg, #ffffff 0%, ' + c + ' 52%, rgba(0,0,0,.34) 100%)'; }
+    var BASE_T = 'translate(-50%,-50%) perspective(360px) ';
+    var cap = el('div', { class: 'mono', style: Object.assign(bs(cy - 78), { fontSize: '12px', letterSpacing: '.14em', color: SKIN.muted }) }, ['선 · 후공 결정']);
+    var coin = el('div', { class: 'grot', style: Object.assign(bs(cy), { width: '90px', height: '90px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: GOLD, border: '3px solid ' + SKIN.ink, boxShadow: '0 14px 30px rgba(0,0,0,.45), inset 0 2px 5px rgba(255,255,255,.55), inset 0 -4px 8px rgba(0,0,0,.3)', fontWeight: 700, fontSize: '26px', color: SKIN.ink, willChange: 'transform' }) }, ['?']);
+    coin.style.transform = BASE_T + 'rotateX(0deg)';
     parent.appendChild(cap); parent.appendChild(coin);
-    var flips = 0, TOTAL = 7;
-    function half() {
+    var flips = 0, TOTAL = 8;
+    function setFace(settling) {
+      coin.textContent = settling ? (me ? '나' : '상대') : (flips % 2 === 0 ? '나' : '상대');
+      coin.style.background = settling ? metal(me ? meCol : aiCol) : GOLD;
+      coin.style.color = settling ? '#fff' : SKIN.ink;
+    }
+    // 3D 에지 플립 — rotateX 로 동전이 모서리로 섰다가(피격 무시 얇아짐) 되돌아오며 면이 바뀐다. 착지까지 가속→감속.
+    function tick() {
       if (!coin.animate) { land(); return; }
-      coin.animate([{ transform: 'translate(-50%,-50%) scaleY(1)' }, { transform: 'translate(-50%,-50%) scaleY(.05)' }], { duration: 90, easing: 'ease-in', fill: 'forwards' }).onfinish = function () {
+      var dur = flips >= TOTAL - 2 ? 130 : 78;   // 마지막 두 번은 느리게 감속 착지
+      coin.animate([{ transform: BASE_T + 'rotateX(0deg)' }, { transform: BASE_T + 'rotateX(-90deg)' }], { duration: dur, easing: 'ease-in', fill: 'forwards' }).onfinish = function () {
         flips++;
         var settling = flips >= TOTAL;
-        coin.textContent = settling ? (me ? '나' : '상대') : (flips % 2 === 0 ? '나' : '상대');
-        coin.style.background = settling ? (me ? meCol : aiCol) : SKIN.gold;
-        coin.style.color = settling ? '#fff' : SKIN.ink;
+        setFace(settling);
         Sound.move();
-        coin.animate([{ transform: 'translate(-50%,-50%) scaleY(.05)' }, { transform: 'translate(-50%,-50%) scaleY(1)' }], { duration: 90, easing: 'ease-out', fill: 'forwards' }).onfinish = settling ? land : half;
+        coin.animate([{ transform: BASE_T + 'rotateX(-90deg)' }, { transform: BASE_T + 'rotateX(0deg)' }], { duration: dur, easing: 'ease-out', fill: 'forwards' }).onfinish = settling ? land : tick;
       };
     }
     function land() {
       Sound.spawn();
-      var banner = el('div', { class: 'grot', style: Object.assign(bs('66%', cy + 80), { fontWeight: 700, fontSize: '20px', color: (me ? meCol : aiCol), whiteSpace: 'nowrap' }) }, [me ? '선공 — 나' : '선공 — 상대(AI)']);
+      var col = me ? meCol : aiCol;
+      // 착지 링 펄스 — 소유자색 원이 코인에서 퍼지며 사라진다.
+      if (!REDUCE) {
+        var ring = el('div', { style: Object.assign(bs(cy), { width: '90px', height: '90px', borderRadius: '50%', border: '2px solid ' + col, zIndex: 95, boxShadow: '0 0 14px ' + col }) });
+        parent.appendChild(ring);
+        if (ring.animate) ring.animate([{ transform: 'translate(-50%,-50%) scale(.6)', opacity: .9 }, { transform: 'translate(-50%,-50%) scale(2.1)', opacity: 0 }], { duration: 520, easing: 'ease-out', fill: 'forwards' }).onfinish = function () { ring.remove(); }; else setTimeout(function () { ring.remove(); }, 520);
+      }
+      var banner = el('div', { class: 'grot', style: Object.assign(bs(cy + 82), { fontWeight: 700, fontSize: '20px', letterSpacing: '.04em', color: col, whiteSpace: 'nowrap', textShadow: '0 2px 8px rgba(0,0,0,.5)' }) }, [me ? '선공 — 나' : '선공 — 상대(AI)']);
       parent.appendChild(banner);
-      if (coin.animate) coin.animate([{ transform: 'translate(-50%,-50%) scale(1)' }, { transform: 'translate(-50%,-50%) scale(1.22)' }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 300, easing: 'ease-out' });
+      if (coin.animate) coin.animate([{ transform: BASE_T + 'rotateX(0deg) scale(1)' }, { transform: BASE_T + 'rotateX(0deg) scale(1.16)' }, { transform: BASE_T + 'rotateX(0deg) scale(1)' }], { duration: 320, easing: 'ease-out' });
       setTimeout(function () {
         [coin, cap, banner].forEach(function (n) { if (n.animate) { n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: 'ease-in', fill: 'forwards' }).onfinish = function () { n.remove(); }; } else n.remove(); });
         setTimeout(onDone, 250);
-      }, 700);
+      }, 720);
     }
-    setTimeout(half, 220);
+    // 감소모션/모바일: 다회전 생략 — 승자면 즉시 표기 후 짧은 팝·페이드(어지럼 방지).
+    if (REDUCE || !coin.animate) { flips = TOTAL; setFace(true); setTimeout(land, 260); }
+    else setTimeout(tick, 220);
   }
   // 상대 초기 패 배분 연출 — AI 디스펜서에서 뒷면 카드가 몇 장 배출(플레이버).
   function dealAiFlavor() {
@@ -1485,14 +1574,14 @@
       el('div', { style: { fontSize: '13px', opacity: .72, maxWidth: '290px', lineHeight: 1.55 } }, ['RUNTIME 은 세로 모드로 플레이합니다.', el('br'), '기기를 세로로 세우면 게임이 이어집니다.'])
     ]);
   }
-  // 덱/묘지/손패 카운트 칩 — 한글 라벨+숫자를 은은한 배경으로 묶어 또렷하게. 이모지 미사용(어느 폰에서도 동일 렌더).
+  // 덱/트래쉬/손패 카운트 칩 — 한글 라벨+숫자를 은은한 배경으로 묶어 또렷하게. 이모지 미사용(어느 폰에서도 동일 렌더).
   function pileStat(label, n, title) {
     return el('span', { class: 'mono', title: title, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, background: SKIN.chassisSunk, padding: '1px 6px', borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.line } }, [
       el('span', { style: { fontSize: '10px', color: SKIN.muted, fontWeight: 700 } }, [label]),
       el('span', { style: { minWidth: '9px', textAlign: 'right', color: SKIN.txt } }, [String(n)])
     ]);
   }
-  // 가로 스탯 바 — 본체 HP+게이지 · 덱 · 묘 · 패(라벨 칩, 이모지 미사용). 상단(상대)/하단(나) 공용.
+  // 가로 스탯 바 — 본체 HP+게이지 · 덱 · 트래쉬 · 패(라벨 칩, 이모지 미사용). 상단(상대)/하단(나) 공용.
   function statBarH(owner, opts) {
     opts = opts || {};
     var me = owner === HUMAN, pl = G.players[owner], b = G.body(owner);
@@ -1515,7 +1604,7 @@
         el('div', { style: { position: 'absolute', inset: '0', width: Math.max(0, Math.min(100, mx ? hp / mx * 100 : 0)) + '%', background: low ? SKIN.heat : accent } })
       ]),
       pileStat('덱', pl.deck.length, '남은 덱'),
-      pileStat('묘', pl.graveyard.length, '묘지'),
+      pileStat('트래쉬', pl.graveyard.length, '트래쉬'),
       pileStat('패', pl.hand.length, '손패')
     ]);
     if (opts.extra) opts.extra.forEach(function (n) { if (n) kids.push(n); });
@@ -1526,7 +1615,7 @@
     // 안전영역(펀치홀·노치·홈 인디케이터) — 테두리 텍스트/버튼이 가려지지 않게 env() 로 안쪽으로 밀어줌.
     var SAL = 'env(safe-area-inset-left,0px)', SAR = 'env(safe-area-inset-right,0px)', SAT = 'env(safe-area-inset-top,0px)', SAB = 'env(safe-area-inset-bottom,0px)';
 
-    // ── 상단: 상대 스탯 바(HP·덱·묘지·손패 + 날씨 배지) ──
+    // ── 상단: 상대 스탯 바(HP·덱·트래쉬·손패 + 날씨 배지) ──
     wrap.appendChild(statBarH(AI, { extra: [weatherChip()], style: { borderBottom: '1px solid ' + SKIN.ink, paddingTop: 'calc(4px + ' + SAT + ')', paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
 
     // 포인터 시전 안내(짧게)
@@ -1535,7 +1624,7 @@
     // ── 필드(중앙) — 화면 폭을 꽉 채우는 보드. 세로 패딩을 얇게 해 필드를 최대한 크게 ──
     wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px calc(4px + ' + SAR + ') 2px calc(4px + ' + SAL + ')' } }, [boardEl(true)]));
 
-    // ── 하단: (1) 나 스탯 바 — 상단 AI 바와 대칭(HP·덱·묘지·손패). 컨트롤은 분리해 줄바꿈 방지 ──
+    // ── 하단: (1) 나 스탯 바 — 상단 AI 바와 대칭(HP·덱·트래쉬·손패). 컨트롤은 분리해 줄바꿈 방지 ──
     wrap.appendChild(statBarH(HUMAN, { style: { borderTop: '1px solid ' + SKIN.ink, paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
 
     // ── 온라인 턴 타이머 바(컨트롤 바 위) ──
@@ -1965,11 +2054,13 @@
       border: '2px solid ' + own,
       boxShadow: 'inset 0 0 15px ' + hexa(own, .55) + ', inset 0 0 3px rgba(255,255,255,.25), 0 0 14px ' + hexa(own, low ? .25 : .5) + ', 3px 3px 0 ' + hexa(own, .28)
     };
-    if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
+    if (fxHit[key]) st.animation = hitAnim();
+    // 본체 = 메인 프로세서 다이 일러(art/__body). screen 블렌드로 검은 배경을 지우고 흰 칩 글리프만 소유자색 코어 위에 발광시킨다.
+    var chip = el('div', { style: { position: 'absolute', inset: '11%', backgroundImage: 'url("art/__body' + u.owner + '.png")', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', mixBlendMode: 'screen', opacity: low ? .5 : .82, pointerEvents: 'none' } });
     var ring = el('div', { style: { position: 'absolute', top: '50%', left: '50%', width: '52%', height: '52%', marginTop: '-26%', marginLeft: '-26%', borderRadius: '50%', border: '2px solid ' + hexa(own, .28), borderTopColor: own, borderRightColor: hexa(own, .1), animation: 'coreSpin ' + (low ? 1.0 : 2.8) + 's linear infinite', pointerEvents: 'none' } });
     var coreDot = el('div', { style: { position: 'absolute', top: '44%', left: '50%', width: '18%', height: '18%', borderRadius: '50%', background: 'radial-gradient(circle, #fff 0%, ' + own + ' 55%, ' + hexa(own, 0) + ' 100%)', boxShadow: '0 0 12px ' + own, animation: 'coreThrob ' + (low ? .7 : 1.9) + 's ease-in-out infinite', pointerEvents: 'none' } });
     return el('div', { style: st }, [
-      ring, coreDot,
+      chip, ring, coreDot,
       el('span', { style: { position: 'relative', fontSize: '8px', letterSpacing: '.22em', fontWeight: 700, color: me ? '#aac3ea' : '#efb0c6', textShadow: '0 1px 2px rgba(0,0,0,.65)' } }, [me ? '내 본체' : '적 본체']),
       el('span', { class: 'mono', style: { position: 'relative', fontWeight: 700, fontSize: 'clamp(16px,3.1vw,26px)', color: '#fff', textShadow: '0 0 9px ' + hexa(own, .95) + ',0 2px 3px rgba(0,0,0,.7)' } }, [String(hp)]),
       tweenFill('bt' + u.owner, hp, mx, own, { width: '76%', height: '5px', position: 'relative', background: 'rgba(255,255,255,.15)', border: '1px solid ' + hexa(own, .55), overflow: 'hidden', boxShadow: '0 0 6px ' + hexa(own, .5) })
@@ -1980,7 +2071,7 @@
     var hp = G.curHp(u), mx = G.effMaxHp(u), col = '#b8823a';
     // 교착(DEADLOCK) — cog-lock 일러(맞물려 잠긴 톱니 = 데드락 은유) 기반. 앰버 오버레이로 톤 통일 + HP 텍스트 대비 확보.
     var st = { position: 'relative', width: '92%', height: '90%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', color: '#f6ecdb', backgroundColor: '#2a2018', border: '2px solid ' + col, overflow: 'hidden', boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.35), 3px 3px 0 rgba(0,0,0,.30)' };
-    if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
+    if (fxHit[key]) st.animation = hitAnim();
     var art = el('div', { style: { position: 'absolute', inset: 0, backgroundImage: 'url("art/deadlock.png")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: .82, pointerEvents: 'none' } });
     var tint = el('div', { style: { position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(184,130,58,.28) 0%, rgba(20,14,8,.22) 40%, rgba(8,6,3,.74) 100%)', pointerEvents: 'none' } });
     return el('div', { style: st }, [
@@ -2035,7 +2126,7 @@
     if (seld) st.boxShadow = '0 0 0 2px ' + SKIN.face + ', 0 0 0 3px ' + SKIN.faceLo + ', 0 0 0 5px ' + hexa(own, .55) + ', 2px 2px 0 rgba(0,0,0,.28)';
     if (lungingKeys[key]) st.visibility = 'hidden';
     var myTurn = me && G.active === HUMAN && !aiThinking;
-    if (fxHit[key]) st.animation = 'hitShake .32s ease, hitFlash .5s ease';
+    if (fxHit[key]) st.animation = hitAnim();
     else if (fxSpawn[key]) st.animation = 'popIn .35s ease';
     else if (myTurn && G.canBasicAttack(u) && !seld) st.animation = 'readyPulse 1.8s ease-in-out infinite';
     var attacked = myTurn && u.attackedTurn === G.turnNo;
@@ -2444,7 +2535,7 @@
     overclock: '양측 모든 유닛의 공격력 +1 (상시·즉시). 이후 소환·선언되는 유닛에도 적용됩니다.',
     throttle: '양측 모든 유닛의 공격력 −1 (상시, 최소 0). 이후 등장하는 유닛에도 적용됩니다.',
     memleak: '8턴째부터 매 턴 시작 시 양측 모든 유닛의 HP가 1씩 감소합니다. 장기전일수록 압박이 커집니다.',
-    gc: '8턴째부터 4턴마다, 체력이 가장 낮은 유닛 1기를 파괴(회수)합니다. 저체력 유닛을 방치하면 쓸려나갑니다.',
+    ctxswitch: '양측 모두 매 턴 사용할 수 있는 행동이 1회씩 늘어납니다(기본 2 → 3). 시작 턴부터 상시 적용되어 전개가 빨라집니다.',
     deadlock: '매치 시작 시 통로(2·3행)에 중립 벽 「교착 노드」(공격력 0 · 체력 12) 3개가 배치됩니다. 양측 모두 공격해 부술 수 있으나, 스스로 이동·공격하지 않고 진격로를 가로막습니다.'
   };
   function weatherDetail(id) { return WEATHER_DETAIL[id] || WEATHER_DETAIL.clear; }
@@ -2462,7 +2553,7 @@
         el('span', { style: { fontSize: '17px', flex: 'none' } }, [info.icon]),
         el('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.1 } }, [
           el('span', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: SKIN.txt } }, [info.name]),
-          el('span', { class: 'mono', style: { fontSize: '8px', letterSpacing: '.14em', color: SKIN.muted } }, ['WEATHER · ' + info.en])
+          el('span', { class: 'mono', style: { fontSize: '8px', letterSpacing: '.14em', color: SKIN.muted } }, ['RUNTIME ENV · ' + info.en])
         ])
       ]),
       el('div', { style: { fontSize: '10px', color: SKIN.panelText, lineHeight: 1.45 } }, [info.desc])
@@ -2489,11 +2580,11 @@
 
     var box = el('div', { style: { display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 } });
     box.appendChild(el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.18em', color: SKIN.muted, margin: '2px 0 6px' } }, ['덱 트래커 · DECK']));
-    // 요약(남은 덱 / 손패 / 묘지)
+    // 요약(남은 덱 / 손패 / 트래쉬)
     box.appendChild(el('div', { class: 'mono', style: { display: 'flex', gap: '8px', fontSize: '9.5px', color: SKIN.muted, marginBottom: '7px', flexWrap: 'wrap' } }, [
       el('span', {}, ['덱 ', el('b', { style: { color: pl.deck.length <= 3 ? SKIN.heat : SKIN.gold } }, [String(pl.deck.length)]), ' / ' + startList.length]),
       el('span', {}, ['패 ', el('b', { style: { color: SKIN.txt } }, [String(pl.hand.length)])]),
-      el('span', {}, ['묘 ', el('b', { style: { color: SKIN.txt } }, [String(pl.graveyard.length)])])
+      el('span', {}, ['트래쉬 ', el('b', { style: { color: SKIN.txt } }, [String(pl.graveyard.length)])])
     ]));
     var list = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto', minHeight: 0, flex: 1, maxHeight: '52vh' } });
     if (!order.length) {
@@ -2714,7 +2805,7 @@
           el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['스테이지 ' + challenge.stage + ' 클리어']),
           el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승']),
           stat, recordLine,
-          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? '👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 날씨' : '다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 날씨 · 추가 카드/선발 유닛']),
+          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? '👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 런타임 환경' : '다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 런타임 환경 · 추가 카드/선발 유닛']),
           btnRow(el('button', { class: 'btn', onclick: function () { nextChallenge(); } }, ['다음 스테이지 ▶']))
         ];
       } else {
@@ -2763,7 +2854,7 @@
   // 날씨 규칙 행 — WEATHER_INFO 재사용. 이번 판 날씨(G.weather)는 강조 배지 + 배경 틴트.
   function weatherRuleRows() {
     var cur = G && G.weather;
-    return ['clear', 'overclock', 'throttle', 'memleak', 'gc', 'deadlock'].map(function (id) {
+    return ['clear', 'overclock', 'throttle', 'memleak', 'ctxswitch', 'deadlock'].map(function (id) {
       var wi = weatherInfo(id), active = (id === cur);
       return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line, background: active ? hexa(wi.color, .1) : 'transparent' } }, [
         el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' } }, [
@@ -2801,7 +2892,7 @@
       kids = [
         header('규칙 요약', 'menu'),
         el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['날씨 · RUNTIME WEATHER' + (G && G.weather ? '  —  이번 판: ' + weatherInfo(G.weather).icon + ' ' + weatherInfo(G.weather).name : '')]),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['런타임 환경 · RUNTIME ENV' + (G && G.weather ? '  —  이번 판: ' + weatherInfo(G.weather).icon + ' ' + weatherInfo(G.weather).name : '')]),
           el('div', {}, weatherRuleRows()),
           el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['특수능력 · 발동 방식']),
           el('div', {}, ruleRows(RULE_ABILITY)),
@@ -2823,7 +2914,7 @@
     } else {
       kids = [
         header('메뉴', null),
-        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (날씨·특수능력·대상·범위)']),
+        el('button', { class: 'btn ghost', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px' }, onclick: function () { menuView = 'rules'; render(); } }, ['📖 규칙 요약 (런타임 환경·특수능력·대상·범위)']),
         el('button', { class: 'btn', style: { display: 'block', width: '100%', textAlign: 'center', fontSize: '14px', padding: '11px', background: SKIN.enemy, color: '#fff' }, onclick: function () { menuView = 'confirm'; render(); } }, ['🏳 항복'])
       ];
     }
@@ -3316,7 +3407,7 @@
   // 커스텀 덱: title.js(견본/커스텀 구분) · deckbuilder.js(저장/삭제) 가 소비
   UI.GLY = GLY;
   UI.deckCoverCls = deckCoverCls; UI.deckDominantCls = deckDominantCls;
-  UI.avatarEl = avatarEl; UI.AVA_EMOJI = AVA_EMOJI; UI.crownUnlocked = crownUnlocked;
+  UI.avatarEl = avatarEl; UI.AVA_EMOJI = AVA_EMOJI; UI.crownUnlocked = crownUnlocked; UI.tipTicker = tipTicker;
   UI.isCustomKey = isCustomKey; UI.presetKeys = presetKeys; UI.customKeys = customKeys;
   UI.saveCustomDeck = saveCustomDeck; UI.deleteCustomDeck = deleteCustomDeck; UI.nextCustomKey = nextCustomKey;
   UI.exitToGuide = function () {
