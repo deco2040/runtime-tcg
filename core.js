@@ -2368,9 +2368,11 @@
     if (mode === 'play') props.onpointerdown = function (e) { startHandDrag(e, i); };
     else props.onpointerdown = function (e) { idlePeek(i); }; // 상대 턴 등 idle 에서도 꾹 눌러 카드 확인
     // 아트가 가운데 빈 공간을 채우도록 flex:1 (카드가 알차게 보이게)
+    var drCls = deckRuleLabel(card); // 클래스 단일(◈) 카드면 미니 카드에도 컴팩트 배지 표시
     var art = el('div', { style: Object.assign({ position: 'relative', flex: '1 1 auto', minHeight: '18px', margin: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: SKIN.viewportBg, backgroundImage: 'linear-gradient(' + hexa(cl, .1) + ',' + hexa(cl, .1) + ')', overflow: 'hidden' }, sunkenBev()) }, [
       el('span', { style: { fontSize: 'clamp(30px,12vw,50px)', lineHeight: 1, color: cl, opacity: .92 } }, [GLY[card.cls] || GLY.generic]),
-      artLayer(card)
+      artLayer(card),
+      drCls ? el('span', { class: 'mono', title: drCls + ' 클래스 단일 카드 · ' + drCls + ' 단일 클래스 덱 전용', style: { position: 'absolute', left: '2px', bottom: '2px', fontSize: '7.5px', fontWeight: 700, color: '#fff', background: CLS[drCls] || CLS.generic, padding: '0 3px', borderRadius: '2px', border: '1px solid rgba(0,0,0,.35)', lineHeight: 1.5, letterSpacing: '.02em', zIndex: 2, whiteSpace: 'nowrap' } }, ['◈ ' + (GLY[drCls] || '') + ' 단일']) : null
     ]);
     // 예전 미니 디자인으로 복귀 — 이름·글리프·ATK/HP만. 효과 요약 텍스트는 작아서 잘려 안 읽히므로 제거.
     // 상세(효과·사거리)는 꾹 눌러 미리보기(모바일 peek)·덱빌더 호버 확대로 확인.
