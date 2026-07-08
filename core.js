@@ -1489,8 +1489,10 @@
     var ctb = turnTimerBar(); if (ctb) wrap.appendChild(ctb);
 
     // ── 하단: (2) 컨트롤 바 — 한 줄 고정(nowrap): 턴 상태 · 액션 핍 · [턴 종료] ──
-    var pips = el('div', { style: { display: 'flex', gap: '3px', alignItems: 'center', flex: 'none' } });
-    for (var i = 0; i < Math.max(2, G.actionBudget || 2); i++) pips.appendChild(el('span', { style: { width: '15px', height: '10px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
+    var pips = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center', flex: 'none', maxWidth: '52%' } });
+    var nA = Math.max(2, G.actionBudget || 2, G.actions || 0);       // 추가 액션 카드로 늘어난 총 칸(최대 9)
+    var pwA = nA > 5 ? '9px' : '15px';                               // 칸이 많으면 폭을 줄여 넘침 방지
+    for (var i = 0; i < nA; i++) pips.appendChild(el('span', { style: { width: pwA, height: '10px', flex: 'none', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
     wrap.appendChild(el('div', { style: { display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: '8px', padding: '5px calc(10px + ' + SAR + ') 5px calc(10px + ' + SAL + ')', background: SKIN.chassisAlt, color: SKIN.txt, borderTop: '1px solid ' + SKIN.ink } }, [
       el('span', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: meTurn ? SKIN.own : SKIN.muted, flex: 'none', whiteSpace: 'nowrap' } }, [meTurn ? '▶ 내 차례' : (G.winner !== undefined ? '종료' : '상대 차례…')]),
       el('span', { class: 'mono', style: { fontSize: '9px', color: SKIN.muted, flex: 'none' } }, ['액션']),
@@ -2331,10 +2333,12 @@
   // ---- controls
   function controls(meTurn) {
     var row = el('div', { style: { display: 'flex', alignItems: 'center', gap: COMPACT ? '7px' : '12px', padding: COMPACT ? '4px 7px' : '3px 12px', background: SKIN.chassisAlt, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo, flexWrap: 'wrap' } });
-    var pips = el('div', { style: { display: 'flex', gap: '4px', alignItems: 'center' } });
-    for (var i = 0; i < Math.max(2, G.actionBudget || 2); i++) pips.appendChild(el('span', { style: { width: COMPACT ? '16px' : '22px', height: '12px', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
+    var pips = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center', maxWidth: COMPACT ? '150px' : '230px' } });
+    var nA = Math.max(2, G.actionBudget || 2, G.actions || 0);       // 추가 액션 카드로 늘어난 총 칸(최대 9)
+    var pwA = nA > 5 ? (COMPACT ? '11px' : '15px') : (COMPACT ? '16px' : '22px'); // 칸이 많으면 폭 축소
+    for (var i = 0; i < nA; i++) pips.appendChild(el('span', { style: { width: pwA, height: '12px', flex: 'none', border: '1px solid ' + SKIN.ink, background: i < G.actions ? SKIN.heat : SKIN.chassisSunk } }));
     row.appendChild(pips);
-    row.appendChild(el('span', { class: 'mono', style: { fontSize: '11px' } }, [G.actions + '/' + Math.max(2, G.actionBudget || 2) + ' 액션']));
+    row.appendChild(el('span', { class: 'mono', style: { fontSize: '11px' } }, [G.actions + '/' + nA + ' 액션']));
     // 날씨(필드 환경)는 좌측 패널 배너(weatherBanner)에 상시 표시되므로 액션 바에는 중복 표기하지 않는다.
     // 포인터 시전 안내: 데스크톱은 우측 패널(전투 기록 위, ptrCastBanner)에 표시 → 컨트롤 바가 줄바꿈으로 늘어나지 않게 한다.
     // 모바일(COMPACT)만 액션 바에 간략 표기.

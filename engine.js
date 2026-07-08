@@ -21,6 +21,7 @@
   // ----------------------------------------------------------------- board helpers
   var COLS = 5, ROWS = 4;
   var BODY_HP = 40; // 100 → 50 (basic-attack rule, §5) → 40 (pacing: games felt loose at 50)
+  var MAX_ACTION_BUDGET = 9; // 한 턴 총 행동 상한(기본 2 + 추가 액션 카드 스택, Conduit 콤보 등). 구 4 → 9.
 
   // ----------------------------------------------------------------- RUNTIME WEATHER (판 전체 환경 효과)
   // 매 게임 1종이 결정적으로 지정된다(온라인은 seed 파생 → 양 클라 동일). clear 는 랜덤 풀에서 제외(무언가는 반드시 일어난다).
@@ -456,9 +457,9 @@
     for (var r = p[1] + dr; inB(p[0], r); r += dr) { var t = this.board[K(p[0], r)]; if (t && t.owner !== casterOwner && t.type === 'object') return t; }
     return null;
   };
-  // 행동 추가(yield/Sudo): 이번 턴 총 행동은 기본 2 + 추가로 최대 4까지 (rules v10 D5).
+  // 행동 추가(yield/overtime/Sudo): 이번 턴 총 행동은 기본 2 + 추가로 최대 9까지(콤보 스택 허용, Conduit 등).
   Game.prototype.grantActions = function (n) {
-    var room = 4 - (this.actionBudget || 2); var give = Math.max(0, Math.min(n, room));
+    var room = MAX_ACTION_BUDGET - (this.actionBudget || 2); var give = Math.max(0, Math.min(n, room));
     this.actionBudget = (this.actionBudget || 2) + give; this.actions += give; return give;
   };
   Game.prototype.firstEmptyHome = function (owner) {
@@ -530,8 +531,8 @@
   Game.prototype.beginTurn = function () {
     var p = this.active, pl = this.players[p];
     this.turnNo++; pl.turnsTaken++;
-    // 행동: 기본 2 + 이월(defer) — 총 상한 4 (rules v10 D5). actionBudget = 이번 턴 배정된 총 행동 수.
-    this.actionBudget = Math.min(4, 2 + (pl.deferredActions || 0));
+    // 행동: 기본 2 + 이월(defer) — 총 상한 MAX_ACTION_BUDGET. actionBudget = 이번 턴 배정된 총 행동 수(추가 액션 카드로 증가).
+    this.actionBudget = Math.min(MAX_ACTION_BUDGET, 2 + (pl.deferredActions || 0));
     this.actions = this.actionBudget; pl.deferredActions = 0;
     this.turnFlags = { pointerCastThisTurn: 0, lambdaBonus: 0, proxyBonus: 0, conduitUsed: false, extraPointer: 0, extraPointerRange: 0, extraActions: 0 };
     this.forUsesThisTurn = {};
