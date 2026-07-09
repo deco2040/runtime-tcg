@@ -955,9 +955,24 @@
       default: return true;
     }
   };
-  // human-readable cast condition (§ pointer 시전조건 표시). null = no condition.
+  // human-readable cast/require condition (§ 조건 표시). null = no condition.
+  // require/castCondition 은 구조 필드라 문장이 동적(cls·n) → DOM 번역기로 못 잡으므로 여기서 언어 분기.
   function castCondText(cond) {
     if (!cond) return null;
+    var en = !!(typeof window !== 'undefined' && window.RT_I18N && window.RT_I18N.is && window.RT_I18N.is('en'));
+    if (en) {
+      switch (cond.type) {
+        case 'turnCount': return 'your turn ' + cond.n + '+';
+        case 'destroyedAlly': return cond.n + '+ of your instances destroyed';
+        case 'pointersCast': return cond.n + '+ pointers cast';
+        case 'classOnBoard': return cond.n + '+ of your ' + cond.cls + ' on field';
+        case 'boardCount': return cond.n + '+ of your instances' + (cond.cls ? ' (' + cond.cls + ')' : '');
+        case 'selfBodyHP': return 'core HP ' + (cond.cmp || '=') + ' ' + cond.n;
+        case 'or': return castCondText(cond.a) + ' or ' + castCondText(cond.b);
+        case 'and': return castCondText(cond.a) + ' + ' + castCondText(cond.b);
+        default: return 'special condition';
+      }
+    }
     switch (cond.type) {
       case 'turnCount': return '내 턴 ' + cond.n + '회+ 진행';
       case 'destroyedAlly': return '내 인스턴스 ' + cond.n + '개+ 파괴됨';

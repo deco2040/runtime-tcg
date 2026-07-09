@@ -429,7 +429,7 @@
   // 효과문엔 효과만 남긴다. 조건이 여러 절(' · ')에 걸치기도 하므로:
   //  · 모드 키워드(Once/While/When/If/For)가 있으면(=인스턴스) 그 지점부터가 효과 → 앞의 조건 절 전부 제거.
   //  · 모드 키워드가 없으면(=포인터, 효과가 맨문장) 선행 메타 절만 앞에서부터 제거.
-  var _META_LEAD = /^\s*(덱당|require|조건)|단일\s*덱/;   // 한글은 \b가 안 먹으므로 경계 없이 접두 매칭
+  var _META_LEAD = /^\s*(덱당|require|조건|1 per deck|single[- ]class deck|single[- ]deck)|단일\s*덱/i;   // 한글은 \b가 안 먹으므로 경계 없이 접두 매칭. EN 리드(1 per deck 등)도 스트립.
   var _MODE_LEAD = /^\s*(Once|While|When|If|For)\b/;
   function effectOnly(text) {
     if (!text) return text || '';

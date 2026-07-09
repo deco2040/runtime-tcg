@@ -205,6 +205,7 @@
     "이번 턴 받는 모든 피해 무시(1턴).": "Ignore all damage taken this turn (1 turn).",
     "이 인스턴스가 필드에 존재하기 위한 사전 조건.": "A precondition for this instance to exist on the field.",
     "시전 조건": "Cast condition",
+    "선언 조건": "Play condition",
     "이 포인터를 시전하기 위한 사전 조건.": "A precondition for casting this pointer.",
     "thread · 공격형": "thread · attacker",
     "공高체低 글래스캐논. 집단 ATK 시너지·근접 압박. process에 강하고 memory에 약함.": "High-ATK, low-HP glass cannon. Group ATK synergy and melee pressure. Strong vs process, weak vs memory.",
