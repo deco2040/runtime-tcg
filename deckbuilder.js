@@ -201,8 +201,8 @@
   function faceFor(id, compact) {
     var api = window.__RT_UI;
     if (!api || !api.cardFaceEl) return null;
-    var th = UI.getTheme();
-    if (th !== _faceTheme) { _faceCache = {}; _faceTheme = th; }   // 테마 바뀌면 SKIN 색 반영 위해 캐시 무효화
+    var th = UI.getTheme() + '|' + ((window.RT_I18N && window.RT_I18N.lang) || 'ko');
+    if (th !== _faceTheme) { _faceCache = {}; _faceTheme = th; }   // 테마/언어 바뀌면 SKIN 색·효과문 반영 위해 캐시 무효화
     var key = id + (compact ? '|c' : '|f');
     if (!_faceCache[key]) {
       var n = null; try { n = api.cardFaceEl(id, { mode: 'idle', compact: !!compact }); } catch (e) {}
@@ -299,7 +299,7 @@
     var body = el('div', { style: { padding: '7px 9px 9px', display: 'flex', flexDirection: 'column', gap: '5px', background: dark ? '#17110a' : '#f4f5f8', textShadow: 'none' } }, [
       badges.length ? el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } }, badges) : null,
       el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: readTxt } }, [isP ? '◆ 포인터 · ' + String(c.cls).toUpperCase() : ('⚔ 공 ' + c.atk + '   ♥ 체 ' + c.hp)]),
-      el('div', { style: { fontSize: '12px', lineHeight: 1.55, color: readTxt, fontWeight: 500 } }, richText(c.text || '')),
+      el('div', { style: { fontSize: '12px', lineHeight: 1.55, color: readTxt, fontWeight: 500 } }, richText((window.RT_I18N && window.RT_I18N.cardText) ? window.RT_I18N.cardText(c) : (c.text || ''))),
       formsRow(id, 0.5)
     ]);
     return el('div', { style: { width: '212px', background: dark ? '#17110a' : '#f4f5f8', border: '1px solid ' + cl, boxShadow: '0 8px 24px rgba(0,0,0,.55)', overflow: 'hidden' } }, [title, illo(c, cl, dark, 116), body]);

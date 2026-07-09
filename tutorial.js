@@ -30,6 +30,8 @@
   // **볼드** 는 강조 스팬으로, 나머지 텍스트는 richText(키워드 툴팁 유지)로 렌더.
   function tutRich(text) {
     if (!text) return [];
+    // EN: 원문(** 마크업 포함) 전체를 사전에서 치환 후 파싱. 미등록 문자열은 한국어 유지.
+    var I = window.RT_I18N; if (I && I.lang === 'en' && I.dict && I.dict[text] != null) text = I.dict[text];
     var out = [], re = /\*\*([^*]+)\*\*/g, last = 0, m;
     while ((m = re.exec(text))) {
       if (m.index > last) out = out.concat(richText(text.slice(last, m.index)));

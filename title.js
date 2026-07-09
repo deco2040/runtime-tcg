@@ -84,6 +84,11 @@
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { UI.renderTutorial(0); } }, ['📖 게임방법']),
       el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { window.open('cards.html', '_blank', 'noopener'); } }, ['📇 도감'])
     ]);
+    // 언어 토글(KO↔EN) — 라벨은 '전환할 대상' 언어를 표시. data-noi18n 으로 DOM 번역기 제외(직접 라벨 관리).
+    var I18N = window.RT_I18N;
+    if (I18N && I18N.toggle) {
+      row.appendChild(el('button', { 'data-noi18n': '1', class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { I18N.toggle(); } }, [I18N.lang === 'en' ? '🌐 한국어' : '🌐 ENGLISH']));
+    }
     var dc = window.RT_DISCORD && window.RT_DISCORD.invite;
     if (dc && dc.indexOf('YOUR-') === -1) row.appendChild(el('button', { class: 'crt-btn ghost', style: { fontSize: '15px' }, onclick: function () { window.open(dc, '_blank', 'noopener'); } }, ['💬 DISCORD']));
     return row;

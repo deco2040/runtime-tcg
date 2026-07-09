@@ -535,12 +535,12 @@
     var st = Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: fs + 'px', lineHeight: 1.65, padding: '3px 5px', minHeight: (opts.min != null ? opts.min : 26) + 'px', overflow: 'hidden' }, opts.flex ? { flex: 1 } : {}, sunkenBev());
     // data-fit: 렌더 후 fitHand()가 넘치면 폰트를 자동 축소(잘림 방지). opts.fit === false 면 제외.
     var props = opts.fit === false ? { style: st } : { style: st, 'data-fit': '1', 'data-fit-fs': fs };
-    return el('div', props, richText(effectOnly(card.text)));
+    return el('div', props, richText(effectOnly(cardTextOf(card))));
   }
   // 카드 표시 텍스트 총량(선언조건 문구 + 효과문 길이). 폰트 자동축소 규칙 판정용.
   function combinedTextLen(card) {
     if (!card) return 0;
-    var et = (effectOnly(card.text) || '').length, ct = 0;
+    var et = (effectOnly(cardTextOf(card)) || '').length, ct = 0;
     try { var cs = condSpec(card); if (cs && cs.text) ct = cs.text.length; } catch (e) {}
     return et + ct;
   }
@@ -678,6 +678,8 @@
   // 피격 트리거 강조(이슈 7). 룰상 「피격 시」로 단일화 — 가독성을 위해 앰버칩으로 강조.
   var DMG_TRIGGER = { '피격 시': 1 };
   var KW_PHRASES = Object.keys(GLOSS).sort(function (a, b) { return b.length - a.length; });
+  // 카드 효과문(현재 언어) — EN 이면 i18n 카드 테이블, 아니면 원문. richText 가 조각내므로 소스레벨에서 치환.
+  function cardTextOf(c) { var I = window.RT_I18N; return (I && I.cardText) ? I.cardText(c) : ((c && c.text) || ''); }
   function richText(text) {
     if (!text) return [];
     var nodes = [], i = 0, buf = '';
@@ -759,7 +761,7 @@
       el('div', { style: { padding: '7px 9px' } }, [
         el('div', { class: isP ? 'mono' : 'grot', style: { fontWeight: 700, fontSize: '16px', marginBottom: '5px' } }, [card.name]),
         isP ? null : el('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px' } }, [statBar('ATK', atk, ATK_MAX, SKIN.heat, unit ? card.atk : null), statBar('HP', hp, HP_MAX, SKIN.own)]),
-        el('div', { style: { fontSize: '11px', color: SKIN.txt, lineHeight: 1.5, marginBottom: '6px' } }, richText(effectOnly(card.text))),
+        el('div', { style: { fontSize: '11px', color: SKIN.txt, lineHeight: 1.5, marginBottom: '6px' } }, richText(effectOnly(cardTextOf(card)))),
         condLine(condSpec(card), { fs: 9, margin: '0 0 5px' }),
         deckRuleLine(card, { fs: 9, margin: '0 0 5px' }),
         isP ? null : el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, fontWeight: 700, marginBottom: '5px' } }, ['⚔ 기본 공격 · 옆칸 1칸']),
@@ -1144,7 +1146,7 @@
       el('div', { style: Object.assign({ position: 'relative', background: SKIN.face, padding: '3px', boxShadow: '0 16px 34px rgba(0,0,0,.55)' }, raisedBev()) }, [
         winTitlebar(card, { iconPx: 15, nameFs: 12, hatch: owner !== HUMAN }),
         viewportBox(card, 92, { gScale: 0.5 }),
-        el('div', { style: Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, padding: '6px 7px', fontSize: '10.5px', lineHeight: 1.65 }, sunkenBev()) }, richText(effectOnly(card.text)))
+        el('div', { style: Object.assign({ margin: '3px 2px 0', background: SKIN.effBg, color: SKIN.effTxt, padding: '6px 7px', fontSize: '10.5px', lineHeight: 1.65 }, sunkenBev()) }, richText(effectOnly(cardTextOf(card))))
       ])
     ]);
     var L = fxLayer(); L.appendChild(lbl); L.appendChild(wrap);
@@ -2386,7 +2388,7 @@
         el('div', { style: Object.assign({ margin: '3px 2px 0', flex: 1, minHeight: '0', background: SKIN.effBg, color: SKIN.effTxt, fontSize: effFs + 'px', padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }, sunkenBev()), 'data-fit': '1', 'data-fit-fs': effFs }, [
           el('div', { style: { display: 'flex', gap: '6px', alignItems: 'flex-start' } }, [
             el('div', { style: { width: '20px', height: '20px', flex: 'none', borderRadius: '50%', background: '#d8472b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' } }, ['⚡']),
-            el('div', { style: { minWidth: 0, lineHeight: 1.65 } }, richText(effectOnly(card.text)))
+            el('div', { style: { minWidth: 0, lineHeight: 1.65 } }, richText(effectOnly(cardTextOf(card))))
           ])
         ]),
         el('div', { style: { display: 'flex', justifyContent: 'center', margin: '3px 2px 2px' } }, [
@@ -2453,7 +2455,7 @@
       el('span', { class: 'mono', style: { fontSize: '9px', color: cl, fontWeight: 700 } }, [(card.cls || 'generic').toUpperCase()]),
       isP ? el('span', { class: 'mono', style: { fontSize: '9px', color: '#d8472b', fontWeight: 700 } }, ['포인터']) : null
     ])];
-    rows.push(el('div', { style: { fontSize: '12.5px', lineHeight: 1.5 } }, richText(effectOnly(card.text))));
+    rows.push(el('div', { style: { fontSize: '12.5px', lineHeight: 1.5 } }, richText(effectOnly(cardTextOf(card)))));
     var pcond = condSpec(card);
     if (pcond) rows.push(condLine(pcond, { fs: 10, margin: '0' }));
     if (card.deckRule) rows.push(deckRuleLine(card, { fs: 10, margin: '0' }));
@@ -2469,7 +2471,7 @@
     var head = winTitlebar(card, { iconPx: 12, nameFs: 10, right: isP ? el('span', { class: 'mono', style: { fontSize: '8px', fontWeight: 700, color: '#fff', background: '#d8472b', padding: '1px 4px', flex: 'none' } }, ['⚡']) : null });
     if (isP) return el('div', { style: st }, [
       head, viewportBox(card, 64, { gScale: 0.5 }),
-      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.6, overflow: 'hidden' }, sunkenBev()) }, richText(effectOnly(card.text)))
+      el('div', { style: Object.assign({ flex: 1, margin: '3px 2px', padding: '5px 6px', background: SKIN.effBg, color: SKIN.effTxt, fontSize: '8.5px', lineHeight: 1.6, overflow: 'hidden' }, sunkenBev()) }, richText(effectOnly(cardTextOf(card))))
     ]);
     return el('div', { style: st }, [
       head, viewportBox(card, 60, { gScale: 0.5 }),
@@ -2777,7 +2779,7 @@
         (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.enemy, marginBottom: '7px' } }, ['피해 누적 ' + (mx - hp) + ' · 최대 ' + mx]) : null,
         (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.faint, marginBottom: '7px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
         card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ OP 카드 · 덱당 ' + card.deckLimit + '장 제한']) : null,
-        el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(effectOnly(card.text))),
+        el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(effectOnly(cardTextOf(card)))),
         condLine(condSpec(card), { fs: 11.5, margin: '0 0 9px' }),
         deckRuleLine(card, { fs: 11.5, margin: '0 0 9px' }),
         forLeftLines(card, bu),
