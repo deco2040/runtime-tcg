@@ -292,7 +292,7 @@
     if (amt > 0) {
       var at = source && source.attacker;
       // 시전 데미지는 attacker 를 { owner } 합성 객체로만 넘기는 카드가 많다(cardId 없음).
-      // → 연출 클래스는 실제 공격 유닛이 있으면 그 클래스, 없으면 시전 카드(_castCard)의 클래스로 폴백(무방비 cardCls 접근 금지).
+      // → 연출 클래스는 실제 공격 인스턴스가 있으면 그 클래스, 없으면 시전 카드(_castCard)의 클래스로 폴백(무방비 cardCls 접근 금지).
       var srcCardId = at && at.cardId ? at.cardId : (at ? this._castCard : undefined);
       var atkCls = (at && at.cardId) ? cardCls(at) : (CARDS[srcCardId] ? CARDS[srcCardId].cls : undefined);
       this.fx({ type: 'damage', key: tkey, amount: amt, srcOwner: at ? at.owner : undefined, srcCard: srcCardId, atkCls: atkCls, via: (source && source.via) ? source.via : (at ? 'ability' : 'system') });
@@ -338,15 +338,15 @@
     (card.abilities || []).forEach(function (ab) {
       if (ab.trigger === 'onDeath') { self.beginResolve(); ab.fn(self, u, { atKey: k }); self.endResolve(); }
     });
-    // onUnitDeath watchers (Atomic·Journal 등 — 다른 유닛의 파괴를 감시)
+    // onUnitDeath watchers (Atomic·Journal 등 — 다른 인스턴스의 파괴를 감시)
     this.boardUnits().forEach(function (w) {
       (CARDS[w.cardId].abilities || []).forEach(function (ab) {
         if (ab.trigger === 'onUnitDeath') { self.beginResolve(); ab.fn(self, w, { dead: u, atKey: k }); self.endResolve(); }
       });
     });
     // 오라 소멸 연쇄 사망 처리: 이 파괴로 오라(Persist 최대체력+2·Polymorph +1)가 사라지면
-    // 인접/전역 유닛의 effMaxHp 가 줄어 curHp 가 0 이하가 될 수 있다. deal 은 피격 순간에만
-    // 사망을 검사하므로, 여기서 보드를 훑어 음수 체력 잔존 유닛을 마저 파괴한다(버그: 포인터로
+    // 인접/전역 인스턴스의 effMaxHp 가 줄어 curHp 가 0 이하가 될 수 있다. deal 은 피격 순간에만
+    // 사망을 검사하므로, 여기서 보드를 훑어 음수 체력 잔존 인스턴스를 마저 파괴한다(버그: 포인터로
     // Persist 처치 시 오라 버프받던 적이 체력 마이너스로 살아남던 문제).
     this.reap();
   };
@@ -404,7 +404,7 @@
     if (u && u.flags && u.flags.wall) return false;   // 중립 벽 = 이동 불가(모든 강제이동의 단일 진입점)
     var from = unitKey(this, u); if (!from || this.board[toKey]) return false;
     delete this.board[from]; this.board[toKey] = u;
-    // 강제이동·재배치·teleport(for 함수) 공통 이동 연출 진입점 — from+to 로 유닛 슬라이드.
+    // 강제이동·재배치·teleport(for 함수) 공통 이동 연출 진입점 — from+to 로 인스턴스 슬라이드.
     this.fx({ type: 'move', from: from, to: toKey });
     return true;
   };
@@ -548,7 +548,7 @@
     this.checkTurnCap();
     this.emit();
   };
-  // 런타임 환경 틱 — memleak: 8ply부터 매 ply 전 유닛 HP−1. (컨텍스트 스위치 등 비피해형 환경은 틱 없음)
+  // 런타임 환경 틱 — memleak: 8ply부터 매 ply 전 인스턴스 HP−1. (컨텍스트 스위치 등 비피해형 환경은 틱 없음)
   Game.prototype.applyWeatherTick = function () {
     var w = this.weather; if (!w || this.turnNo < WEATHER_HAZARD_START) return;
     if (w === 'memleak') {
@@ -672,7 +672,7 @@
     ortho(p[0], p[1]).forEach(function (nk) { var t = self.board[nk]; if (t && t.owner !== u.owner) out.push(nk); });
     return out;
   };
-  // 이번 턴 남은 기본 공격 보너스(Preempt·retry()·Broadcast). 유닛당 턴 1회 + 보너스만큼 추가.
+  // 이번 턴 남은 기본 공격 보너스(Preempt·retry()·Broadcast). 인스턴스당 턴 1회 + 보너스만큼 추가.
   Game.prototype.grantBonusAttack = function (u, n) { if (!u || u.type !== 'object') return; if (u.bonusAtkTurn !== this.turnNo) { u.bonusAtkTurn = this.turnNo; u.bonusAtk = 0; } u.bonusAtk += (n || 1); };
   Game.prototype.hasBonusAttack = function (u) { return u.bonusAtkTurn === this.turnNo && u.bonusAtk > 0; };
   Game.prototype.canBasicAttack = function (u) {
@@ -680,7 +680,7 @@
     if (u.type !== 'object') return false;
     if (this.isBound(u)) return false;                // rules v10: 봉쇄 = 기본 공격도 불가
     if (this.effAtk(u) <= 0) return false;            // ATK 0 / atk-zero'd / walls can't attack
-    // rules v11: 선언 즉시 전투 가능(소환멀미 없음). 유닛당 턴 1회 + 보너스 공격만 예외.
+    // rules v11: 선언 즉시 전투 가능(소환멀미 없음). 인스턴스당 턴 1회 + 보너스 공격만 예외.
     if (u.attackedTurn === this.turnNo && !this.hasBonusAttack(u)) return false;
     return this.basicAttackTargets(u).length > 0;
   };
@@ -729,7 +729,7 @@
   var CASTRANGE = {
     // 포병(본체 기준): 적 앞줄까지 · 적 뒷줄·본체는 안전
     'free()':   { from: 'body', n: 2 },
-    // 기본 데미지/디버프(내 유닛·본체 기준 2칸): 유닛을 전진시키면 적 뒷줄까지 도달
+    // 기본 데미지/디버프(내 인스턴스·본체 기준 2칸): 인스턴스를 전진시키면 적 뒷줄까지 도달
     'kill()':   { from: 'allyOrBody', n: 2 },
     'ping()':   { from: 'allyOrBody', n: 2 },
     'drop()':   { from: 'allyOrBody', n: 2 },
@@ -757,7 +757,7 @@
   function pointerRangeInfo(id) {
     var c = CARDS[id]; if (!c || c.kind !== 'pointer' || (c.need !== 'enemy' && c.need !== 'cell')) return null;
     var s = castSpec(id); if (s.unlimited) return null;
-    var fromTxt = s.from === 'body' ? '본체' : (s.from === 'ally' ? '내 유닛' : '내 유닛·본체');
+    var fromTxt = s.from === 'body' ? '본체' : (s.from === 'ally' ? '내 인스턴스' : '내 인스턴스·본체');
     return { from: s.from, n: s.n, text: fromTxt + ' 기준 ' + s.n + '칸 이내' };
   }
   Game.prototype.castOrigins = function (player, spec) {
@@ -1034,7 +1034,7 @@
     g.allyObjects(me).forEach(function (u) { if (g.canBasicAttack(u) && g.basicAttackTargets(u).indexOf(bk) >= 0) sum += g.effAtk(u); });
     return sum;
   }
-  // 방어 휴리스틱: 적 유닛 t 가 내(me) 본체를 기본공격 사거리에 두는가(= 내 본체를 때리는/때릴 놈).
+  // 방어 휴리스틱: 적 인스턴스 t 가 내(me) 본체를 기본공격 사거리에 두는가(= 내 본체를 때리는/때릴 놈).
   function aiThreatensBody(g, t, myBK) {
     if (!t || t.type !== 'object' || g.effAtk(t) <= 0) return false;
     var tt = g.basicAttackTargets(t); return tt && tt.indexOf(myBK) >= 0;
@@ -1047,7 +1047,7 @@
     if (bodyK && (lethalBody || g.curHp(g.board[bodyK]) <= atk)) return bodyK;             // finishing / committed lethal
     var kills = tg.filter(function (k) { var t = g.board[k]; return t.type === 'object' && g.curHp(t) <= atk && g.effAtk(t) > 0; });
     if (kills.length) {
-      // 원샷 가능한 대상 중 '내 본체를 노리는 유닛'을 최우선(다운사이드 없음 — 어차피 잡을 유닛이면 본체 때리는 놈부터), 그다음 공격력 큰 순.
+      // 원샷 가능한 대상 중 '내 본체를 노리는 인스턴스'을 최우선(다운사이드 없음 — 어차피 잡을 인스턴스면 본체 때리는 놈부터), 그다음 공격력 큰 순.
       kills.sort(function (a, b) {
         var da = aiThreatensBody(g, g.board[a], myBK) ? 1 : 0, db = aiThreatensBody(g, g.board[b], myBK) ? 1 : 0;
         if (da !== db) return db - da;
@@ -1065,7 +1065,7 @@
   }
   // 변위 전용 포인터(피해·디버프 없이 적 위치만 1칸 바꿈) — 아무 적이나 밀면 액션 낭비라, AI는 가치 있을 때만 시전.
   var DISP_PTR = { 'push()': 'away', 'memcpy()': 'away', 'pull()': 'toward' };
-  // cellKey 로 끌려온 적(hp)을 즉시 옆칸 기본공격으로 처치할 내 유닛이 있는가(pull 킬셋업 판정).
+  // cellKey 로 끌려온 적(hp)을 즉시 옆칸 기본공격으로 처치할 내 인스턴스가 있는가(pull 킬셋업 판정).
   function aiAdjAllyKills(g, me, cellKey, hp) {
     var p = P(cellKey), adj = ortho(p[0], p[1]);
     for (var i = 0; i < adj.length; i++) { var u = g.board[adj[i]]; if (u && u.type === 'object' && u.owner === me && g.canBasicAttack(u) && g.effAtk(u) >= hp) return true; }
@@ -1208,7 +1208,7 @@
   function placeDeadlockWalls(g) {
     var cells = [], c;
     for (c = 1; c <= COLS; c++) { cells.push(K(c, 2)); cells.push(K(c, 3)); }
-    // seed rng 로 셔플(양 클라 동일) 후 앞 3칸 — 본체/유닛 없는 통로라 항상 빈 칸.
+    // seed rng 로 셔플(양 클라 동일) 후 앞 3칸 — 본체/인스턴스 없는 통로라 항상 빈 칸.
     for (var i = cells.length - 1; i > 0; i--) { var j = Math.floor(g.rng() * (i + 1)); var t = cells[i]; cells[i] = cells[j]; cells[j] = t; }
     var n = Math.min(3, cells.length);
     for (var w = 0; w < n; w++) {

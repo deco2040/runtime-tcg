@@ -195,7 +195,7 @@
   }
   function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
 
-  // 덱 대표 카드 id — 명시된 d.cover 우선, 없으면 리스트에서 첫 '비토큰 유닛(가능하면 아트 보유)'.
+  // 덱 대표 카드 id — 명시된 d.cover 우선, 없으면 리스트에서 첫 '비토큰 인스턴스(가능하면 아트 보유)'.
   function deckCoverId(d) {
     var C = (RT && RT.CARDS) || {}, ART = window.RT_ART || {}, TOK = /^(Token|Wall|__)/;
     if (d.cover && C[d.cover]) return d.cover;

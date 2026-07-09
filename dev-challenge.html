@@ -134,7 +134,7 @@
         return t;
       }
       function renderTable(t) {
-        var rows = '<table><thead><tr><th>단계</th><th>보스</th><th>본체 HP(40+버프)</th><th>추가 드로우</th><th>선발 유닛</th><th>날씨 풀</th><th>상대 덱</th></tr></thead><tbody>';
+        var rows = '<table><thead><tr><th>단계</th><th>보스</th><th>본체 HP(40+버프)</th><th>추가 드로우</th><th>선발 인스턴스</th><th>날씨 풀</th><th>상대 덱</th></tr></thead><tbody>';
         for (var s = 1; s <= t.maxStage; s++) {
           var boss = isBoss(s, t);
           var hp = (s <= 1) ? 0 : (s - 1) * t.hpPerStage + (boss ? t.bossHpBonus : 0);

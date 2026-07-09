@@ -202,7 +202,7 @@
       abilities: [{ kw: 'When', trigger: 'onPointerCast', fn: function (G, u) { if (u.flags.relayTurn === G.turnNo) return; u.flags.relayTurn = G.turnNo; G.buffAtk(u, 1); G.around(u).filter(function (x) { return x.owner === u.owner && cardCls(x) === 'process' && x.type === 'object'; }).forEach(function (x) { G.buffAtk(x, 1); }); } }] });
     def({ id: 'Raycast', cls: 'process', kind: 'object', atk: 6, hp: 5, deckRule: 'processSingle', text: 'For(1) 네 대각선 방향 2칸 내 적 하나에게 공격력만큼 피해',
       abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = ch.target ? G.board[ch.target] : G.unitsInShape(u, diagonal, 2).filter(function (x) { return x.owner !== u.owner; }).sort(function (a, b) { return G.curHp(a) - G.curHp(b); })[0]; if (t) G.deal(t, G.effAtk(u), { attacker: u }); } }] });
-    def({ id: 'Jump', cls: 'process', kind: 'object', atk: 5, hp: 5, deckRule: 'processSingle', text: 'For(2) 「3칸이내」 빈 칸으로 이동(경로의 벽·유닛 무시)',
+    def({ id: 'Jump', cls: 'process', kind: 'object', atk: 5, hp: 5, deckRule: 'processSingle', text: 'For(2) 「3칸이내」 빈 칸으로 이동(경로의 벽·인스턴스 무시)',
       abilities: [{ kw: 'For', forCount: 2, trigger: 'onTurnStart', ready: function (G, u) { return !!jumpEmpty(G, u); }, fn: function (G, u, ch) { var k = unitKey(G, u); var dest = (ch.dest && !G.board[ch.dest] && k && cheb(k, ch.dest) <= 3) ? ch.dest : jumpEmpty(G, u); if (dest) G.teleport(u, dest); } }] });
     def({ id: 'Exploit', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'When 선언 시 적 인스턴스 하나 공격력 -3',
       abilities: [{ kw: 'When', trigger: 'onSummon', fn: function (G, u) { var t = strongestEnemy(G, u.owner); if (t) G.buffAtk(t, -3); } }] });
@@ -246,7 +246,7 @@
     def({ id: 'memcpy()', cls: 'process', kind: 'pointer', need: 'enemy', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 적 인스턴스 하나를 그 「옆칸」 빈 칸으로 강제 이동',
       castValid: function (G, p, tk) { var u = G.board[tk]; return !!u && u.owner !== p && emptyAround(G, tk).some(function (c) { return manh(c, tk) === 1; }); },
       cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.shoveToEmpty(u, p); } });
-    def({ id: 'goto()', cls: 'process', kind: 'pointer', need: 'allyProcess', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 내 process 1장 「3칸이내」 빈 칸으로 이동(경로의 벽·유닛 무시)',
+    def({ id: 'goto()', cls: 'process', kind: 'pointer', need: 'allyProcess', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 내 process 1장 「3칸이내」 빈 칸으로 이동(경로의 벽·인스턴스 무시)',
       castValid: function (G, p, tk) { var u = G.board[tk]; return !!u && u.owner === p && !!jumpEmpty(G, u); },
       cast: function (G, p, tk, o) { var u = G.board[tk]; if (!u) return; var dest = (o && o.dest && !G.board[o.dest] && cheb(tk, o.dest) <= 3) ? o.dest : jumpEmpty(G, u); if (dest) G.teleport(u, dest); } });
     def({ id: 'snipe()', cls: 'process', kind: 'pointer', deckRule: 'processSingle', need: 'none', text: '「앞직선4·첫」 적 7 피해 · 직격(피해감소 무시)', cast: function (G, p, tk, o) { var n = 4 + (o.rangeBonus || 0); var t = G.firstEnemyInLine(bodyKey(p), p, n, false); if (t) { G.deal(t, 7, { attacker: { owner: p }, direct: true }); return; } var bp = P(bodyKey(p)), eb = P(bodyKey(1 - p)); if (bp[0] === eb[0] && Math.abs(eb[1] - bp[1]) <= n) { var dr = fwd(p), blk = false; for (var kk = 1; kk < Math.abs(eb[1] - bp[1]); kk++) { if (G.board[K(bp[0], bp[1] + dr * kk)]) { blk = true; break; } } if (!blk) G.deal(G.enemyBody(p), 7, { attacker: { owner: p }, direct: true }); } } });
@@ -260,7 +260,7 @@
       cast: function (G, p, tk) { var u = G.board[tk]; if (u) G.pushAway(u, p); } });
     def({ id: 'chain()', cls: 'process', kind: 'pointer', deckRule: 'processSingle', need: 'enemy', text: '적 하나와 그 뒤 같은 열 첫 적 인스턴스(적 진영 방향)에게 각 4 피해', cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var back = G.chainBackEnemy(tk, p); G.deal(u, 4, { attacker: { owner: p } }); if (back && G.board[unitKey(G, back)]) G.deal(back, 4, { attacker: { owner: p } }); } });
     def({ id: 'proxy()', cls: 'process', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 4 }, text: '조건 내 턴 4회+ · 다음 시전하는 포인터 효과 2회 발동', cast: function (G, p) { G.turnFlags.proxyRepeat = true; } });
-    def({ id: 'trace()', cls: 'process', kind: 'pointer', need: 'allyProcess', text: '내 process 1장을 적 인스턴스 하나의 「1칸이내」 빈 칸으로 이동(경로의 벽·유닛 무시) + 그 적 인스턴스에게 2 피해',
+    def({ id: 'trace()', cls: 'process', kind: 'pointer', need: 'allyProcess', text: '내 process 1장을 적 인스턴스 하나의 「1칸이내」 빈 칸으로 이동(경로의 벽·인스턴스 무시) + 그 적 인스턴스에게 2 피해',
       castValid: function (G, p, tk) { var u = G.board[tk]; if (!u || u.owner !== p) return false; var en = bestEnemyObj(G, p); return !!en && emptyAround(G, unitKey(G, en)).length > 0; },
       cast: function (G, p, tk, o) { var u = G.board[tk]; var en = (o && o.second && G.board[o.second]) ? G.board[o.second] : bestEnemyObj(G, p); if (!u || !en) return; var dest = emptyAround(G, unitKey(G, en))[0]; if (dest) G.teleport(u, dest); if (G.board[unitKey(G, en)]) G.deal(en, 2, { attacker: u }); } });
     def({ id: 'rotate()', cls: 'process', kind: 'pointer', need: 'none', castCondition: { type: 'turnCount', n: 3 }, text: '조건 내 턴 3회+ · 적 인스턴스 2장 위치 교환',

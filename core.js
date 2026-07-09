@@ -28,9 +28,9 @@
   // RUNTIME ENV — 게임마다 1종 지정(engine G.weather). 발동 턴 문구는 엔진 상수(memleak 8ply)와 일치.
   var WEATHER_INFO = {
     clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '특이 효과 없음 — 표준 런타임.' },
-    overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '모든 유닛 공격력 +1 (양측).' },
-    throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '모든 유닛 공격력 −1 (최소 0).' },
-    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴부터 매 턴 모든 유닛 HP −1.' },
+    overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '모든 인스턴스 공격력 +1 (양측).' },
+    throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '모든 인스턴스 공격력 −1 (최소 0).' },
+    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴부터 매 턴 모든 인스턴스 HP −1.' },
     ctxswitch: { name: '컨텍스트 스위치', en: 'CONTEXT SWITCH', icon: '🔀', color: '#3fae8f', desc: '양측 매 턴 추가 행동 +1.' },
     deadlock: { name: '교착', en: 'DEADLOCK', icon: '⛓️', color: '#b8823a', desc: '교착 노드가 필드를 가로막는다 — 공격 가능·이동 불가.' }
   };
@@ -423,7 +423,7 @@
     }
     return grid;
   }
-  // (기본 공격 뱃지 basicAtkChip 제거 — 모든 유닛 공통이라 카드마다 표기하지 않음. 피드백 반영.)
+  // (기본 공격 뱃지 basicAtkChip 제거 — 모든 인스턴스 공통이라 카드마다 표기하지 않음. 피드백 반영.)
   // ===== 조건 · 효과 분리/통일 (이슈 4·6) =====
   // 효과문에서 선행 메타 절(덱당 N · require … · 조건 … · XX 단일 덱)을 제거 — 이들은 리본/조건 라인으로 별도 렌더하므로
   // 효과문엔 효과만 남긴다. 조건이 여러 절(' · ')에 걸치기도 하므로:
@@ -602,12 +602,12 @@
     'memory': { t: 'memory · 방어형', d: '공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함.' },
     'process': { t: 'process · 유틸형', d: '변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함.' },
     'generic': { t: 'generic · 무클래스', d: '이종 시너지형. 3클래스가 동족 시너지라면 generic은 이종 시너지(다른 클래스를 섞을수록 강함) + 어디서나 작동하는 기본 부품. 참조값: 내 필드 클래스 종류 수(generic 포함, 최대 4).' },
-    '적': { t: '적 = 적 유닛 + 적 본체', d: '「적」은 적 인스턴스와 적 본체를 함께 가리킨다. 피해를 주는 능력·포인터는 범위·직선이 닿으면 본체도 직접 노린다. 봉쇄·강제 이동·약화·바운스 등 조작 효과는 인스턴스에만 적용. 「적 인스턴스」/「적 본체」로 명시된 경우엔 그 대상만.' },
+    '적': { t: '적 = 적 인스턴스 + 적 본체', d: '「적」은 적 인스턴스와 적 본체를 함께 가리킨다. 피해를 주는 능력·포인터는 범위·직선이 닿으면 본체도 직접 노린다. 봉쇄·강제 이동·약화·바운스 등 조작 효과는 인스턴스에만 적용. 「적 인스턴스」/「적 본체」로 명시된 경우엔 그 대상만.' },
     '본체': { t: '본체', d: '플레이어 거점(HP 40). 0 이하면 패배. 보드 칸이라 「적」 피해(기본 공격·라인·데미지 포인터)의 대상에 포함된다.' },
     '봉쇄': { t: '봉쇄', d: '봉쇄된 인스턴스는 이동·기본 공격·For 능동이 전부 불가. While 지속 오라와 When/If/Once 트리거는 유지된다.' },
     '이동 불가': { t: '이동 불가', d: '이동만 막는 부분 제한(Cache·Const 자신·ROM). 기본 공격·For·능력은 정상. 봉쇄와 별개.' },
-    '관통': { t: '관통(벽 너머)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 지정·타격(대상 지정 관통). 피해량 수정과는 무관 — 피해감소 무시는 「직격」.' },
-    '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·유닛을 무시하고 직선상의 대상을 지정·타격.' },
+    '관통': { t: '관통(벽 너머)', d: '중간의 벽·인스턴스를 무시하고 직선상의 대상을 지정·타격(대상 지정 관통). 피해량 수정과는 무관 — 피해감소 무시는 「직격」.' },
+    '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·인스턴스를 무시하고 직선상의 대상을 지정·타격.' },
     '직격': { t: '직격 · 피해감소 무시', d: '대상의 받는 피해 감소(피해 -N·절반·상한·최소치 보정)를 무시하고 그대로 적용. 차단(막음)과 반사에는 정상 적용.' },
     '분신': { t: '분신(토큰)', d: '카드가 아닌 효과로 생성된 인스턴스. 생성한 카드의 클래스를 상속한다. 「내 thread 전부」·클래스 종류 수 판정에 포함.' },
     '인스턴스': { t: '인스턴스(오브젝트)', d: '필드 칸에 놓이는 카드. 공격력·체력을 가진다.' },
@@ -617,14 +617,14 @@
     '회복': { t: '회복', d: '받은 피해를 N만큼 제거한다. 최대 체력 초과 불가.' },
     '수리': { t: '수리(받은 피해 전부 회복)', d: '받은 피해를 전량 제거(compact()·Snapshot).' },
     '영구': { t: '영구', d: '지속시간 무표기 버프·디버프는 영구. 「(영구)」 별도 표기는 쓰지 않는다.' },
-    '옆칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
-    '옆 칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 유닛의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
+    '옆칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 인스턴스의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
+    '옆 칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 인스턴스의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
     '1칸이내': { t: '1칸이내 = 8칸', d: '체비셰프 거리 ≤ 1(중심 제외), 대각 포함 — 둘러싼 8칸. (구 「주위」 흡수)' },
     '2칸이내': { t: '2칸이내', d: '체비셰프 거리 ≤ 2 블록(중심 제외), 대각 포함.' },
     '3칸이내': { t: '3칸이내', d: '체비셰프 거리 ≤ 3 블록(중심 제외), 대각 포함.' },
     '주위': { t: '주위 → 「1칸이내」', d: '대각 포함 둘러싼 8칸 = square(1). 「1칸이내」로 통일됨.' },
-    '나이트': { t: '나이트(도약)', d: '자기 칸 기준 (±1,±2)·(±2,±1) 도약 8칸. 중간 칸의 벽·유닛을 무시(도약). 체스 나이트와 같은 모양.' },
-    '밀어내기': { t: '밀어내기(넉백)', d: '대상을 적 진영 방향(시전자 반대편)으로 1칸 이동. 그 칸이 비어 있어야 하며, 벽·유닛·판 끝으로 막혔으면 시전 불가.' },
+    '나이트': { t: '나이트(도약)', d: '자기 칸 기준 (±1,±2)·(±2,±1) 도약 8칸. 중간 칸의 벽·인스턴스를 무시(도약). 체스 나이트와 같은 모양.' },
+    '밀어내기': { t: '밀어내기(넉백)', d: '대상을 적 진영 방향(시전자 반대편)으로 1칸 이동. 그 칸이 비어 있어야 하며, 벽·인스턴스·판 끝으로 막혔으면 시전 불가.' },
     '끌어당기기': { t: '끌어당기기', d: '대상을 시전자 본체 방향으로 1칸 이동. 시전자 앞칸이 비어 있어야 하며, 막혔으면 시전 불가.' },
     '1칸이동': { t: '1칸 이동', d: '상하좌우 인접한 빈 칸으로 1칸 옮긴다. 목적 칸이 막혔으면 이동/시전 불가.' },
     '강제 이동': { t: '강제 이동', d: '효과가 대상의 의사와 무관하게 경로를 따라 옮긴다. 강제이동 트리거(Thrash)와 진입 트리거가 발동.' },
@@ -753,7 +753,7 @@
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: isP ? '#1d1d24' : cl, borderBottom: isP ? '2px solid ' + cl : 'none' } }, [
         el('span', { style: { fontSize: '12px', color: isP ? cl : '#fff' } }, [isP ? '◆' : GLY[card.cls]]),
         el('span', { style: { fontSize: '9px', color: isP ? cl : '#fff', letterSpacing: '.08em' } }, [isP ? '포인터' : card.cls]),
-        unit ? el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '8px', color: '#fff', background: ownerColor(unit.owner), padding: '0 4px' } }, [unit.owner === HUMAN ? '내 유닛' : '상대 유닛']) : el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '8px', color: isP ? SKIN.faint : '#fff' } }, [isP ? 'POINTER' : 'OBJECT'])
+        unit ? el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '8px', color: '#fff', background: ownerColor(unit.owner), padding: '0 4px' } }, [unit.owner === HUMAN ? '내 인스턴스' : '상대 인스턴스']) : el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '8px', color: isP ? SKIN.faint : '#fff' } }, [isP ? 'POINTER' : 'OBJECT'])
       ]),
       el('div', { style: { padding: '7px 9px' } }, [
         el('div', { class: isP ? 'mono' : 'grot', style: { fontWeight: 700, fontSize: '16px', marginBottom: '5px' } }, [card.name]),
@@ -916,7 +916,7 @@
     var base = 'translate(-50%,-50%) rotate(-42deg)';
     anim(n, [{ transform: base + ' scaleX(0)', opacity: 0 }, { transform: base + ' scaleX(1)', opacity: 1, offset: .35 }, { transform: base + ' scaleX(1)', opacity: 0 }], { duration: 230, easing: 'cubic-bezier(.2,.8,.3,1)' });
   }
-  // 근접 돌진 경로 잔광 — 공격 유닛→대상 60% 지점까지 색 궤적.
+  // 근접 돌진 경로 잔광 — 공격 인스턴스→대상 60% 지점까지 색 궤적.
   function attackTrail(fromKey, toKey, color) {
     if (REDUCE) return; var fr = rectOf(fromKey), tr = rectOf(toKey); if (!fr || !tr) return;
     var fcx = fr.left + fr.width / 2, fcy = fr.top + fr.height / 2, tcx = tr.left + tr.width / 2, tcy = tr.top + tr.height / 2;
@@ -953,7 +953,7 @@
       { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + endScale + ') rotate(0deg)', opacity: 0.85 }
     ], { duration: 360, easing: 'cubic-bezier(.4,0,.2,1)' });
   }
-  // 공격 유닛이 대상으로 돌진했다 복귀 (clone 으로 리렌더 영향 없이)
+  // 공격 인스턴스가 대상으로 돌진했다 복귀 (clone 으로 리렌더 영향 없이)
   function lungeClone(fromKey, toKey) {
     var src = app.querySelector('[data-key="' + fromKey + '"]'), toR = rectOf(toKey);
     if (!src || !toR) return; var fr = src.getBoundingClientRect(); if (!fr.width) return;
@@ -973,8 +973,8 @@
       a.onfinish = done;
     } else setTimeout(done, 400);
   }
-  // 이동 슬라이드: 유닛 DOM 을 복제해 from→to 전체거리로 미끄러뜨린다(강제이동·재배치·for·일반 이동 공통).
-  // 도착 셀 유닛은 클론 착지 전까지 lungingKeys[toKey] 로 숨겨 재빌드 후에도 이중표시를 막는다.
+  // 이동 슬라이드: 인스턴스 DOM 을 복제해 from→to 전체거리로 미끄러뜨린다(강제이동·재배치·for·일반 이동 공통).
+  // 도착 셀 인스턴스는 클론 착지 전까지 lungingKeys[toKey] 로 숨겨 재빌드 후에도 이중표시를 막는다.
   function slideUnit(fromKey, toKey) {
     if (!fromKey || !toKey || fromKey === toKey) return false;
     var src = app.querySelector('[data-key="' + fromKey + '"]'), toR = rectOf(toKey);
@@ -1220,7 +1220,7 @@
     if (isBossStage(stage)) { var strong = chalTune().bossDecks.filter(function (k) { return DECKS[k]; }); if (strong.length) return chalPick(strong); }
     return randomDeck();
   }
-  // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 유닛 핸디캡 + 스테이지별 날씨 + 보스전)
+  // ---- 도전 모드: 스테이지가 오를수록 상대 AI가 강해진다(본체 HP·카드·선발 인스턴스 핸디캡 + 스테이지별 날씨 + 보스전)
   function startChallenge() { if (!myDeckStartable()) return; CHAL_MAX_STAGE = chalTune().maxStage; challenge = { stage: 1, wins: 0, deck: myDeck, baseBest: bestStreak(myDeck), boss: false }; beginMatch(challengeOpponent(1)); }
   function nextChallenge() { if (challenge.stage >= CHAL_MAX_STAGE) { unlockCrown(); endChallenge(); return; } challenge.wins++; challenge.stage++; beginMatch(challengeOpponent(challenge.stage)); }
   function endChallenge() { challenge = null; G = null; UI.renderTitle(); }
@@ -1231,12 +1231,12 @@
     var b = g.body(AI); if (b) b.hpMod += (stage - 1) * t.hpPerStage + (boss ? t.bossHpBonus : 0);   // 점점 단단해지는 본체(+보스 추가)
     var extraCards = Math.min((stage - 1) * t.drawPerStage, t.drawCap); if (extraCards > 0) g.draw(AI, extraCards); // 카드 우위
     if (boss) {
-      // 보스 스테이지: 적 본체(3,1)를 유닛으로 둘러싼 방어 진형으로 개시 → 도달 난이도↑, AI 유리하게 시작.
+      // 보스 스테이지: 적 본체(3,1)를 인스턴스로 둘러싼 방어 진형으로 개시 → 도달 난이도↑, AI 유리하게 시작.
       var ring = t.bossRing.slice();                         // 본체 인접 측면 + 전면
       if (stage >= t.maxStage) ring = ring.concat(t.bossRing10Extra); // 최종 보스: 전면 벽 좌우 확장
       for (var r = 0; r < ring.length; r++) { if (!g.board[ring[r]]) g.summon(AI, 'Token5', ring[r]); }
     } else {
-      var tokens = Math.min(Math.floor((stage - 1) / t.tokenDiv), t.tokenCap);   // 선발 유닛(분신 공5/체2)
+      var tokens = Math.min(Math.floor((stage - 1) / t.tokenDiv), t.tokenCap);   // 선발 인스턴스(분신 공5/체2)
       for (var i = 0; i < tokens; i++) { var c = g.firstEmptyHome(AI); if (c) g.summon(AI, 'Token5', c); }
     }
   }
@@ -1672,7 +1672,7 @@
     // ── 손패(맨 아래) ──
     wrap.appendChild(handBar(meTurn));
 
-    // ── 눈에 띄는 취소 버튼 — 상단 중앙(드래그 중엔 숨김). 단, 필드 유닛 선택 시엔 상단이 공격 대상(상대 본체/전진 유닛)
+    // ── 눈에 띄는 취소 버튼 — 상단 중앙(드래그 중엔 숨김). 단, 필드 인스턴스 선택 시엔 상단이 공격 대상(상대 본체/전진 인스턴스)
     //    라인이라 여기 두면 대상을 가린다 → 그 경우는 fieldPopover 안의 ✕ 로 대체하고 상단 버튼은 숨긴다. ──
     if ((ptr || (sel && sel.type === 'hand')) && !(drag && drag.moved)) {
       wrap.appendChild(el('button', { style: { position: 'absolute', top: 'calc(50px + ' + SAT + ')', left: '50%', transform: 'translateX(-50%)', zIndex: 60, fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: '14px', padding: '9px 20px', color: '#fff', background: SKIN.enemy, border: '1px solid ' + SKIN.ink, boxShadow: '0 3px 0 rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.4)', letterSpacing: '.03em' }, onclick: function () { sel = ptr = null; render(); } }, [ptr ? '✕ 시전 취소' : '✕ 선택 해제']));
@@ -1838,7 +1838,7 @@
     var pop = el('div', { id: 'fieldpop', style: { position: 'fixed', zIndex: 70, display: 'flex', gap: '4px', background: '#1d1d24', padding: '4px', boxShadow: '2px 2px 0 rgba(28,28,38,.4)', whiteSpace: 'nowrap' } }, btns);
     var cell = app.querySelector('[data-key="' + sel.key + '"]');
     if (cell) {
-      // 팝오버가 공격 대상 칸(빨강)을 덮으면 탭이 막힌다. 유닛 '아래쪽'(전방=상대 본체·전진 유닛이 있는 위쪽의 반대)에
+      // 팝오버가 공격 대상 칸(빨강)을 덮으면 탭이 막힌다. 인스턴스 '아래쪽'(전방=상대 본체·전진 인스턴스가 있는 위쪽의 반대)에
       // 두는 걸 기본으로 하고, 대상 칸과 겹치거나 화면 밖이면 위/차선책으로 보정한다.
       app.appendChild(pop); // 실측용 선(先)부착 — renderMatch 의 이후 appendChild 는 위치 이동일 뿐(스타일 유지)
       var r = cell.getBoundingClientRect(), pr = pop.getBoundingClientRect();
@@ -2075,7 +2075,7 @@
     else if (u) kids.push(objTile(u, key));
     var props = { 'data-key': key, style: st, onclick: function () { if (suppressCellClick) { suppressCellClick = false; return; } clickCell(key); } };
     // 호버(범위 미리보기)는 데스크톱 전용. 터치에선 onmouseenter 가 합성돼 render() 로 셀을 재생성 →
-    // 뒤이은 click 이 사라져 유닛 선택/이동/For 발동이 먹통이 됨. 그래서 터치기기에선 호버 핸들러를 달지 않는다.
+    // 뒤이은 click 이 사라져 인스턴스 선택/이동/For 발동이 먹통이 됨. 그래서 터치기기에선 호버 핸들러를 달지 않는다.
     // 터치: 짧은 탭 = clickCell(선택/이동/능력/기본공격). 길게 누르기 = inspect(사거리+상세) — 손패 peek 과 통일.
     if (!isTouchDevice()) {
       props.onmouseenter = function (e) {
@@ -2392,7 +2392,7 @@
     }
 
     // 인스턴스 = 창: 타이틀바 + 뷰포트(+사거리 코너) + [조건 라인] + 효과문 패널 + 상태바
-    // 기본 공격(옆칸)은 모든 유닛 공통이라 카드마다 표기하지 않는다(피드백: 작아서 안 읽히고 도움 안 됨 → 삭제).
+    // 기본 공격(옆칸)은 모든 인스턴스 공통이라 카드마다 표기하지 않는다(피드백: 작아서 안 읽히고 도움 안 됨 → 삭제).
     return mullWrap(el('button', props, [
       winTitlebar(card, { iconPx: big ? 15 : 13, nameFs: big ? 10 : 9 }),
       viewportBox(card, VPH, { gScale: 0.5, overlay: rangeCorner(id) }),
@@ -2494,7 +2494,7 @@
     document.addEventListener('pointercancel', done);
   }
 
-  // ---- 필드 유닛 롱프레스 inspect(터치): 데스크톱 hover(사거리+카드 상세) 대체. 손패 peek 과 동일 제스처.
+  // ---- 필드 인스턴스 롱프레스 inspect(터치): 데스크톱 hover(사거리+카드 상세) 대체. 손패 peek 과 동일 제스처.
   // 필드 인스턴스(내/적 무관)를 꾹 누르면 함수 범위가 보드에 켜지고 상세 카드(사거리 그리드 포함)가 뜬다.
   // 손가락을 떼면 사라진다. 짧은 탭은 suppressCellClick 없이 그대로 clickCell(선택/이동/능력/기본공격)로 처리.
   var fpeek = null, fpeekT = null, fpeekSX = 0, fpeekSY = 0, fpeekLit = [], suppressCellClick = false;
@@ -2579,16 +2579,16 @@
           el('span', { class: 'mono', style: { color: '#fff', background: SKIN.enemy, padding: '1px 4px', flex: 'none', fontSize: '10.5px', fontWeight: 700 } }, ['⚔']), '옆칸 = 기본 공격'
         ])
       ]),
-      el('div', { style: { fontSize: '10.5px', color: SKIN.muted, marginTop: '6px', lineHeight: 1.6 } }, ['🟡 함수 범위 = 능력이 닿는 칸(카드마다 다름) · 🔴 옆칸 = 기본 공격이 닿는 1칸(모든 유닛 공통) · 필드 카드에 커서를 올리면 함수 범위가 보드에 표시됩니다.'])
+      el('div', { style: { fontSize: '10.5px', color: SKIN.muted, marginTop: '6px', lineHeight: 1.6 } }, ['🟡 함수 범위 = 능력이 닿는 칸(카드마다 다름) · 🔴 옆칸 = 기본 공격이 닿는 1칸(모든 인스턴스 공통) · 필드 카드에 커서를 올리면 함수 범위가 보드에 표시됩니다.'])
     ]);
   }
   // ─────────────────────────────────────────── 좌측 패널: 날씨 배너 + 덱 트래커 (데스크톱 전용)
   // 날씨별 상세 효과(호버 툴팁용) — 발동 시점/수치/양측 적용을 인라인 desc보다 자세히.
   var WEATHER_DETAIL = {
     clear: '특이 효과 없음 — 표준 런타임. 스탯·이동·사거리 모두 기본값으로 진행됩니다.',
-    overclock: '양측 모든 유닛의 공격력 +1 (상시·즉시). 이후 소환·선언되는 유닛에도 적용됩니다.',
-    throttle: '양측 모든 유닛의 공격력 −1 (상시, 최소 0). 이후 등장하는 유닛에도 적용됩니다.',
-    memleak: '8턴째부터 매 턴 시작 시 양측 모든 유닛의 HP가 1씩 감소합니다. 장기전일수록 압박이 커집니다.',
+    overclock: '양측 모든 인스턴스의 공격력 +1 (상시·즉시). 이후 소환·선언되는 인스턴스에도 적용됩니다.',
+    throttle: '양측 모든 인스턴스의 공격력 −1 (상시, 최소 0). 이후 등장하는 인스턴스에도 적용됩니다.',
+    memleak: '8턴째부터 매 턴 시작 시 양측 모든 인스턴스의 HP가 1씩 감소합니다. 장기전일수록 압박이 커집니다.',
     ctxswitch: '양측 모두 매 턴 사용할 수 있는 행동이 1회씩 늘어납니다(기본 2 → 3). 시작 턴부터 상시 적용되어 전개가 빨라집니다.',
     deadlock: '매치 시작 시 통로(2·3행)에 중립 벽 「교착 노드」(공격력 0 · 체력 12) 3개가 배치됩니다. 양측 모두 공격해 부술 수 있으나, 스스로 이동·공격하지 않고 진격로를 가로막습니다.'
   };
@@ -2750,7 +2750,7 @@
     var id = pinned ? pinned.id : null;
     if (!id || !CARDS[id] || CARDS[id].kind === 'body') return el('div', {}, [
       el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.18em', color: SKIN.muted, marginBottom: '6px' } }, ['INSPECTOR']),
-      el('div', { style: { fontSize: '11px', color: SKIN.panelText, lineHeight: 1.7 } }, ['카드나 필드 유닛을 클릭하면 상세가 여기에 고정됩니다.'])
+      el('div', { style: { fontSize: '11px', color: SKIN.panelText, lineHeight: 1.7 } }, ['카드나 필드 인스턴스를 클릭하면 상세가 여기에 고정됩니다.'])
     ]);
     var card = CARDS[id], cl = CLS[card.cls] || CLS.generic, isP = card.kind === 'pointer';
     var bu = (pinned && pinned.key && G.board[pinned.key] && G.board[pinned.key].cardId === id) ? G.board[pinned.key] : null;
@@ -2759,7 +2759,7 @@
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', marginBottom: '9px', background: isP ? '#1d1d24' : cl, borderBottom: isP ? '2px solid ' + cl : 'none' } }, [
         el('span', { style: { fontSize: '15px', color: isP ? cl : '#fff' } }, [isP ? '◆' : GLY[card.cls]]),
         el('span', { style: { fontSize: '12px', color: isP ? cl : '#fff', letterSpacing: '.1em' } }, [isP ? '포인터 · 1회성' : card.cls]),
-        bu ? el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9.5px', color: '#fff', background: ownerColor(bu.owner), padding: '1px 5px' } }, [bu.owner === HUMAN ? '내 유닛' : '상대 유닛'])
+        bu ? el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9.5px', color: '#fff', background: ownerColor(bu.owner), padding: '1px 5px' } }, [bu.owner === HUMAN ? '내 인스턴스' : '상대 인스턴스'])
            : el('span', { class: 'mono', style: { marginLeft: 'auto', fontSize: '9.5px', color: isP ? SKIN.faint : 'rgba(255,255,255,.9)' } }, [isP ? 'POINTER' : 'OBJECT'])
       ]),
       viewportBox(card, 80, { margin: '0', gScale: 0.52 }),
@@ -2859,7 +2859,7 @@
           el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['스테이지 ' + challenge.stage + ' 클리어']),
           el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승']),
           stat, recordLine,
-          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? '👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 런타임 환경' : '다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 런타임 환경 · 추가 카드/선발 유닛']),
+          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? '👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 런타임 환경' : '다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 런타임 환경 · 추가 카드/선발 인스턴스']),
           btnRow(el('button', { class: 'btn', onclick: function () { nextChallenge(); } }, ['다음 스테이지 ▶']))
         ];
       } else {
@@ -3012,7 +3012,7 @@
   function castWhy(card) {
     if (G.actions < 1) return '남은 액션 없음';
     if (card.castCondition && !G.castConditionMet(HUMAN, card)) return '시전 조건 미충족';
-    if ((card.need === 'enemy' || card.need === 'cell') && G.castTargets(HUMAN, card.id).length === 0) return '시전 범위 내 대상 없음 (내 유닛·본체 2칸)';
+    if ((card.need === 'enemy' || card.need === 'cell') && G.castTargets(HUMAN, card.id).length === 0) return '시전 범위 내 대상 없음 (내 인스턴스·본체 2칸)';
     return '시전 불가';
   }
   function clickCell(key) {
@@ -3381,11 +3381,11 @@
   // ---- 실습: AI를 끄고 스크립트대로 선언 → 이동 → 공격 → 턴종료를 따라 하게 한다.
   function tutSteps() {
     return [
-      { key: '선언', title: '① 유닛 선언', tip: '손패의 **Race** 카드를 아래쪽 **초록색 ⊕ 홈칸**(4곳 중 아무 데나)으로 드래그해 놓으세요. 가운데 칸은 내 본체라 놓을 수 없어요. 유닛을 필드에 올리는 것을 «선언»이라 합니다.',
+      { key: '선언', title: '① 인스턴스 선언', tip: '손패의 **Race** 카드를 아래쪽 **초록색 ⊕ 홈칸**(4곳 중 아무 데나)으로 드래그해 놓으세요. 가운데 칸은 내 본체라 놓을 수 없어요. 인스턴스를 필드에 올리는 것을 «선언»이라 합니다.',
         done: function () { return tutHumanUnits().length >= 1; } },
-      { key: '이동', title: '② 앞으로 이동', tip: '방금 놓은 유닛을 **클릭**한 뒤, 한 칸 위의 **파란 ◆ 칸**을 눌러 전진하세요. 유닛은 상하좌우 빈 칸으로만 1칸씩 움직입니다.',
+      { key: '이동', title: '② 앞으로 이동', tip: '방금 놓은 인스턴스를 **클릭**한 뒤, 한 칸 위의 **파란 ◆ 칸**을 눌러 전진하세요. 인스턴스는 상하좌우 빈 칸으로만 1칸씩 움직입니다.',
         done: function () { return tutHumanUnits().some(function (kr) { return kr.r !== 4; }); } },
-      { key: '공격', title: '③ 기본 공격', tip: '이제 **「옆칸」에 적(회색 유닛)** 이 있습니다. 내 유닛을 클릭하고 나타나는 **⚔ 공격** 버튼(또는 빨강 ⚔ 칸)을 눌러 적을 파괴하세요. 무료·턴당 1회입니다.',
+      { key: '공격', title: '③ 기본 공격', tip: '이제 **「옆칸」에 적(회색 인스턴스)** 이 있습니다. 내 인스턴스를 클릭하고 나타나는 **⚔ 공격** 버튼(또는 빨강 ⚔ 칸)을 눌러 적을 파괴하세요. 무료·턴당 1회입니다.',
         done: function () { return tutHumanUnits().some(function (kr) { return kr.u.attackedTurn === G.turnNo; }); } },
       { key: '종료', title: '④ 턴 종료', tip: '잘했어요! 마지막으로 오른쪽 아래 **«턴 종료»** 를 누르세요. 실전이라면 이때 상대(AI) 차례로 넘어갑니다.' }
     ];
@@ -3404,7 +3404,7 @@
     G = RT.newGame('T1', 'T1', { seed: 1, first: HUMAN, weather: 'clear' }); // 튜토리얼은 날씨 영향 없음
     G.oppKey = '튜토리얼';
     weatherShown = true;                                     // 튜토리얼 리빌 생략
-    G.players[HUMAN].hand = ['Race'];                       // 선언할 유닛 1장만
+    G.players[HUMAN].hand = ['Race'];                       // 선언할 인스턴스 1장만
     for (var c = 1; c <= 5; c++) G.summon(AI, 'Token2', K(c, 2)); // 앞줄에 연습용 표적(공2 체2)
     sel = ptr = hover = pinned = null; mullPick = {}; mullPhase = false;
     resetFx(); G.onfx = handleFx;
