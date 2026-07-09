@@ -359,6 +359,31 @@
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Switch_ATK', 'Switch_DEF']; G.transformUnit(u, fm[(ch.opt || 0)]); },
         aiOpt: function (G, u) { var myBody = G.body(u.owner); if (myBody && myBody.dmg >= 20 && G.enemyObjects(u.owner).length >= 2) return 1; return 0; } }] });
+    def({ id: 'Adaptive', cls: 'thread', kind: 'object', atk: 4, hp: 3, switchForms: ['Adaptive_ATK', 'Adaptive_DEF'], text: 'Switch 변신(게임당 1회) · [공세형] 공6·체2 / [수비형] 공2·체6',
+      abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '공세형' }, { label: '수비형' }], forms: ['Adaptive_ATK', 'Adaptive_DEF'],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { var fm = ['Adaptive_ATK', 'Adaptive_DEF']; G.transformUnit(u, fm[(ch.opt || 0)]); },
+        aiOpt: function (G, u) { var b = G.body(u.owner); if (b && b.dmg >= 18 && G.enemyObjects(u.owner).length >= 2) return 1; return 0; } }] });
+    def({ id: 'Failover', cls: 'memory', kind: 'object', atk: 2, hp: 6, switchForms: ['Failover_STBY', 'Failover_ACT'], text: 'Switch 변신(게임당 1회) · [대기형] 공2·체7(피격 시 보호막) / [가동형] 공5·체4',
+      abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '대기형' }, { label: '가동형' }], forms: ['Failover_STBY', 'Failover_ACT'],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { var fm = ['Failover_STBY', 'Failover_ACT']; G.transformUnit(u, fm[(ch.opt || 0)]); },
+        aiOpt: function (G, u) { return G.enemyObjects(u.owner).length >= 2 ? 0 : 1; } }] });
+    def({ id: 'Morph', cls: 'process', kind: 'object', atk: 3, hp: 4, switchForms: ['Morph_MELEE', 'Morph_RANGE'], text: 'Switch 변신(게임당 1회) · [근접형] 공5·체3 / [원격형] 공2·체5',
+      abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '근접형' }, { label: '원격형' }], forms: ['Morph_MELEE', 'Morph_RANGE'],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { var fm = ['Morph_MELEE', 'Morph_RANGE']; G.transformUnit(u, fm[(ch.opt || 0)]); },
+        aiOpt: function (G, u) { return 0; } }] });
+    def({ id: 'Duplex', cls: 'generic', kind: 'object', atk: 3, hp: 3, switchForms: ['Duplex_TX', 'Duplex_RX'], text: 'Switch 변신(게임당 1회) · [송신형] 공5·체2 / [수신형] 공1·체6(옆칸 아군 회복)',
+      abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '송신형' }, { label: '수신형' }], forms: ['Duplex_TX', 'Duplex_RX'],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { var fm = ['Duplex_TX', 'Duplex_RX']; G.transformUnit(u, fm[(ch.opt || 0)]); },
+        aiOpt: function (G, u) { var b = G.body(u.owner); if (b && b.dmg >= 18) return 1; return 0; } }] });
+    def({ id: 'Toggle', cls: 'thread', kind: 'object', atk: 3, hp: 3, switchForms: ['Toggle_HI', 'Toggle_LO'], text: 'Switch 변신(게임당 1회) · [점화형] 공6·체1 / [절전형] 공1·체6',
+      abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '점화형' }, { label: '절전형' }], forms: ['Toggle_HI', 'Toggle_LO'],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { var fm = ['Toggle_HI', 'Toggle_LO']; G.transformUnit(u, fm[(ch.opt || 0)]); },
+        aiOpt: function (G, u) { var b = G.body(u.owner); if (b && b.dmg >= 20) return 1; return 0; } }] });
     def({ id: 'Branch', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'If 선택 발동 · [도약] 자기 「1칸이동」 후 「옆칸」 적 하나 2 피해 / [교란] 적 인스턴스 하나를 적 진영 쪽으로 「1칸이동」',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '도약' }, { label: '교란' }],
         ready: function (G, u) { return G.moveCells(u).length > 0 || G.enemyObjects(u.owner).some(function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k), nr = q[1] + fwd(u.owner); return inB(q[0], nr) && !G.board[K(q[0], nr)]; }); },
@@ -384,6 +409,36 @@
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { G.healInst(G.body(u.owner), 3); } else { var t = pickAdjEnemy(G, u, ch); if (t) G.deal(t, 3, { attacker: u }); } },
         aiOpt: function (G, u) { var adj = pickAdjEnemy(G, u, {}); var body = G.body(u.owner); if (body && body.dmg >= 3) return 0; return adj ? 1 : 0; } }] });
+    def({ id: 'Ternary', cls: 'generic', kind: 'object', atk: 4, hp: 3, text: 'If 선택 발동 · [참] 적 하나 4 피해 / [거짓] 아군 하나 체력 +3',
+      abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '참' }, { label: '거짓' }],
+        ready: function (G, u) { return G.enemyObjects(u.owner).length > 0 || !!woundedAlly(G, u.owner); },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = ch.target ? G.board[ch.target] : weakestEnemy(G, u.owner); if (t) G.deal(t, 4, { attacker: u }); } else { var a = woundedAlly(G, u.owner) || u; if (a) G.buffHp(a, 3); } },
+        aiOpt: function (G, u) { var e = weakestEnemy(G, u.owner); if (e && G.curHp(e) <= 4) return 0; var w = woundedAlly(G, u.owner); if (w && w.dmg >= 3) return 1; return e ? 0 : 1; } }] });
+    def({ id: 'Elif', cls: 'thread', kind: 'object', atk: 4, hp: 3, text: 'If 선택 발동 · [연쇄] 「옆칸」 적 하나 3 피해 후 자기 공격력 +1 / [대기] 자기 체력 +3',
+      abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '연쇄' }, { label: '대기' }],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = pickAdjEnemy(G, u, ch); if (t) { G.deal(t, 3, { attacker: u }); if (G.board[unitKey(G, u)]) G.buffAtk(u, 1); } } else { G.buffHp(u, 3); } },
+        aiOpt: function (G, u) { return pickAdjEnemy(G, u, {}) ? 0 : 1; } }] });
+    def({ id: 'Match', cls: 'process', kind: 'object', atk: 3, hp: 4, text: 'If 선택 발동 · [근접] 「옆칸」 적 하나 공격력만큼 피해 / [원격] 자기 「1칸이동」',
+      abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '근접' }, { label: '원격' }],
+        ready: function (G, u) { return G.adj(u).some(function (x) { return x.owner !== u.owner; }) || G.moveCells(u).length > 0; },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = pickAdjEnemy(G, u, ch); if (t) G.deal(t, G.effAtk(u), { attacker: u }); } else { var d = forwardDest(G, u) || G.moveCells(u)[0]; if (d) G.move(u, d, true); } },
+        aiOpt: function (G, u) { return G.adj(u).some(function (x) { return x.owner !== u.owner; }) ? 0 : 1; } }] });
+    def({ id: 'Assert', cls: 'memory', kind: 'object', atk: 2, hp: 6, text: 'If 선택 발동 · [검증] 적 하나 2 피해+1턴 봉쇄 / [보강] 아군 하나 체력 +3',
+      abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '검증' }, { label: '보강' }],
+        ready: function (G, u) { return G.enemyObjects(u.owner).length > 0 || !!woundedAlly(G, u.owner); },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = ch.target ? G.board[ch.target] : bestEnemyObj(G, u.owner); if (t) { G.deal(t, 2, { attacker: u }); if (G.board[unitKey(G, t)]) G.bind(t, 1); } } else { var a = woundedAlly(G, u.owner) || u; if (a) G.buffHp(a, 3); } },
+        aiOpt: function (G, u) { var e = bestEnemyObj(G, u.owner); if (e && G.effAtk(e) >= 4) return 0; var w = woundedAlly(G, u.owner); if (w && w.dmg >= 3) return 1; return e ? 0 : 1; } }] });
+    def({ id: 'Fallback', cls: 'memory', kind: 'object', atk: 2, hp: 6, text: 'If 선택 발동 · [재시도] 자기 보호막 / [응징] 「옆칸」 적 하나 3 피해',
+      abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '재시도' }, { label: '응징' }],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { G.protect(u); } else { var t = pickAdjEnemy(G, u, ch); if (t) G.deal(t, 3, { attacker: u }); } },
+        aiOpt: function (G, u) { return pickAdjEnemy(G, u, {}) ? 1 : 0; } }] });
+    def({ id: 'Case', cls: 'generic', kind: 'object', atk: 3, hp: 4, text: 'If 선택 발동 · [분기A] 적 인스턴스 전체 1 피해 / [분기B] 아군 인스턴스 전체 체력 +1',
+      abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '분기A' }, { label: '분기B' }],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { G.enemyObjects(u.owner).forEach(function (x) { G.deal(x, 1, { attacker: u }); }); } else { G.allyObjects(u.owner).forEach(function (x) { G.buffHp(x, 1); }); } },
+        aiOpt: function (G, u) { return G.enemyObjects(u.owner).length >= 2 ? 0 : 1; } }] });
 
     // ============================================================ OP / signature cards
     def({ id: 'Mainframe', cls: 'thread', kind: 'object', atk: 4, hp: 4, deckLimit: 1, require: { type: 'classOnBoard', cls: 'thread', n: 4 }, text: '덱당 1 · require 내 thread 4개+ 필드에 존재 · Once 선언 시 내 thread 전부 공격력 +4',
@@ -424,7 +479,41 @@
     // ---------------- switch forms (변신폼 — form:true → 덱풀/도감 목록 제외, 변신폼 표시로만 노출)
     def({ id: 'Switch_ATK', cls: 'generic', kind: 'object', form: true, atk: 5, hp: 1, text: '변신폼(공격형) · Switch에서 변신' });
     def({ id: 'Switch_DEF', cls: 'generic', kind: 'object', form: true, atk: 0, hp: 6, text: '변신폼(방어형) · Switch에서 변신' });
+    def({ id: 'Adaptive_ATK', cls: 'thread', kind: 'object', form: true, atk: 6, hp: 2, text: '변신폼(공세형) · Adaptive에서 변신' });
+    def({ id: 'Adaptive_DEF', cls: 'thread', kind: 'object', form: true, atk: 2, hp: 6, text: '변신폼(수비형) · Adaptive에서 변신' });
+    def({ id: 'Failover_STBY', cls: 'memory', kind: 'object', form: true, atk: 2, hp: 7, text: '변신폼(대기형) · When 피격 시 자기 보호막(턴당 1회)',
+      abilities: [{ kw: 'When', trigger: 'onDamaged', fn: function (G, u) { if (!u.blockFull && G.curHp(u) > 0 && u.flags.shTurn !== G.turnNo) { u.flags.shTurn = G.turnNo; G.protect(u); } } }] });
+    def({ id: 'Failover_ACT', cls: 'memory', kind: 'object', form: true, atk: 5, hp: 4, text: '변신폼(가동형) · Failover에서 변신' });
+    def({ id: 'Morph_MELEE', cls: 'process', kind: 'object', form: true, atk: 5, hp: 3, text: '변신폼(근접형) · For(1) 「옆칸」 적 하나 공격력만큼 피해',
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u, ch) { var t = pickAdjEnemy(G, u, ch); if (t) G.deal(t, G.effAtk(u), { attacker: u }); }, ready: function (G, u) { return G.adj(u).some(function (x) { return x.owner !== u.owner; }); } }] });
+    def({ id: 'Morph_RANGE', cls: 'process', kind: 'object', form: true, atk: 2, hp: 5, text: '변신폼(원격형) · For(1) 「앞직선3·첫」 적에게 공격력만큼 피해',
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 3, false); if (t) G.deal(t, G.effAtk(u), { attacker: u }); else if (inLineToBody(G, u, 3)) G.deal(G.enemyBody(u.owner), G.effAtk(u), { attacker: u }); } }] });
+    def({ id: 'Duplex_TX', cls: 'generic', kind: 'object', form: true, atk: 5, hp: 2, text: '변신폼(송신형) · Duplex에서 변신' });
+    def({ id: 'Duplex_RX', cls: 'generic', kind: 'object', form: true, atk: 1, hp: 6, text: '변신폼(수신형) · For(1) 「옆칸」 아군 하나 3 회복',
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var a = G.adj(u).filter(function (x) { return x.owner === u.owner && x.dmg > 0; }).sort(function (x, y) { return y.dmg - x.dmg; })[0]; if (a) G.healInst(a, 3); }, ready: function (G, u) { return G.adj(u).some(function (x) { return x.owner === u.owner && x.dmg > 0; }); } }] });
+    def({ id: 'Toggle_HI', cls: 'thread', kind: 'object', form: true, atk: 6, hp: 1, text: '변신폼(점화형) · Toggle에서 변신' });
+    def({ id: 'Toggle_LO', cls: 'thread', kind: 'object', form: true, atk: 1, hp: 6, text: '변신폼(절전형) · Toggle에서 변신' });
     def({ id: 'Fused', cls: 'thread', kind: 'object', form: true, atk: 2, hp: 2, text: '융합 분신 · coalesce()로 생성(공/체는 융합한 분신 합계)' });
+
+    // ---------------- 보호(protection) 확장 — memory 방어 카드군(mprotect 계열 보강)
+    def({ id: 'Aegis', cls: 'memory', kind: 'object', atk: 2, hp: 7, text: 'When 피격 시 「옆칸」 아군 하나에게 보호막(턴당 1회)',
+      abilities: [{ kw: 'When', trigger: 'onDamaged', fn: function (G, u) { if (u.flags.aegisTurn === G.turnNo) return; var a = G.adj(u).filter(function (x) { return x.owner === u.owner && !x.blockFull; })[0]; if (a) { u.flags.aegisTurn = G.turnNo; G.protect(a); } } }] });
+    def({ id: 'Bulwark', cls: 'memory', kind: 'object', atk: 1, hp: 8, text: 'Once 선언 시 「1칸이내」 아군 전부 체력 +2',
+      abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { G.around(u).filter(function (x) { return x.owner === u.owner; }).forEach(function (x) { G.buffHp(x, 2); }); } }] });
+    def({ id: 'Sentry', cls: 'memory', kind: 'object', atk: 2, hp: 6, text: 'For(1) 「옆칸」 아군 하나에게 보호막',
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { var a = G.adj(u).filter(function (x) { return x.owner === u.owner && !x.blockFull; }).sort(function (x, y) { return G.effAtk(y) - G.effAtk(x); })[0]; if (a) G.protect(a); }, ready: function (G, u) { return G.adj(u).some(function (x) { return x.owner === u.owner && !x.blockFull; }); } }] });
+    def({ id: 'Quarantine', cls: 'memory', kind: 'object', atk: 2, hp: 6, text: 'Once 선언 시 적 인스턴스 하나 1턴 봉쇄 + 자기 보호막',
+      abilities: [{ kw: 'Once', trigger: 'onSummon', fn: function (G, u) { var e = bestEnemyObj(G, u.owner); if (e) G.bind(e, 1); G.protect(u); } }] });
+    def({ id: 'Warden', cls: 'memory', kind: 'object', atk: 1, hp: 9, text: 'For(1) 내 본체 3 회복',
+      abilities: [{ kw: 'For', forCount: 1, trigger: 'onTurnStart', fn: function (G, u) { G.healInst(G.body(u.owner), 3); }, ready: function (G, u) { var b = G.body(u.owner); return !!b && b.dmg > 0; } }] });
+    def({ id: 'shield()', cls: 'memory', kind: 'pointer', need: 'none', text: '내 아군 최대 2장(공격력 높은 순)에게 보호막 부여',
+      castValid: function (G, p) { return G.allyObjects(p).some(function (x) { return !x.blockFull; }); },
+      cast: function (G, p) { var a = G.allyObjects(p).filter(function (x) { return !x.blockFull; }).sort(function (x, y) { return G.effAtk(y) - G.effAtk(x); }).slice(0, 2); a.forEach(function (x) { G.protect(x); }); } });
+    def({ id: 'bastion()', cls: 'memory', kind: 'pointer', need: 'none', text: '내 본체 흡수풀 강화 — 다음 피해를 최대 12 흡수',
+      cast: function (G, p) { G.players[p].bodyShield = Math.max(G.players[p].bodyShield, 12); } });
+    def({ id: 'harden()', cls: 'memory', kind: 'pointer', need: 'ally', text: '아군 1장 보호막 + 체력 +2',
+      castValid: function (G, p) { return G.allyObjects(p).length > 0; },
+      cast: function (G, p, tk) { var u = tk ? G.board[tk] : (woundedAlly(G, p) || G.allyObjects(p)[0]); if (u) { G.protect(u); G.buffHp(u, 2); } } });
 
     // ---------------- pointer-support internals ----------------
     function bestAllyForSplice(G, p) { var a = G.allyObjects(p).filter(function (x) { return !x.token; }); a.sort(function (x, y) { return G.effAtk(y) - G.effAtk(x); }); return a[0] || G.allyObjects(p)[0] || null; }

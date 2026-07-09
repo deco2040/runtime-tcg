@@ -1267,7 +1267,13 @@
     'kill()': 's2', 'ping()': 's2', 'sync()': 'ally1', 'flush()': 'ax1', 'shift()': 'move', 'drop()': 's2', 'assert()': 's2', 'throw()': 's2', 'wait()': 's2', 'cast()': 'ally1', 'catch()': 'self', 'bind()': 's2', 'echo()': 'far', 'patch()': 'ally1', 'clear()': 's2', 'exit()': 'global', 'malloc()': 'self', 'grep()': 'self', 'yield()': 'self', 'copy()': 'self',
     // 함수 능력 사거리 일관 표기 보강 — 기본 공격 외 함수(능력) 발동 카드 전수 등록(rename 시 표 미갱신분).
     Fiber: 'x1', Salvo: 's2', Inline: 'x1', Firewall: 'x1', Ripple: 'x1', Relay: 's1', Raycast: 'd2', Profiler: 's1', Predicate: 's2', Cond: 'lf3', Branch: 'x1', Guard: 'x1',
-    Semaphore: 'enemy1', Exploit: 'enemy1', Coerce: 'enemy1', Switch: 'self', Pivot: 'move'
+    Semaphore: 'enemy1', Exploit: 'enemy1', Coerce: 'enemy1', Switch: 'self', Pivot: 'move',
+    // v10 확장 — Switch 변신(자기)·신규 If·보호 카드 사거리 표기
+    Adaptive: 'self', Failover: 'self', Morph: 'self', Duplex: 'self', Toggle: 'self',
+    Morph_MELEE: 'x1', Morph_RANGE: 'lf3', Duplex_RX: 'x1',
+    Ternary: 'enemy1', Elif: 'x1', Match: 'x1', Assert: 'enemy1', Fallback: 'x1', Case: 'global',
+    Aegis: 'x1', Bulwark: 's1', Sentry: 'x1', Quarantine: 'enemy1', Warden: 'self',
+    'shield()': 'ally1', 'bastion()': 'self', 'harden()': 'ally1'
   };
   function relCells(code) {
     var out = [], i, dc, dr, n;
