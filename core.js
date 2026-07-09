@@ -27,12 +27,12 @@
   try { REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
   // RUNTIME ENV — 게임마다 1종 지정(engine G.weather). 발동 턴 문구는 엔진 상수(memleak 8ply)와 일치.
   var WEATHER_INFO = {
-    clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '특이 효과 없음 — 표준 런타임.' },
-    overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '모든 인스턴스 공격력 +1 (양측).' },
-    throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '모든 인스턴스 공격력 −1 (최소 0).' },
-    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴부터 매 턴 모든 인스턴스 HP −1.' },
-    ctxswitch: { name: '컨텍스트 스위치', en: 'CONTEXT SWITCH', icon: '🔀', color: '#3fae8f', desc: '양측 매 턴 추가 행동 +1.' },
-    deadlock: { name: '교착', en: 'DEADLOCK', icon: '⛓️', color: '#b8823a', desc: '교착 노드가 필드를 가로막는다 — 공격 가능·이동 불가.' }
+    clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '효과 없음' },
+    overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '전체 공격력 +1' },
+    throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '전체 공격력 −1' },
+    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴+ 매 턴 전체 HP −1' },
+    ctxswitch: { name: '컨텍스트 스위치', en: 'CONTEXT SWITCH', icon: '🔀', color: '#3fae8f', desc: '매 턴 행동 +1' },
+    deadlock: { name: '교착', en: 'DEADLOCK', icon: '⛓️', color: '#b8823a', desc: '교착 노드: 이동 불가' }
   };
   function weatherInfo(id) { return WEATHER_INFO[id] || WEATHER_INFO.clear; }
   var HUMAN = 0, AI = 1;
@@ -597,6 +597,7 @@
     'While': { t: 'While · 지속 효과', d: '조건이 유지되는 동안 계속 적용되는 상시 효과.' },
     'For': { t: 'For(N) · 능동·턴1회', d: '내 턴마다 1번 직접 발동, 게임 전체에서 총 N번까지. 발동은 무료(액션 소비 X).' },
     'require': { t: 'require · 선언 조건', d: '이 인스턴스가 필드에 존재하기 위한 사전 조건.' },
+    '보호': { t: '보호 · 1턴 무피해', d: '이번 턴 동안 이 인스턴스가 받는 모든 피해를 무시한다(내 다음 턴 시작 시 해제).' },
     '시전 조건': { t: '시전 조건', d: '이 포인터를 시전하기 위한 사전 조건.' },
     '시전조건': { t: '시전 조건', d: '이 포인터를 시전하기 위한 사전 조건.' },
     'thread': { t: 'thread · 공격형', d: '공高체低 글래스캐논. 집단 ATK 시너지·근접 압박. process에 강하고 memory에 약함.' },
@@ -1128,7 +1129,7 @@
       else if (ev.kind === 'hp') { txt = (ev.delta > 0 ? '+' : '−') + Math.abs(ev.delta) + ' HP'; col = ev.delta > 0 ? '#3c8a66' : SKIN.enemy; }
       else if (ev.kind === 'zero') { txt = 'ATK 0'; col = SKIN.enemy; }
       else if (ev.kind === 'bind') { txt = '🔒 봉쇄' + (ev.delta ? ' ' + ev.delta + '턴' : ''); col = '#2456a6'; }
-      else if (ev.kind === 'shield') { txt = '🛡 보호막'; col = '#2f7d3f'; }
+      else if (ev.kind === 'shield') { txt = '🛡 보호'; col = '#2f7d3f'; }
       else return;
       floatNum(sr, txt, col); ringFx(sr, col); flashTile(sr, hexa(col, .45), 240);
       setActionToast(ev.srcOwner != null ? ev.srcOwner : HUMAN, (ev.srcCard ? cardNm(ev.srcCard) + ' → ' : '') + labelAt(ev.key) + ' ' + txt);
@@ -2159,7 +2160,7 @@
     var chips = [];
     if (u.atkZero || u.atkZeroUntil > G.turnNo) chips.push(statusChip('ATK0', '#E24B4A'));   // 공격력 0
     if (G.isBound(u)) chips.push(statusChip('🔒봉쇄', '#2456a6'));                              // 이동 불가
-    if (u.blockFull) chips.push(statusChip('🛡보호', '#2f7d3f'));                               // mprotect 보호막(다음 피해 1회 전량 차단)
+    if (u.protUntil > G.turnNo) chips.push(statusChip('🛡보호', '#2f7d3f'));                     // 보호(1턴 무피해)
     if (!chips.length) return null;
     return el('div', { style: {
       position: 'absolute', top: '1px', left: '50%', transform: 'translateX(-50%)', zIndex: 7,
@@ -2567,7 +2568,8 @@
       'Once': '조건 충족 시 한 번만 발동.',
       'While': '조건 유지되는 동안 상시 적용.',
       'For': '내 턴 1회, 게임당 총 N회(무료).',
-      'require': '필드에 존재하기 위한 선언 조건.'
+      'require': '필드에 존재하기 위한 선언 조건.',
+      '보호': '이번 턴 받는 모든 피해 무시(1턴).'
     };
     function line(k) {
       return el('div', { style: { display: 'flex', gap: '6px', marginBottom: '4px', alignItems: 'baseline' } }, [
@@ -2577,7 +2579,7 @@
     }
     return el('div', { style: { borderTop: '1.5px solid ' + SKIN.line, paddingTop: '9px' } }, [
       el('div', { class: 'grot', style: { fontSize: '10px', letterSpacing: '.2em', color: SKIN.muted, marginBottom: '7px' } }, ['키워드']),
-      line('If'), line('When'), line('Once'), line('While'), line('For'), line('require'),
+      line('If'), line('Switch'), line('When'), line('Once'), line('While'), line('For'), line('require'), line('보호'),
       el('div', { style: { display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' } }, [
         el('span', { style: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', color: SKIN.panelText } }, [
           el('span', { style: { width: '14px', height: '14px', flex: 'none', background: hexa(SKIN.rangeGold, .5), boxShadow: 'inset 0 0 0 2px ' + SKIN.rangeGold } }), '함수 범위'
@@ -2900,7 +2902,7 @@
 
   // ── 모바일 메뉴 바텀시트(항복 · 규칙 요약) — 컨트롤 바의 ☰ 로 연다. menuView: 'menu'|'confirm'|'rules'.
   //   규칙 설명은 GLOSS(키워드 사전)를 그대로 재사용해 간략히 보여준다.
-  var RULE_ABILITY = ['If', 'Switch', 'When', 'Once', 'While', 'For'];        // 특수능력 발동 방식
+  var RULE_ABILITY = ['If', 'Switch', 'When', 'Once', 'While', 'For', '보호'];        // 특수능력 발동 방식 + 상태 키워드
   var RULE_TARGET = ['적', '본체', '인스턴스', '분신'];               // 대상 규칙 (적=인스턴스+본체)
   var RULE_RANGE = ['옆칸', '1칸이내', '앞직선', '대각', '나이트', '관통', '직격']; // 함수 범위 키워드 (v6.1)
   function ruleRows(keys) {

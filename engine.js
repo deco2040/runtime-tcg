@@ -132,7 +132,7 @@
     var card = CARDS[cardId];
     return { uid: this.uidSeq++, owner: owner, cardId: cardId, type: card.kind === 'pointer' ? 'pointer' : 'object',
       baseAtk: card.atk || 0, baseHp: card.hp || 0, atkMod: 0, hpMod: 0, dmg: 0,
-      atkZero: false, atkZeroUntil: 0, boundUntil: 0, boundPerm: false, blockFull: false, tempAtk: [],
+      atkZero: false, atkZeroUntil: 0, boundUntil: 0, boundPerm: false, protUntil: 0, tempAtk: [],
       onceUsed: {}, summonedTurn: this.turnNo, attackedTurn: -1, bonusAtkTurn: -1, bonusAtk: 0, flags: {} };
   };
   Game.prototype.body = function (owner) { return this.board[bodyKey(owner)]; };
@@ -267,7 +267,7 @@
   // 차단(막음): barrier()=본체 흡수풀(bodyShield), mprotect()=인스턴스 다음 피해 1회 전량 차단
   Game.prototype.damageBlock = function (target, amount) {
     var amt = amount;
-    if (target.blockFull) { target.blockFull = false; this.note(CARDS[target.cardId].name + ' 차단(전량 ' + amt + ')'); return 0; }
+    if (target.protUntil && target.protUntil > this.turnNo) { this.note(CARDS[target.cardId].name + ' 보호(무피해 ' + amt + ')'); return 0; }
     if (target.type === 'body') {
       var pl = this.players[target.owner];
       // barrier(): 다음 피해 1회를 최대 N 흡수, 초과분 적용 — 1회성(흡수 후 소멸)
@@ -388,8 +388,10 @@
   };
   // 수리(받은 피해 전부 회복) · 차단 부여
   Game.prototype.repair = function (u) { if (u) this.healInst(u, u.dmg); };
-  // 보호막(mprotect): 다음 피해 1회 전량 차단 + 인스턴스에 시각 표시(shield stat fx → 상태칩 유지)
-  Game.prototype.protect = function (u) { if (!u) return; u.blockFull = true; this._statFx(u, 'shield', 0); };
+  // 보호(키워드): 이번 턴부터 내 다음 턴 시작 전까지 받는 모든 피해 무시(1턴 무피해) + 시각 표시
+  // turnNo는 half-turn 카운터 → +2 = 상대 공격 포함 1바퀴 보호(Bind와 동일 관례).
+  Game.prototype.protect = function (u) { if (!u) return; u.protUntil = this.turnNo + 2; this._statFx(u, 'shield', 0); };
+  Game.prototype.isProtected = function (u) { return !!u && u.protUntil > this.turnNo; };
 
   // ---- queries for targeting
   Game.prototype.enemyObjects = function (owner) { return this.objects().filter(function (u) { return u.owner !== owner; }); };
@@ -490,7 +492,7 @@
     u.baseAtk = nc.atk || 0;
     u.baseHp = nc.hp || 0;
     u.atkMod = 0; u.hpMod = 0;                       // 폼이 새 기준치를 정의 — 누적 강화 제거
-    u.tempAtk = []; u.atkZero = false; u.atkZeroUntil = 0;
+    u.tempAtk = []; u.atkZero = false; u.atkZeroUntil = 0; u.protUntil = 0;
     u.onceUsed = {};                                  // 능력 배열이 바뀌므로 For/If/Switch 회계 초기화
     var newMax = this.effMaxHp(u);
     if (u.dmg > newMax - 1) u.dmg = Math.max(0, newMax - 1);
