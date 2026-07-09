@@ -1028,6 +1028,28 @@
     var wi = weatherInfo(G.weather);
     return el('button', { class: 'mono', title: wi.name + ' — ' + wi.desc, style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, color: wi.color, background: hexa(wi.color, .14), border: '1px solid ' + hexa(wi.color, .5), borderRadius: '3px', padding: '2px 6px', cursor: 'pointer', lineHeight: 1.1 }, onclick: function () { flash(wi.icon + ' ' + wi.name + ' — ' + wi.desc); } }, [wi.icon, wi.name]);
   }
+  // 모바일 상단 전용 — 런타임 환경 상세(이름+효과 줄바꿈 노출) + 현재 턴 카운터. 상대 스탯 바 바로 아래 한 줄.
+  function envTurnRow() {
+    if (!G) return null;
+    var kids = [];
+    if (G.weather) {
+      var wi = weatherInfo(G.weather);
+      kids.push(el('button', { class: 'mono', title: wi.name + ' — ' + wi.desc, style: { display: 'flex', alignItems: 'flex-start', gap: '5px', flex: '1 1 auto', minWidth: 0, textAlign: 'left', fontSize: '11px', fontWeight: 700, color: wi.color, background: hexa(wi.color, .14), border: '1px solid ' + hexa(wi.color, .5), borderRadius: '3px', padding: '3px 7px', cursor: 'pointer', lineHeight: 1.3 }, onclick: function () { flash(wi.icon + ' ' + wi.name + ' — ' + wi.desc); } }, [
+        el('span', { style: { flex: 'none', fontSize: '12px', lineHeight: 1.25 } }, [wi.icon]),
+        el('span', { style: { minWidth: 0, whiteSpace: 'normal', wordBreak: 'keep-all' } }, [
+          el('span', { style: { color: wi.color } }, [wi.name]),
+          el('span', { style: { color: SKIN.muted, fontWeight: 400 } }, [' · ' + wi.desc])
+        ])
+      ]));
+    }
+    // 현재 턴 카운터(turnNo/상한) — 엔진 ply 카운터와 동일 기준.
+    kids.push(el('span', { class: 'mono', title: '현재 턴 / 턴 상한', style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', alignSelf: 'flex-start', fontSize: '11px', fontWeight: 700, background: SKIN.chassisSunk, padding: '3px 7px', borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.line } }, [
+      el('span', { style: { fontSize: '10px', color: SKIN.muted } }, ['턴']),
+      el('span', { style: { color: SKIN.txt } }, [String(G.turnNo)]),
+      el('span', { style: { fontSize: '9px', color: SKIN.muted } }, ['/' + G.TURN_CAP])
+    ]));
+    return el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '7px', padding: '3px 10px', background: SKIN.chassisAlt, color: SKIN.txt, flex: 'none', borderBottom: '1px solid ' + SKIN.ink } }, kids);
+  }
   // 런타임 환경 피해 틱(memleak) 순간 — 짧은 화면 틴트 + 라벨(과하지 않게).
   function weatherTickFx(id) {
     var wi = weatherInfo(id);
@@ -1615,8 +1637,10 @@
     // 안전영역(펀치홀·노치·홈 인디케이터) — 테두리 텍스트/버튼이 가려지지 않게 env() 로 안쪽으로 밀어줌.
     var SAL = 'env(safe-area-inset-left,0px)', SAR = 'env(safe-area-inset-right,0px)', SAT = 'env(safe-area-inset-top,0px)', SAB = 'env(safe-area-inset-bottom,0px)';
 
-    // ── 상단: 상대 스탯 바(HP·덱·트래쉬·손패 + 날씨 배지) ──
-    wrap.appendChild(statBarH(AI, { extra: [weatherChip()], style: { borderBottom: '1px solid ' + SKIN.ink, paddingTop: 'calc(4px + ' + SAT + ')', paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
+    // ── 상단: 상대 스탯 바(HP·덱·트래쉬·손패) ──
+    wrap.appendChild(statBarH(AI, { style: { paddingTop: 'calc(4px + ' + SAT + ')', paddingLeft: 'calc(10px + ' + SAL + ')', paddingRight: 'calc(10px + ' + SAR + ')' } }));
+    // ── 그 아래: 런타임 환경(효과 줄바꿈) + 현재 턴 카운터 ──
+    var etr = envTurnRow(); if (etr) etr.style.paddingLeft = 'calc(10px + ' + SAL + ')', etr.style.paddingRight = 'calc(10px + ' + SAR + ')', wrap.appendChild(etr);
 
     // 포인터 시전 안내(짧게)
     if (ptr) wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.enemy, padding: '3px 10px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisSunk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' } }, ['◆ ' + ptr.card.name + ' 시전 — 빨강 대상 선택']));
@@ -1837,6 +1861,26 @@
     return pop;
   }
 
+  // 디스펜서 좌측 얼굴 — 나/온라인상대=프로필 아바타, 싱글 AI=덱 대표 카드 일러스트. 높이는 바 높이에 맞춰 작게(스크롤 방지).
+  function dispenserFace(owner) {
+    var me = owner === HUMAN, SZ = 16;
+    if (onlineMatch) {
+      var pf = me ? (onlineMatch.myProfile || (UI.Net && UI.Net.profile && UI.Net.profile())) : onlineMatch.oppProfile;
+      return avatarEl({ nickname: me ? (G.myKey || '나') : (G.oppKey || '상대'), avatar: pf && pf.avatar }, SZ);
+    }
+    if (me) {
+      var prof = UI.Net && UI.Net.profile && UI.Net.profile();
+      return avatarEl({ nickname: (prof && prof.nickname) || '나', avatar: prof && prof.avatar }, SZ);
+    }
+    // 싱글 AI — 상대 덱 대표 카드 일러스트(폴백=클래스 글리프)
+    var d = DECKS[G.oppKey], cc = d && d.cover && CARDS[d.cover], art = cc ? cardArt(cc) : null;
+    var cls = d ? (CLS[d.cls] || CLS.generic) : SKIN.muted;
+    var box = el('span', { title: cc ? cc.name : (G.oppKey || ''), style: { flex: 'none', width: '23px', height: SZ + 'px', borderRadius: '3px', overflow: 'hidden', position: 'relative', background: SKIN.viewportBg, boxShadow: 'inset 0 0 0 1px ' + SKIN.edge, display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [
+      el('span', { style: { fontSize: '10px', lineHeight: 1, color: cls } }, [d ? (GLY[d.cls] || GLY.generic) : '?'])
+    ]);
+    if (art) box.appendChild(el('img', { src: art.src, alt: '', style: { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover', objectPosition: art.pos }, onerror: function () { if (this.parentNode) this.parentNode.removeChild(this); } }));
+    return box;
+  }
   // 카드 디스펜서(전자기기) — HUD 바를 대체. 남은 덱 수 + 드로우 시 카드 배출 애니메이션.
   // HP 는 보드 본체 타일에 표시되므로 여기선 생략. slot 요소 id=deckslot-<owner> 가 eject 애니메이션 원점.
   function deckDispenser(owner) {
@@ -1868,11 +1912,19 @@
     ]);
     var who = me ? '나' : '상대';
     if (onlineMatch) { var nk = me ? (G.myKey || '나') : (G.oppKey || '상대'); who = nk.length > 12 ? nk.slice(0, 11) + '…' : nk; }
-    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '0 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
+    return el('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '0 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
+      dispenserFace(owner),
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: who }, [who]),
       el('span', { class: 'mono', title: d ? d.name : '', style: { fontSize: '9px', fontWeight: 700, color: '#fff', background: dc, padding: '2px 6px', whiteSpace: 'nowrap', flex: 'none' } }, [(d ? GLY[d.cls] + ' ' : '') + (dk || '?')]),
       device,
-      el('span', { class: 'mono', title: '손패', style: { fontSize: '11px', color: SKIN.muted, flex: 'none' } }, ['패 ' + pl.hand.length]),
+      pileStat('트래쉬', pl.graveyard.length, '트래쉬(묘지)'),
+      pileStat('패', pl.hand.length, '손패'),
+      // 현재 턴 카운터 — 상단(상대) 바에만 표기(전역 값이라 중복 회피)
+      owner === AI ? el('span', { class: 'mono', title: '현재 턴 / 턴 상한', style: { display: 'inline-flex', alignItems: 'center', gap: '3px', flex: 'none', fontSize: '11px', fontWeight: 700, background: SKIN.chassisSunk, padding: '1px 7px', borderRadius: '3px', boxShadow: 'inset 0 0 0 1px ' + SKIN.line } }, [
+        el('span', { style: { fontSize: '10px', color: SKIN.muted } }, ['턴']),
+        el('span', { style: { color: SKIN.txt } }, [String(G.turnNo)]),
+        el('span', { style: { fontSize: '9px', color: SKIN.muted } }, ['/' + G.TURN_CAP])
+      ]) : null,
       pl.bodyShield ? el('span', { class: 'mono', title: '방어막', style: { fontSize: '10px', color: SKIN.ally, fontWeight: 700, flex: 'none' } }, ['방어 ' + pl.bodyShield]) : null
     ]);
   }
