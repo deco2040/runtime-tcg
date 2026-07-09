@@ -116,9 +116,19 @@
     def({ id: 'fanout()', cls: 'thread', kind: 'pointer', need: 'none', text: '「홈칸」 빈 칸 2곳에 분신(공1 체1) 생성(부족 시 가능한 만큼)', cast: function (G, p) { for (var i = 0; i < 2; i++) { var cell = G.firstEmptyHome(p); if (!cell) break; G.summon(p, 'Token1', cell, { cls: 'thread' }); } } });
     def({ id: 'migrate()', cls: 'thread', kind: 'pointer', need: 'none', castCondition: { type: 'classOnBoard', cls: 'thread', n: 3 }, text: '조건 thread 3개+ · 내 thread 전부 앞으로 「1칸이동」(막히면 유지)',
       cast: function (G, p) { var ts = allyThreads(G, p).slice(); ts.sort(function (a, b) { return (P(unitKey(G, a))[1] - P(unitKey(G, b))[1]) * fwd(p); }); ts.forEach(function (t) { var d = forwardDest(G, t); if (d) G.move(t, d, true); }); } });
-    def({ id: 'coalesce()', cls: 'thread', kind: 'pointer', need: 'allyThread', castCondition: { type: 'boardCount', n: 1, token: true }, text: '조건 분신 1+ · 내 분신 전부 파괴, 내 thread 1장 공격력 (파괴한 수 ×2, 최대 +6) 증가',
-      castValid: function (G, p, tk) { var u = G.board[tk]; return !!u && u.owner === p && G.allyObjects(p).some(function (x) { return x.token; }); },
-      cast: function (G, p, tk) { var u = G.board[tk]; if (!u) return; var toks = G.allyObjects(p).filter(function (x) { return x.token; }); var n = toks.length; toks.forEach(function (x) { G.destroy(x, { attacker: { owner: p } }); }); if (G.board[unitKey(G, u)]) G.buffAtk(u, Math.min(6, n * 2)); } });
+    def({ id: 'coalesce()', cls: 'thread', kind: 'pointer', need: 'none', castCondition: { type: 'boardCount', n: 2, token: true }, text: '조건 분신 2+ · 내 분신 전부를 융합 — 분신 전부 파괴 후 그 공/체 합계(각 최대 10)를 가진 융합 분신 1기 생성',
+      castValid: function (G, p) { return G.allyObjects(p).filter(function (x) { return x.token; }).length >= 2; },
+      cast: function (G, p) {
+        var toks = G.allyObjects(p).filter(function (x) { return x.token; });
+        if (toks.length < 2) return;
+        var sumA = 0, sumH = 0; toks.forEach(function (x) { sumA += G.effAtk(x); sumH += G.curHp(x); });
+        // 융합 자리 = 가장 전진한 분신의 칸(없으면 홈 빈칸으로 summon 폴백)
+        toks.sort(function (a, b) { var ka = unitKey(G, a), kb = unitKey(G, b); return (P(kb)[1] * fwd(p)) - (P(ka)[1] * fwd(p)); });
+        var cell = unitKey(G, toks[0]);
+        toks.forEach(function (x) { G.destroy(x, { attacker: { owner: p } }); });
+        var nu = G.summon(p, 'Fused', cell, { cls: 'thread' });
+        if (nu) { nu.baseAtk = Math.min(10, sumA); nu.baseHp = Math.min(10, sumH); }
+      } });
 
     // ============================================================ MEMORY — objects
     def({ id: 'Cache', cls: 'memory', kind: 'object', atk: 0, hp: 12, text: 'While 「옆칸」 적 인스턴스 이동 불가', abilities: [] });
@@ -414,6 +424,7 @@
     // ---------------- switch forms (변신폼 — form:true → 덱풀/도감 목록 제외, 변신폼 표시로만 노출)
     def({ id: 'Switch_ATK', cls: 'generic', kind: 'object', form: true, atk: 5, hp: 1, text: '변신폼(공격형) · Switch에서 변신' });
     def({ id: 'Switch_DEF', cls: 'generic', kind: 'object', form: true, atk: 0, hp: 6, text: '변신폼(방어형) · Switch에서 변신' });
+    def({ id: 'Fused', cls: 'thread', kind: 'object', form: true, atk: 2, hp: 2, text: '융합 분신 · coalesce()로 생성(공/체는 융합한 분신 합계)' });
 
     // ---------------- pointer-support internals ----------------
     function bestAllyForSplice(G, p) { var a = G.allyObjects(p).filter(function (x) { return !x.token; }); a.sort(function (x, y) { return G.effAtk(y) - G.effAtk(x); }); return a[0] || G.allyObjects(p)[0] || null; }
