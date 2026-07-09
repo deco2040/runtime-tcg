@@ -180,7 +180,14 @@
 
 ---
 
-## P7 — 일러스트 중복 제거 (투두 1) — ⚠ 자산 필요(미완)
+## P7 — 일러스트 중복 제거 (투두 1) — ✅ 해결(2026-07, `all/` 라이브러리로 교체)
+
+> 후속: `F:/projects/card/all`(game-icons 4133개)에서 미사용 아이콘을 골라 10쌍 교체 완료.
+> 카드←아이콘: Polymorph←transform, Match←choice, kill()←death-skull, grep()←magnifying-glass,
+> yield()←wheat, fortify()←guarded-tower, Failover_ACT←power-generator, Failover_STBY←sleepy,
+> Duplex_TX←cloud-upload, Duplex_RX←cloud-download, Fused←convergence-target.
+> 남은 중복은 내부 본체 아트(__body/cpu)뿐. 토큰은 사용자 선택으로 현행 유지.
+
 
 ### 조사 결론(정정)
 art-map은 서로 다른 **파일명**을 매핑하지만, `art/`에 **바이트 동일한 파일 쌍이 다수** 존재한다(md5 기준). 총 235파일 / **고유 내용 223개**. 여분(미참조) 파일은 배경용 `cpu.png`·`deadlock.png` 2개뿐.
