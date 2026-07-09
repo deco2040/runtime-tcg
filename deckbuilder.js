@@ -13,6 +13,8 @@
   var bDeck = null;            // { key, name, list:[cardId…] }
   var bOrigin = 'title';       // 진입 맥락 — 취소/저장/삭제 후 복귀 화면('title'|'single'|'lobby')
   var bFilter = 'all';         // 카드 풀 클래스 필터
+  var bSearch = '';            // 카드 검색어(이름·효과문)
+  var bKw = 'all';             // 카드 풀 키워드 필터
   var bMsg = '';               // 일시 안내 메시지(추가 차단 등)
   var _pool = null;
   var _scrollPool = 0, _scrollDeck = 0;   // 재렌더(카드 추가/제거) 시 스크롤 위치 보존
@@ -150,27 +152,66 @@
 
   function crtLabel(t) { return el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', letterSpacing: '.1em', color: AMB, margin: '2px 0 9px', textShadow: 'none' } }, [t]); }
 
+  // 카드 풀 키워드 필터 후보 — 발동 방식 키워드 + 자주 쓰는 상태/조건 키워드
+  var KW_FILTERS = [['all', '전체'], ['For', 'For'], ['When', 'When'], ['Once', 'Once'], ['If', 'If'], ['While', 'While'], ['Switch', 'Switch'], ['require', 'require'], ['보호', '보호'], ['봉쇄', '봉쇄']];
+  // 검색: id·이름·효과문(현재 언어) 부분일치
+  function cardMatchesSearch(c, q) {
+    if (!q) return true; q = q.toLowerCase();
+    var tx = (window.RT_I18N && window.RT_I18N.cardText) ? window.RT_I18N.cardText(c) : (c.text || '');
+    return String(c.id).toLowerCase().indexOf(q) >= 0 || String(c.name || '').toLowerCase().indexOf(q) >= 0 || String(c.text || '').toLowerCase().indexOf(q) >= 0 || String(tx).toLowerCase().indexOf(q) >= 0;
+  }
+  // 키워드 분류: ability.kw 우선, 없으면 효과문 문자열 스캔(While/보호/봉쇄 등은 text 기반). require 는 구조 필드도 인정.
+  function cardHasKw(c, kw) {
+    if (kw === 'all') return true;
+    if (kw === 'require') return !!(c.require || c.castCondition) || (c.text || '').indexOf('require') >= 0;
+    if ((c.abilities || []).some(function (a) { return a.kw === kw; })) return true;
+    return (c.text || '').indexOf(kw) >= 0;
+  }
+
   function builderPool(dark) {
     var col = el('div', { style: { flex: '2 1 380px', minWidth: '300px' } });
     col.appendChild(crtLabel('▸ CARD POOL'));
-    var tabs = el('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' } });
+    // 검색창 — 입력 시 전체 재렌더 대신 그리드만 갱신해 입력 포커스를 유지(fillGrid).
+    var searchIn = el('input', {
+      type: 'text', value: bSearch, placeholder: (window.RT_I18N && window.RT_I18N.t) ? window.RT_I18N.t('카드 검색 (이름 · 효과)') : '카드 검색 (이름 · 효과)', maxlength: 30, class: 'grot',
+      oninput: function (e) { bSearch = e.target.value; fillGrid(); },
+      style: { width: '100%', boxSizing: 'border-box', padding: '9px 12px', marginBottom: '8px', fontSize: '14px', fontWeight: 700, color: dark ? '#f6e3ba' : '#1d1d24', background: dark ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.6)', border: '1px solid ' + (dark ? 'rgba(255,176,0,.45)' : 'rgba(29,29,36,.4)'), outline: 'none', textShadow: 'none' }
+    });
+    col.appendChild(searchIn);
+    // 클래스 탭
+    var tabs = el('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '7px' } });
     [['all', '전체'], ['thread', 'thread'], ['memory', 'memory'], ['process', 'process'], ['generic', 'generic']].forEach(function (t) {
       tabs.appendChild(el('button', { onclick: function () { bFilter = t[0]; _scrollPool = 0; UI.render(); }, class: 'crt-opt' + (bFilter === t[0] ? ' on' : ''), style: { fontSize: '13px', padding: '8px 13px' } }, [t[1]]));
     });
     col.appendChild(tabs);
+    // 키워드 분류 필터 행
+    var kwRow = el('div', { style: { display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' } });
+    KW_FILTERS.forEach(function (t) {
+      kwRow.appendChild(el('button', { onclick: function () { bKw = t[0]; _scrollPool = 0; UI.render(); }, class: 'crt-opt' + (bKw === t[0] ? ' on' : ''), style: { fontSize: '11.5px', padding: '5px 9px' } }, [t[1]]));
+    });
+    col.appendChild(kwRow);
     var mob = isMobileDB();
     var grid = el('div', { id: 'db-pool', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(' + (mob ? 102 : Math.round(FACE_W * poolScale() + 20)) + 'px,1fr))', gap: mob ? '10px 8px' : '16px 14px', maxHeight: '72vh', overflowY: 'auto', padding: '4px 2px' } });
-    var lastCls = null;
-    deckPool().forEach(function (id) {
-      var c = CARDS[id];
-      if (bFilter !== 'all' && c.cls !== bFilter) return;
-      // 전체 보기에선 클래스가 바뀔 때마다 구분 헤더(전폭)를 끼워 정렬 순서를 시각화(#1)
-      if (bFilter === 'all' && c.cls !== lastCls) {
-        lastCls = c.cls;
-        grid.appendChild(el('div', { class: 'grot', style: { gridColumn: '1 / -1', fontSize: '13px', fontWeight: 700, letterSpacing: '.08em', color: CLS[c.cls] || AMB, borderBottom: '1px solid ' + (dark ? 'rgba(255,176,0,.28)' : 'rgba(29,29,36,.22)'), padding: '9px 2px 5px', marginTop: '3px' } }, [(GLY[c.cls] || '●') + '  ' + (CLS_LABEL[c.cls] || String(c.cls).toUpperCase())]));
-      }
-      grid.appendChild(poolTile(id, dark));
-    });
+    function fillGrid() {
+      clear(grid);
+      var lastCls = null, shown = 0;
+      deckPool().forEach(function (id) {
+        var c = CARDS[id];
+        if (bFilter !== 'all' && c.cls !== bFilter) return;
+        if (!cardMatchesSearch(c, bSearch)) return;
+        if (!cardHasKw(c, bKw)) return;
+        // 전체 보기에선 클래스가 바뀔 때마다 구분 헤더(전폭)를 끼워 정렬 순서를 시각화(#1).
+        // 필터 통과 후에 헤더를 넣으므로 빈 클래스 헤더는 생기지 않는다.
+        if (bFilter === 'all' && c.cls !== lastCls) {
+          lastCls = c.cls;
+          grid.appendChild(el('div', { class: 'grot', style: { gridColumn: '1 / -1', fontSize: '13px', fontWeight: 700, letterSpacing: '.08em', color: CLS[c.cls] || AMB, borderBottom: '1px solid ' + (dark ? 'rgba(255,176,0,.28)' : 'rgba(29,29,36,.22)'), padding: '9px 2px 5px', marginTop: '3px' } }, [(GLY[c.cls] || '●') + '  ' + (CLS_LABEL[c.cls] || String(c.cls).toUpperCase())]));
+        }
+        grid.appendChild(poolTile(id, dark));
+        shown++;
+      });
+      if (!shown) grid.appendChild(el('div', { class: 'grot', style: { gridColumn: '1 / -1', padding: '22px', textAlign: 'center', color: AMB_DIM, fontSize: '13px' } }, ['검색 결과 없음']));
+    }
+    fillGrid();
     col.appendChild(grid);
     return col;
   }
@@ -238,7 +279,7 @@
   function switchFormsOf(id) { var c = CARDS[id]; return (c && c.switchForms) || []; }
   function formsRow(id, sc) {
     var forms = switchFormsOf(id); if (!forms.length) return null;
-    sc = sc || 0.6;
+    sc = sc || 0.72;
     var label = el('div', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: AMB, textShadow: 'none', textAlign: 'center', letterSpacing: '.04em' } }, ['⇄ 변신폼 · SWITCH FORMS']);
     var faces = forms.map(function (fid) {
       var raw = faceFor(fid, true);
@@ -300,7 +341,7 @@
       badges.length ? el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } }, badges) : null,
       el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: readTxt } }, [isP ? '◆ 포인터 · ' + String(c.cls).toUpperCase() : ('⚔ 공 ' + c.atk + '   ♥ 체 ' + c.hp)]),
       el('div', { style: { fontSize: '12px', lineHeight: 1.55, color: readTxt, fontWeight: 500 } }, richText((window.RT_I18N && window.RT_I18N.cardText) ? window.RT_I18N.cardText(c) : (c.text || ''))),
-      formsRow(id, 0.5)
+      formsRow(id, 0.72)
     ]);
     return el('div', { style: { width: '212px', background: dark ? '#17110a' : '#f4f5f8', border: '1px solid ' + cl, boxShadow: '0 8px 24px rgba(0,0,0,.55)', overflow: 'hidden' } }, [title, illo(c, cl, dark, 116), body]);
   }
@@ -328,8 +369,8 @@
     var w = raw ? Math.round(FACE_W * DECK_PREVIEW_SC) : 212;
     var h = raw ? Math.round(FACE_H * DECK_PREVIEW_SC) : (node.offsetHeight || 320);
     var t = tipEl(); while (t.firstChild) t.removeChild(t.firstChild);
-    var fr = (raw && switchFormsOf(id).length) ? formsRow(id, 0.5) : null;   // raw 없으면 cardDetailNode 가 폼 포함 → 중복 방지
-    if (fr) { var col = el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } }, [node, fr]); t.appendChild(col); h += Math.round(FACE_H * 0.5) + 26; }
+    var fr = (raw && switchFormsOf(id).length) ? formsRow(id, 0.72) : null;   // raw 없으면 cardDetailNode 가 폼 포함 → 중복 방지
+    if (fr) { var col = el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } }, [node, fr]); t.appendChild(col); h += Math.round(FACE_H * 0.72) + 26; }
     else t.appendChild(node);
     t.style.display = 'block';
     var r = anchor.getBoundingClientRect(), gap = 12, vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
@@ -351,7 +392,7 @@
     var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
     var scl = Math.min(2.0, (vh * 0.82) / FACE_H, (vw * 0.92) / FACE_W); if (scl < 1) scl = 1;
     var node = scaledFace(raw, scl); node.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
-    var fr = formsRow(id, Math.min(0.62, scl * 0.5));
+    var fr = formsRow(id, Math.min(0.78, scl * 0.62));
     var content = fr ? el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', maxHeight: '96vh', overflowY: 'auto' } }, [node, fr]) : node;
     _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [content]);
     if (document.body) document.body.appendChild(_dbBig);

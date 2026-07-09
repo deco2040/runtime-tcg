@@ -280,9 +280,14 @@
     n.style.pointerEvents="none";
     var vw=window.innerWidth||360, vh=window.innerHeight||640;
     var sc=Math.min(2.0,(vh*0.82)/220,(vw*0.92)/158); if(sc<1) sc=1;
+    // transform 은 레이아웃 박스를 안 바꾸므로 겉박스를 확대 크기(FACE*sc)로 직접 잡는다.
+    // (미적용 시 Switch 카드는 아래 변신폼 행과 겹치고 col의 overflow가 클리핑 → 확대가 깨져 보였음)
+    var inner=document.createElement("div");
+    inner.style.cssText="transform:scale("+sc+");transform-origin:top center;filter:drop-shadow(0 16px 40px rgba(0,0,0,.6));flex:none";
+    inner.appendChild(n);
     var wrap=document.createElement("div");
-    wrap.style.cssText="transform:scale("+sc+");filter:drop-shadow(0 16px 40px rgba(0,0,0,.6))";
-    wrap.appendChild(n);
+    wrap.style.cssText="width:"+Math.round(FACE_W*sc)+"px;height:"+Math.round(FACE_H*sc)+"px;display:flex;justify-content:center;flex:none";
+    wrap.appendChild(inner);
     var back=document.createElement("div"); back.id="bigback";
     var fr=formsRowH(id);
     if(fr){ var col=document.createElement("div"); col.style.cssText="display:flex;flex-direction:column;align-items:center;gap:10px;max-height:96vh;overflow:auto"; col.appendChild(wrap); col.appendChild(fr); back.appendChild(col); }
