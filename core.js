@@ -1530,10 +1530,9 @@
       renderMatchCompact(wrap, meTurn);
     } else {
       // 상단 상태 스트립 삭제(턴/덱/도전 정보는 titlebar·디스펜서·컨트롤과 중복) → 그만큼 보드에 세로를 양보.
-      // 도전 연승만 titlebar 우측에 합쳐 표기.
-      var tbText = tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app   ·   turn ' + G.turnNo + ' / ' + G.TURN_CAP;
+      // 턴·런타임 환경 정보는 디스펜서 바에 표기되므로 titlebar 에서는 생략(중복 제거). 도전 연승만 우측에 합쳐 표기.
+      var tbText = tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app';
       if (challenge) tbText += '   ·   🏆 ' + challenge.stage + '단계 ' + challenge.wins + '연승' + (challenge.boss ? ' 👑BOSS' : '');
-      if (G.weather && !tutorial) { var _twi = weatherInfo(G.weather); tbText += '   ·   ' + _twi.icon + ' ' + _twi.name; }
       wrap.appendChild(titlebar(tbText));
       if (tutorial) wrap.appendChild(tutBanner());
 
