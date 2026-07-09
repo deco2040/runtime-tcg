@@ -1,5 +1,6 @@
-/* RUNTIME TCG — 카드 풀 (seed cards v14.1 정합). engine.js가 kit(엔진 헬퍼)를 주입해 정의한다.
-   engine.js보다 먼저 로드할 것. 텍스트/스탯/효과는 runtime-tcg-cards-v14-1.json 기준. */
+/* RUNTIME TCG — 카드 풀 (seed cards v15 정합). engine.js가 kit(엔진 헬퍼)를 주입해 정의한다.
+   engine.js보다 먼저 로드할 것. 텍스트/스탯/효과는 runtime-tcg-cards-v15.json 기준.
+   v15: Switch 변신 키워드 신설 · coalesce 융합 리메이크 · If/보호 확장(신규 19장) + 변신폼/Fused. */
 (function () {
   window.RT_DEFINE_CARDS = function (kit) {
     var def = kit.def, CARDS = kit.CARDS, COLS = kit.COLS, ROWS = kit.ROWS, K = kit.K, P = kit.P,
