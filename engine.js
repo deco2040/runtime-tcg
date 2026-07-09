@@ -479,6 +479,27 @@
     return u;
   };
 
+  // ---- Switch(변신): 살아있는 인스턴스를 다른 카드(폼)로 영구 변신.
+  // cardId·baseAtk/baseHp를 새 폼으로 교체하고 능력치 보정/능력 회계를 초기화한다.
+  // 누적 피해(dmg)는 새 최대 HP-1로 클램프 → 변신으로 완치되거나 즉사하지 않게.
+  // onSummon은 재발동하지 않는다(변신은 소환이 아님).
+  Game.prototype.transformUnit = function (u, newId) {
+    var nc = CARDS[newId]; if (!nc || !u) return false;
+    var k = unitKey(this, u); if (!k || this.board[k] !== u) return false;
+    u.cardId = newId;
+    u.baseAtk = nc.atk || 0;
+    u.baseHp = nc.hp || 0;
+    u.atkMod = 0; u.hpMod = 0;                       // 폼이 새 기준치를 정의 — 누적 강화 제거
+    u.tempAtk = []; u.atkZero = false; u.atkZeroUntil = 0;
+    u.onceUsed = {};                                  // 능력 배열이 바뀌므로 For/If/Switch 회계 초기화
+    var newMax = this.effMaxHp(u);
+    if (u.dmg > newMax - 1) u.dmg = Math.max(0, newMax - 1);
+    this.note(nc.name + '(으)로 전환');
+    this.fx({ type: 'spawn', key: k, card: newId, owner: u.owner }); // 변신 연출 = spawn 플래시 재사용
+    this.checkWin(); this.emit();
+    return true;
+  };
+
   // forward-line first enemy (벽 너머 가능 = ignore blockers for "first enemy in line")
   Game.prototype.firstEnemyInLine = function (originKey, owner, n, throughWalls) {
     var p = P(originKey), dr = fwd(owner);
@@ -566,15 +587,15 @@
     });
   };
 
-  // 활성형 능력(선택 발동): For(무료·턴당 forCount회) + If(선택 발동·조건부 분기). 둘 다 동일 회계 사용.
+  // 활성형 능력(선택 발동): For(무료·턴당 forCount회) + If(선택 발동·조건부 분기) + Switch(변신 폼 선택). 모두 동일 회계 사용.
   Game.prototype.forAbilities = function (u) {
-    return (CARDS[u.cardId].abilities || []).filter(function (ab) { return ab.kw === 'For' || ab.kw === 'If'; });
+    return (CARDS[u.cardId].abilities || []).filter(function (ab) { return ab.kw === 'For' || ab.kw === 'If' || ab.kw === 'Switch'; });
   };
   Game.prototype.canFireFor = function (u, abIndex) {
     if (u.owner !== this.active || this.winner !== undefined) return false;
     if (this.isBound(u)) return false;                // rules v10: 봉쇄 = For 능동도 불가
     var ab = CARDS[u.cardId].abilities[abIndex];
-    if (!ab || (ab.kw !== 'For' && ab.kw !== 'If')) return false;
+    if (!ab || (ab.kw !== 'For' && ab.kw !== 'If' && ab.kw !== 'Switch')) return false;
     if (this.forUsesThisTurn[u.uid + ':' + abIndex]) return false;
     u.onceUsed['for' + abIndex] = u.onceUsed['for' + abIndex] || 0;
     if (u.onceUsed['for' + abIndex] >= (ab.forCount || 1)) return false;
@@ -1014,14 +1035,15 @@
       var abs = g.forAbilities(u);
       for (var i = 0; i < CARDS[u.cardId].abilities.length; i++) {
         var _ab = CARDS[u.cardId].abilities[i];
-        if (_ab.kw !== 'For' && _ab.kw !== 'If') continue;
-        // If(선택형): AI는 조건이 맞고 이득일 때만 발동 — aiWant 훅이 있으면 그 판단을 따른다.
-        if (_ab.kw === 'If' && _ab.aiWant && !_ab.aiWant(g, u)) continue;
+        if (_ab.kw !== 'For' && _ab.kw !== 'If' && _ab.kw !== 'Switch') continue;
+        // If/Switch(선택형): AI는 조건이 맞고 이득일 때만 발동 — aiWant 훅이 있으면 그 판단을 따른다.
+        if ((_ab.kw === 'If' || _ab.kw === 'Switch') && _ab.aiWant && !_ab.aiWant(g, u)) continue;
         var guard = 0;
         while (g.canFireFor(u, i) && g.forReady(u, i) && guard++ < 5 && g.winner === undefined) {
           var _ch = {};
-          if (_ab.kw === 'If' && _ab.aiOpt) _ch.opt = _ab.aiOpt(g, u);
+          if ((_ab.kw === 'If' || _ab.kw === 'Switch') && _ab.aiOpt) _ch.opt = _ab.aiOpt(g, u);
           g.fireFor(u, i, _ch);
+          if (_ab.kw === 'Switch') break;   // 변신은 cardId가 바뀌므로 같은 인덱스 재발동 금지
         }
       }
     });
@@ -1245,7 +1267,7 @@
     'kill()': 's2', 'ping()': 's2', 'sync()': 'ally1', 'flush()': 'ax1', 'shift()': 'move', 'drop()': 's2', 'assert()': 's2', 'throw()': 's2', 'wait()': 's2', 'cast()': 'ally1', 'catch()': 'self', 'bind()': 's2', 'echo()': 'far', 'patch()': 'ally1', 'clear()': 's2', 'exit()': 'global', 'malloc()': 'self', 'grep()': 'self', 'yield()': 'self', 'copy()': 'self',
     // 함수 능력 사거리 일관 표기 보강 — 기본 공격 외 함수(능력) 발동 카드 전수 등록(rename 시 표 미갱신분).
     Fiber: 'x1', Salvo: 's2', Inline: 'x1', Firewall: 'x1', Ripple: 'x1', Relay: 's1', Raycast: 'd2', Profiler: 's1', Predicate: 's2', Cond: 'lf3', Branch: 'x1', Guard: 'x1',
-    Semaphore: 'enemy1', Exploit: 'enemy1', Coerce: 'enemy1', Switch: 'enemy1', Pivot: 'move'
+    Semaphore: 'enemy1', Exploit: 'enemy1', Coerce: 'enemy1', Switch: 'self', Pivot: 'move'
   };
   function relCells(code) {
     var out = [], i, dc, dr, n;

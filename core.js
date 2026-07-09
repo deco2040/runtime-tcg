@@ -1819,13 +1819,16 @@
     var u = G.board[sel.key]; if (!u || u.owner !== HUMAN || u.type !== 'object') return null;
     var btns = [];
     CARDS[u.cardId].abilities.forEach(function (ab, idx) {
-      if ((ab.kw !== 'For' && ab.kw !== 'If') || !G.canFireFor(u, idx)) return;
+      if ((ab.kw !== 'For' && ab.kw !== 'If' && ab.kw !== 'Switch') || !G.canFireFor(u, idx)) return;
       var N = ab.forCount || 1, left = N - (u.onceUsed['for' + idx] || 0);
       var ready = G.forReady(u, idx);
       var isIf = ab.kw === 'If';
-      if (isIf && ab.options && ab.options.length) {           // If 분기: 옵션마다 버튼
+      var isSwitch = ab.kw === 'Switch';
+      if ((isIf || isSwitch) && ab.options && ab.options.length) {           // If 분기 / Switch 변신폼: 옵션마다 버튼
+        var pfx = isSwitch ? '⇄ ' : '◆ ';                    // Switch 변신은 ⇄ 마크로 구분
+        var col = isSwitch ? '#8a5cc8' : '#4a6bd8';
         ab.options.forEach(function (op, oi) {
-          btns.push(el('button', { style: popBtn(ready ? '#4a6bd8' : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, oi); } : function () { flash('발동할 수 없음'); } }, ['◆ ' + op.label]));
+          btns.push(el('button', { style: popBtn(ready ? col : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, oi); } : function () { flash('발동할 수 없음'); } }, [pfx + op.label]));
         });
       } else {
         var mk = isIf ? '◆ 발동' : ('⚡ 발동 ' + left + '/' + N);
@@ -2185,7 +2188,7 @@
     var atkBadge = myTurn ? (G.canBasicAttack(u) ? '⚔' : (u.attackedTurn === G.turnNo ? '⚔✓' : '')) : '';
     var forN = forRemaining(u);
     // For 발동 가능(내 턴 & 남은 횟수 & 대상 가능) 여부 — 배지 색/펄스로 강조.
-    var forFire = myTurn && CARDS[u.cardId].abilities.some(function (ab, idx) { return (ab.kw === 'For' || ab.kw === 'If') && G.canFireFor(u, idx) && G.forReady(u, idx); });
+    var forFire = myTurn && CARDS[u.cardId].abilities.some(function (ab, idx) { return (ab.kw === 'For' || ab.kw === 'If' || ab.kw === 'Switch') && G.canFireFor(u, idx) && G.forReady(u, idx); });
     var badges = el('div', { style: { display: 'flex', alignItems: 'center', gap: '2px', flex: 'none' } }, [
       atkBadge ? el('span', { class: 'mono', style: { fontSize: '7px', fontWeight: 700, color: G.canBasicAttack(u) ? '#ffe14d' : 'rgba(255,255,255,.6)' } }, [atkBadge]) : null
       // 봉쇄(🔒)는 뷰포트 상단 상태이상 칩(statusChips)으로 크게 표시 — 타이틀바 중복 배지 제거.

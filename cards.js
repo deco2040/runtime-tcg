@@ -341,11 +341,14 @@
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 3, false); if (t) G.deal(t, G.effAtk(u), { attacker: u }); else if (inLineToBody(G, u, 3)) G.deal(G.enemyBody(u.owner), G.effAtk(u), { attacker: u }); } else { G.grantBonusAttack(u, 1); } },
         aiOpt: function (G, u) { var t = G.firstEnemyInLine(unitKey(G, u), u.owner, 3, false); if (t && G.curHp(t) <= G.effAtk(u)) return 0; return G.canBasicAttack(u) ? 1 : 0; } }] });
-    def({ id: 'Switch', cls: 'generic', kind: 'object', atk: 3, hp: 4, text: 'If 선택 발동 · [공격] 적 하나 3 피해 / [보호] 아군 1장 3 회복',
-      abilities: [{ kw: 'If', forCount: 1, trigger: 'onTurnStart', options: [{ label: '공격' }, { label: '보호' }],
-        ready: function (G, u) { return G.enemyObjects(u.owner).length > 0 || !!woundedAlly(G, u.owner); },
-        fn: function (G, u, ch) { if ((ch.opt || 0) === 0) { var t = ch.target ? G.board[ch.target] : weakestEnemy(G, u.owner); if (t) G.deal(t, 3, { attacker: u }); } else { var a = woundedAlly(G, u.owner) || u; if (a) G.healInst(a, 3); } },
-        aiOpt: function (G, u) { var w = woundedAlly(G, u.owner); var e = weakestEnemy(G, u.owner); if (e && G.curHp(e) <= 3) return 0; if (w && w.dmg >= 3) return 1; return e ? 0 : 1; } }] });
+    // ============================================================ SWITCH — 변신(폼 선택) 함수 능력 카드
+    // kw:'Switch' = 능동 활성(For/If와 동일 회계). options=UI 폼 버튼, forms=변신 대상 카드 id, ch.opt=선택 인덱스.
+    // 게임당 1회 영구 변신. 변신폼(form:true)은 실제 카드로 정의되어 도감/덱빌더에 변신폼으로 함께 표시된다.
+    def({ id: 'Switch', cls: 'generic', kind: 'object', atk: 3, hp: 3, switchForms: ['Switch_ATK', 'Switch_DEF'], text: 'Switch 변신(게임당 1회) · [공격형] 공5·체1 / [방어형] 공0·체6',
+      abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '공격형' }, { label: '방어형' }], forms: ['Switch_ATK', 'Switch_DEF'],
+        ready: function (G, u) { return true; },
+        fn: function (G, u, ch) { var fm = ['Switch_ATK', 'Switch_DEF']; G.transformUnit(u, fm[(ch.opt || 0)]); },
+        aiOpt: function (G, u) { var myBody = G.body(u.owner); if (myBody && myBody.dmg >= 20 && G.enemyObjects(u.owner).length >= 2) return 1; return 0; } }] });
     def({ id: 'Branch', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'If 선택 발동 · [도약] 자기 「1칸이동」 후 「옆칸」 적 하나 2 피해 / [교란] 적 인스턴스 하나를 적 진영 쪽으로 「1칸이동」',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '도약' }, { label: '교란' }],
         ready: function (G, u) { return G.moveCells(u).length > 0 || G.enemyObjects(u.owner).some(function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k), nr = q[1] + fwd(u.owner); return inB(q[0], nr) && !G.board[K(q[0], nr)]; }); },
@@ -407,6 +410,10 @@
     def({ id: 'Wall5', cls: 'memory', kind: 'object', atk: 0, hp: 5, text: '벽' });
     def({ id: 'Wall8', cls: 'memory', kind: 'object', atk: 0, hp: 8, text: '벽' });
     def({ id: 'Wall10', cls: 'memory', kind: 'object', atk: 0, hp: 10, text: '벽' });
+
+    // ---------------- switch forms (변신폼 — form:true → 덱풀/도감 목록 제외, 변신폼 표시로만 노출)
+    def({ id: 'Switch_ATK', cls: 'generic', kind: 'object', form: true, atk: 5, hp: 1, text: '변신폼(공격형) · Switch에서 변신' });
+    def({ id: 'Switch_DEF', cls: 'generic', kind: 'object', form: true, atk: 0, hp: 6, text: '변신폼(방어형) · Switch에서 변신' });
 
     // ---------------- pointer-support internals ----------------
     function bestAllyForSplice(G, p) { var a = G.allyObjects(p).filter(function (x) { return !x.token; }); a.sort(function (x, y) { return G.effAtk(y) - G.effAtk(x); }); return a[0] || G.allyObjects(p)[0] || null; }
