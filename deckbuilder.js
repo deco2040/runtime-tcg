@@ -31,7 +31,7 @@
     if (_pool) return _pool;
     var deny = { Token1: 1, Token2: 1, Token21: 1, Token2b: 1, Token5: 1, Wall5: 1, Wall8: 1, Wall10: 1, __wall: 1, __body0: 1, __body1: 1, 'overtime()': 1 };
     var order = { thread: 0, memory: 1, process: 2, generic: 3, none: 4 };
-    _pool = Object.keys(CARDS).filter(function (id) { var c = CARDS[id]; return c && !deny[id] && (c.kind === 'object' || c.kind === 'pointer'); });
+    _pool = Object.keys(CARDS).filter(function (id) { var c = CARDS[id]; return c && !deny[id] && !c.form && (c.kind === 'object' || c.kind === 'pointer'); });
     function ord(cls) { return (cls in order) ? order[cls] : 9; }   // ⚠ 0이 falsy라 `order[cls]||9` 쓰면 thread(0)가 꼴찌로 밀림
     _pool.sort(function (a, b) {
       var ca = CARDS[a], cb = CARDS[b];
@@ -233,6 +233,22 @@
     return el('div', { style: { width: Math.round(FACE_W * sc) + 'px', height: Math.round(FACE_H * sc) + 'px', display: 'flex', justifyContent: 'center', flex: 'none' } }, [inner]);
   }
 
+  // Switch 변신폼 표시 — switchForms 가 있는 카드의 상세/확대 뷰 아래에 변신 대상 카드들을 함께 나열(요청 1-3).
+  // form:true 카드는 덱풀/도감 목록에선 제외되지만 여기선 명시적으로 노출한다.
+  function switchFormsOf(id) { var c = CARDS[id]; return (c && c.switchForms) || []; }
+  function formsRow(id, sc) {
+    var forms = switchFormsOf(id); if (!forms.length) return null;
+    sc = sc || 0.6;
+    var label = el('div', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: AMB, textShadow: 'none', textAlign: 'center', letterSpacing: '.04em' } }, ['⇄ 변신폼 · SWITCH FORMS']);
+    var faces = forms.map(function (fid) {
+      var raw = faceFor(fid, true);
+      var node = raw ? scaledFace(raw, sc) : el('div', { class: 'grot', style: { padding: '8px', border: '1px solid ' + AMB, color: AMB, fontSize: '11px' } }, [fid]);
+      return node;
+    });
+    var row = el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' } }, faces);
+    return el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', marginTop: '8px' } }, [label, row]);
+  }
+
   // 카드 풀 타일 — 인게임 손패 카드 모습 그대로 + 보유수량 배지 + 추가/제거 컨트롤 스트립.
   // 카드 클릭 = 1장 추가, 스트립의 − = 1장 제거. OP 카드(덱당 1장 제한)는 카드 타이틀바 금박 젬으로 표시됨.
   function poolTile(id, dark) {
@@ -283,7 +299,8 @@
     var body = el('div', { style: { padding: '7px 9px 9px', display: 'flex', flexDirection: 'column', gap: '5px', background: dark ? '#17110a' : '#f4f5f8', textShadow: 'none' } }, [
       badges.length ? el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } }, badges) : null,
       el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: readTxt } }, [isP ? '◆ 포인터 · ' + String(c.cls).toUpperCase() : ('⚔ 공 ' + c.atk + '   ♥ 체 ' + c.hp)]),
-      el('div', { style: { fontSize: '12px', lineHeight: 1.55, color: readTxt, fontWeight: 500 } }, richText(c.text || ''))
+      el('div', { style: { fontSize: '12px', lineHeight: 1.55, color: readTxt, fontWeight: 500 } }, richText(c.text || '')),
+      formsRow(id, 0.5)
     ]);
     return el('div', { style: { width: '212px', background: dark ? '#17110a' : '#f4f5f8', border: '1px solid ' + cl, boxShadow: '0 8px 24px rgba(0,0,0,.55)', overflow: 'hidden' } }, [title, illo(c, cl, dark, 116), body]);
   }
@@ -311,7 +328,10 @@
     var w = raw ? Math.round(FACE_W * DECK_PREVIEW_SC) : 212;
     var h = raw ? Math.round(FACE_H * DECK_PREVIEW_SC) : (node.offsetHeight || 320);
     var t = tipEl(); while (t.firstChild) t.removeChild(t.firstChild);
-    t.appendChild(node); t.style.display = 'block';
+    var fr = (raw && switchFormsOf(id).length) ? formsRow(id, 0.5) : null;   // raw 없으면 cardDetailNode 가 폼 포함 → 중복 방지
+    if (fr) { var col = el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } }, [node, fr]); t.appendChild(col); h += Math.round(FACE_H * 0.5) + 26; }
+    else t.appendChild(node);
+    t.style.display = 'block';
     var r = anchor.getBoundingClientRect(), gap = 12, vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
     var left = r.right + gap;                                  // 기본은 카드 오른쪽, 공간 없으면 왼쪽
     if (left + w > vw - 8) left = r.left - w - gap;
@@ -331,7 +351,9 @@
     var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
     var scl = Math.min(2.0, (vh * 0.82) / FACE_H, (vw * 0.92) / FACE_W); if (scl < 1) scl = 1;
     var node = scaledFace(raw, scl); node.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
-    _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [node]);
+    var fr = formsRow(id, Math.min(0.62, scl * 0.5));
+    var content = fr ? el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', maxHeight: '96vh', overflowY: 'auto' } }, [node, fr]) : node;
+    _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [content]);
     if (document.body) document.body.appendChild(_dbBig);
   }
 
