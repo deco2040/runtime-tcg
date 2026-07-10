@@ -24,13 +24,17 @@
   var MAX_ACTION_BUDGET = 9; // 한 턴 총 행동 상한(기본 2 + 추가 액션 카드 스택, Conduit 콤보 등). 구 4 → 9.
 
   // ----------------------------------------------------------------- RUNTIME ENV (판 전체 환경 효과)
-  // 매 게임 1종이 결정적으로 지정된다(온라인은 seed 파생 → 양 클라 동일). clear 는 랜덤 풀에서 제외(무언가는 반드시 일어난다).
+  // 매 게임 1종이 결정적으로 지정된다(온라인은 seed 파생 → 양 클라 동일).
   var WEATHERS_ALL = ['overclock', 'throttle', 'memleak', 'ctxswitch', 'deadlock'];
+  // 일반전(단일/온라인) 추첨 풀 — clear 도 포함하되 가중(clear 여러 장)으로 등장률을 높인다(평온한 판을 좀 더 자주).
+  // clear × CLEAR_WEIGHT + 각 env × 1. 현재 CLEAR_WEIGHT=2 → clear 2/7≈28.6%, 각 env 1/7≈14.3%. (챌린지/튜토리얼은 명시 지정이라 무관)
+  var CLEAR_WEIGHT = 2;
+  var WEATHER_PICK_POOL = (function () { var a = WEATHERS_ALL.slice(); for (var i = 0; i < CLEAR_WEIGHT; i++) a.push('clear'); return a; })();
   var WEATHER_HAZARD_START = 8; // memleak 발동 시작 ply(초반 숨통)
   var WALL_OWNER = 2;           // 중립 벽 소유자(플레이어 0/1 아님)
   // FNV-1a — 문자열/숫자 seed 모두 안전한 결정적 해시(rng 스트림을 건드리지 않음).
   function hashStr(s) { s = '' + s; var h = 2166136261 >>> 0; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-  function weatherFromSeed(seed) { return WEATHERS_ALL[hashStr(seed + '|w') % WEATHERS_ALL.length]; }
+  function weatherFromSeed(seed) { return WEATHER_PICK_POOL[hashStr(seed + '|w') % WEATHER_PICK_POOL.length]; }
   function inB(c, r) { return c >= 1 && c <= COLS && r >= 1 && r <= ROWS; }
   function K(c, r) { return c + ',' + r; }
   function P(k) { var a = k.split(','); return [+a[0], +a[1]]; }
