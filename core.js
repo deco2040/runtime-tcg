@@ -2066,7 +2066,7 @@
         { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.7)', opacity: 0 }
       ], { duration: 720, easing: 'cubic-bezier(.25,.85,.3,1)' });
       setActionToast(owner, isEN() ? '🪙 Second-turn bonus — extra card 「Coin」 (this turn actions +2)' : '🪙 후공 보정 — 추가 카드 「동전」(이번 턴 액션 +2)');
-      pushFeed({ actor: owner, icon: '🪙', kind: 'draw', card: 'overtime()', text: isEN() ? 'Second-turn bonus · gained 「Coin」' : '후공 보정 · 「동전」 추가 획득' });
+      pushFeed({ actor: owner, icon: '🪙', kind: 'draw', card: 'overtime()', text: isEN() ? 'Second-turn bonus · gained overtime()' : '후공 보정 · overtime() 추가 획득' });
     }, 260);
   }
   function gauge(cur, max, color) {

@@ -537,7 +537,7 @@
     "패": "Hand",
     "손패": "Hand",
     "트래쉬(묘지)": "Trash (graveyard)",
-    "후공 보정 · 「동전」 추가 획득": "Second-player comp · gained an extra 「coin」",
+    "후공 보정 · overtime() 추가 획득": "Second-turn bonus · gained overtime()",
     "RUNTIME TCG — 카드 · 견본 덱 도감": "RUNTIME TCG — Cards · Sample Deck Catalog",
     "카드 도감 & 견본 덱": "Card Catalog & Sample Decks",
     "RUNTIME TCG · 인게임 손패 카드 모습 그대로 · 카드풀·견본 덱 자동 연동(live)": "RUNTIME TCG · exactly as in-hand cards look · card pool and sample decks auto-synced (live)",
