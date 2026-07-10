@@ -68,7 +68,9 @@
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', letterSpacing: '.03em' } }, [
       footLink('개인정보처리방침', 'privacy/index.html'),
       el('span', { style: { opacity: '.5' } }, ['·']),
-      footLink('이용약관', 'terms/index.html')
+      footLink('이용약관', 'terms/index.html'),
+      el('span', { style: { opacity: '.5' } }, ['·']),
+      footLink('Icons · game-icons.net', 'https://game-icons.net/')
     ]));
 
     screen.appendChild(b);
