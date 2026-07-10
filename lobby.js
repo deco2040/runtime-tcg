@@ -597,7 +597,7 @@
       id: 'lobby-input',
       type: 'text',
       maxlength: '500',
-      placeholder: '메시지… (Enter)',
+      placeholder: RT_I18N.pick('메시지… (Enter)','Message… (Enter)'),
       value: draft,
       oninput: function (e) { draft = e.target.value; },
       onkeydown: function (e) {

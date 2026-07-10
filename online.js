@@ -405,7 +405,7 @@
     } else if (phase === 'joinform') {
       b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, marginBottom: '10px' } }, ['친구가 만든 방 코드를 입력하세요']));
       b.appendChild(el('input', {
-        id: 'join-code', type: 'text', maxlength: '8', placeholder: '예: AB2K', value: codeInput,
+        id: 'join-code', type: 'text', maxlength: '8', placeholder: RT_I18N.pick('예: AB2K','e.g. AB2K'), value: codeInput,
         oninput: function (e) { codeInput = (e.target.value || '').toUpperCase(); e.target.value = codeInput; },
         onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); } },
         style: { width: '100%', textAlign: 'center', letterSpacing: '.3em', background: 'transparent', border: '1px solid ' + p.line, color: p.amb, padding: '11px', fontFamily: "'Space Mono',monospace", fontSize: '22px', fontWeight: 700, outline: 'none', marginBottom: '8px' },

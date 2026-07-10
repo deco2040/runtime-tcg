@@ -126,7 +126,7 @@
     (UI.AVA_EMOJI || []).forEach(function (em) {
       var locked = (em === '👑') && !crownOk;
       if (locked) {
-        grid.appendChild(el('button', { disabled: true, title: '🔒 CHALLENGE 10단계 정복 시 해금', class: 'crt-opt', style: { fontSize: '20px', padding: '6px 0', textAlign: 'center', opacity: .38, cursor: 'not-allowed', position: 'relative' } }, [em, el('span', { style: { position: 'absolute', right: '3px', bottom: '1px', fontSize: '9px' } }, ['🔒'])]));
+        grid.appendChild(el('button', { disabled: true, title: RT_I18N.pick('🔒 CHALLENGE 10단계 정복 시 해금','🔒 Unlocks on clearing CHALLENGE stage 10'), class: 'crt-opt', style: { fontSize: '20px', padding: '6px 0', textAlign: 'center', opacity: .38, cursor: 'not-allowed', position: 'relative' } }, [em, el('span', { style: { position: 'absolute', right: '3px', bottom: '1px', fontSize: '9px' } }, ['🔒'])]));
         return;
       }
       grid.appendChild(el('button', { onclick: function () { doSetAvatar(em); }, class: 'crt-opt' + (cur === em ? ' on' : ''), style: { fontSize: '20px', padding: '6px 0', textAlign: 'center' } }, [em]));
@@ -424,7 +424,7 @@
     wrap.appendChild(el('div', { style: { fontSize: '10px', color: p.dim, textAlign: 'center', margin: '10px 0 6px' } }, ['— 또는 —']));
     wrap.appendChild(el('button', {
       class: 'crt-btn ghost', onclick: function () { doOAuth('google'); }, disabled: busy,
-      title: '배포된 https 사이트 + 대시보드 Google provider 설정 필요',
+      title: RT_I18N.pick('배포된 https 사이트 + 대시보드 Google provider 설정 필요','Requires a deployed https site + Google provider set up in the dashboard'),
       style: { fontSize: '13px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px' },
     }, [
       el('span', { style: { fontWeight: 700, fontFamily: "'Space Grotesk',sans-serif", fontSize: '15px', color: p.amb } }, ['G']),
@@ -442,8 +442,8 @@
     b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
       '가입한 이메일로 로그인하면 다른 기기에서도 전적·프로필이 유지돼요.',
     ]));
-    b.appendChild(field('auth-email', 'email', '이메일', email, p, doLogin));
-    b.appendChild(field('auth-pass', 'password', '비밀번호', pass, p, doLogin));
+    b.appendChild(field('auth-email', 'email', RT_I18N.pick('이메일','Email'), email, p, doLogin));
+    b.appendChild(field('auth-pass', 'password', RT_I18N.pick('비밀번호','Password'), pass, p, doLogin));
     b.appendChild(el('button', { class: 'crt-btn', onclick: doLogin, disabled: busy, style: { fontSize: '13px', width: '100%', marginBottom: '8px' } }, ['로그인']));
     b.appendChild(linkRow([
       link('회원가입 ▸', function () { go('signup'); }, p),
@@ -459,11 +459,11 @@
       el('b', { style: { color: p.hi } }, ['지금까지 게스트로 쌓은 전적·프로필은 그대로 유지']),
       '됩니다.',
     ]));
-    b.appendChild(field('auth-email', 'email', '이메일', email, p, doSignup));
-    b.appendChild(field('auth-pass', 'password', '비밀번호 (6자 이상)', pass, p, doSignup));
+    b.appendChild(field('auth-email', 'email', RT_I18N.pick('이메일','Email'), email, p, doSignup));
+    b.appendChild(field('auth-pass', 'password', RT_I18N.pick('비밀번호 (6자 이상)','Password (6+ chars)'), pass, p, doSignup));
     // 닉네임 + 사용가능 표시
     b.appendChild(el('input', {
-      id: 'auth-signup-nick', type: 'text', maxlength: '24', placeholder: '닉네임 (표시 이름)', value: nick,
+      id: 'auth-signup-nick', type: 'text', maxlength: '24', placeholder: RT_I18N.pick('닉네임 (표시 이름)','Nickname (display name)'), value: nick,
       oninput: function (e) { nick = e.target.value; nickState = { status: 'idle', text: '' }; },
       onblur: checkNick,
       onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doSignup(); } },
@@ -535,7 +535,7 @@
     b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
       '가입한 이메일을 입력하면 재설정 링크를 보내드려요. 링크를 누르면 이 사이트로 돌아와 새 비밀번호를 설정합니다.',
     ]));
-    b.appendChild(field('auth-email', 'email', '이메일', email, p, doReset));
+    b.appendChild(field('auth-email', 'email', RT_I18N.pick('이메일','Email'), email, p, doReset));
     b.appendChild(el('button', { class: 'crt-btn', onclick: doReset, disabled: busy, style: { fontSize: '13px', width: '100%', marginBottom: '8px' } }, ['재설정 메일 보내기']));
     b.appendChild(linkRow([link('◂ 로그인으로', function () { go('login'); }, p)]));
   }
@@ -545,8 +545,8 @@
     b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
       '재설정 링크로 인증되었어요. 새 비밀번호를 입력하세요 (6자 이상).',
     ]));
-    b.appendChild(el('input', { id: 'auth-newpass', type: 'password', placeholder: '새 비밀번호', autocomplete: 'new-password', oninput: function (e) { pass = e.target.value; }, style: inpStyle(p) }));
-    b.appendChild(el('input', { id: 'auth-newpass2', type: 'password', placeholder: '새 비밀번호 확인', autocomplete: 'new-password', oninput: function (e) { pass2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doRenew(); } }, style: inpStyle(p) }));
+    b.appendChild(el('input', { id: 'auth-newpass', type: 'password', placeholder: RT_I18N.pick('새 비밀번호','New password'), autocomplete: 'new-password', oninput: function (e) { pass = e.target.value; }, style: inpStyle(p) }));
+    b.appendChild(el('input', { id: 'auth-newpass2', type: 'password', placeholder: RT_I18N.pick('새 비밀번호 확인','Confirm new password'), autocomplete: 'new-password', oninput: function (e) { pass2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doRenew(); } }, style: inpStyle(p) }));
     b.appendChild(el('button', { class: 'crt-btn', onclick: doRenew, disabled: busy, style: { fontSize: '13px', width: '100%' } }, ['비밀번호 변경']));
   }
 
@@ -555,8 +555,8 @@
     b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
       '새 비밀번호를 입력하세요 (6자 이상). 변경 후에도 로그인 상태가 유지됩니다.',
     ]));
-    b.appendChild(el('input', { id: 'auth-newpass', type: 'password', placeholder: '새 비밀번호', autocomplete: 'new-password', oninput: function (e) { pass = e.target.value; }, style: inpStyle(p) }));
-    b.appendChild(el('input', { id: 'auth-newpass2', type: 'password', placeholder: '새 비밀번호 확인', autocomplete: 'new-password', oninput: function (e) { pass2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doChangePw(); } }, style: inpStyle(p) }));
+    b.appendChild(el('input', { id: 'auth-newpass', type: 'password', placeholder: RT_I18N.pick('새 비밀번호','New password'), autocomplete: 'new-password', oninput: function (e) { pass = e.target.value; }, style: inpStyle(p) }));
+    b.appendChild(el('input', { id: 'auth-newpass2', type: 'password', placeholder: RT_I18N.pick('새 비밀번호 확인','Confirm new password'), autocomplete: 'new-password', oninput: function (e) { pass2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doChangePw(); } }, style: inpStyle(p) }));
     b.appendChild(el('button', { class: 'crt-btn', onclick: doChangePw, disabled: busy, style: { fontSize: '13px', width: '100%', marginBottom: '8px' } }, ['비밀번호 변경']));
     b.appendChild(linkRow([link('◂ 계정으로', function () { go('account'); }, p)]));
   }

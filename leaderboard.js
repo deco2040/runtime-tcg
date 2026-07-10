@@ -71,12 +71,12 @@
       })
       .then(function (r) {
         loading = false;
-        if (r && r.error) { err = '조회 실패'; rows = rows || []; }
+        if (r && r.error) { err = RT_I18N.pick('조회 실패','Query failed'); rows = rows || []; }
         else { rows = (r && r.data) ? r.data : []; err = ''; }
         if (active) redraw();
       })
       .catch(function () {
-        loading = false; err = '연결 실패'; rows = rows || []; if (active) redraw();
+        loading = false; err = RT_I18N.pick('연결 실패','Connection failed'); rows = rows || []; if (active) redraw();
       });
   }
 
@@ -148,7 +148,7 @@
     var list = ranked();
     if (!list.length) {
       return el('div', { style: { padding: '28px 14px', fontSize: '12px', color: p.dim, textAlign: 'center' } }, [
-        sortMode === 'rate' ? (RATE_MIN + '판 이상 플레이한 유저가 아직 없어요.') : '아직 기록된 대전이 없어요 — 첫 승리의 주인공이 되어보세요!',
+        sortMode === 'rate' ? RT_I18N.pick(RATE_MIN + '판 이상 플레이한 유저가 아직 없어요.', 'No players with ' + RATE_MIN + '+ games yet.') : RT_I18N.pick('아직 기록된 대전이 없어요 — 첫 승리의 주인공이 되어보세요!', 'No matches recorded yet — be the first to win!'),
       ]);
     }
     var myId = UI.Net && UI.Net.userId ? UI.Net.userId() : null;
@@ -194,8 +194,8 @@
 
     // 정렬 탭 + 새로고침
     b.appendChild(el('div', { style: { display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' } }, [
-      tab(p, '🏅 승수', 'wins'),
-      tab(p, '📈 승률(' + RATE_MIN + '판↑)', 'rate'),
+      tab(p, RT_I18N.pick('🏅 승수','🏅 Wins'), 'wins'),
+      tab(p, RT_I18N.pick('📈 승률(' + RATE_MIN + '판↑)', '📈 Win rate (' + RATE_MIN + '+)'), 'rate'),
       el('div', { style: { flex: '1 1 0' } }),
       el('button', {
         class: 'crt-opt', onclick: function () { if (UI.Sound) UI.Sound.ui(); fetchRows(); redraw(); },
@@ -236,7 +236,7 @@
           padding: '7px 9px', borderBottom: '1px solid ' + p.line,
         },
       }, [
-        el('span', { style: { fontWeight: 700, color: p.amb } }, ['🏆 리더보드 · TOP ' + limit]),
+        el('span', { style: { fontWeight: 700, color: p.amb } }, [RT_I18N.pick('🏆 리더보드 · TOP ' + limit, '🏆 LEADERBOARD · TOP ' + limit)]),
         el('button', {
           class: 'crt-opt',
           onclick: function () { if (UI.Sound) UI.Sound.ui(); if (UI.renderLeaderboard) UI.renderLeaderboard(); },

@@ -158,7 +158,8 @@
     <div class="bar">
       <span class="dots"><i></i><i></i><i></i></span>
       <span class="bartitle">runtime-os · codex.sh</span>
-      <button class="themebtn" id="themebtn" type="button">◐ THEME</button>
+      <button class="themebtn" id="langbtn" type="button" data-noi18n="1" style="margin-left:auto">🌐 EN</button>
+      <button class="themebtn" id="themebtn" type="button" style="margin-left:0">◐ THEME</button>
     </div>
     <div class="screen">
       <h1>카드 도감 &amp; 견본 덱<span class="cursor"></span></h1>
@@ -195,7 +196,7 @@
 
       <div class="foot">
         규칙 요약 — 본체 HP 40 · 턴당 행동 2 · 기본 공격 = 옆칸·무료·1회 · 함수(포인터)/트리거는 무료.<br>
-        플레이 &nbsp;→&nbsp; <a href="https://runtimetcg.com">runtimetcg.com</a>
+        <span id="playlbl">플레이</span> &nbsp;→&nbsp; <a href="https://runtimetcg.com">runtimetcg.com</a>
       </div>
     </div>
   </div>
@@ -211,14 +212,17 @@
 <script src="sound.js?v=80"></script>
 <script src="theme.js?v=80"></script>
 <!-- 다국어(도감 EN 지원) -->
-<script src="i18n.js?v=1"></script>
-<script src="i18n-en.js?v=121"></script>
-<script src="core.js?v=121"></script>
+<script src="i18n.js?v=3"></script>
+<script src="i18n-en.js?v=123"></script>
+<script src="core.js?v=123"></script>
 <script>
 (function(){
   "use strict";
   var RT = window.RT, UI = window.__RT_UI;
   var catalogEl = document.getElementById("catalog");
+  // i18n: 숫자·변수와 조합되는 동적 문자열은 DOM 번역기가 못 잡으므로 소스에서 언어 분기한다.
+  var I18N = window.RT_I18N;
+  function EN(){ return !!(I18N && I18N.is && I18N.is("en")); }
 
   // 게임 스크립트가 안 실려서 렌더러가 없으면(예: file:// 직접 열기) 안내.
   if(!RT || !RT.CARDS || !UI || !UI.cardFaceEl){
@@ -264,34 +268,42 @@
   // ---- 큰 카드 미리보기: 미니 카드 탭 시 데스크톱 풀카드를 화면 중앙에 크게(탭하면 닫힘) ----
   var _bigBack=null;
   function hideBig(){ if(_bigBack&&_bigBack.parentNode) _bigBack.parentNode.removeChild(_bigBack); _bigBack=null; }
-  // Switch 변신폼 표시 — switchForms 가 있는 카드 확대 시 변신 대상 카드를 함께 나열(요청 1-3).
-  function formsRowH(id){
-    var c=CARDS[id], forms=(c&&c.switchForms)||[]; if(!forms.length) return null;
-    var wrap=document.createElement("div"); wrap.style.cssText="display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:12px";
-    var lab=document.createElement("div"); lab.className="grot"; lab.style.cssText="font-size:12px;font-weight:700;letter-spacing:.04em;text-align:center;color:#e0a11f;text-shadow:none";
-    lab.textContent="⇄ 변신폼 · SWITCH FORMS"; wrap.appendChild(lab);
-    var row=document.createElement("div"); row.style.cssText="display:flex;gap:12px;justify-content:center;flex-wrap:wrap";
-    forms.forEach(function(fid){ var fn=faceNode(fid,false); if(fn){ fn.style.pointerEvents="none"; row.appendChild(scaledFace(fn,0.62)); } });
-    wrap.appendChild(row); return wrap;
+  // 확대 카드 노드: transform 은 레이아웃 박스를 안 바꾸므로 겉박스를 확대 크기(FACE*sc)로 직접 잡는다.
+  function bigFace(node,sc){
+    var inner=document.createElement("div");
+    inner.style.cssText="transform:scale("+sc+");transform-origin:top center;filter:drop-shadow(0 16px 40px rgba(0,0,0,.6));flex:none";
+    inner.appendChild(node);
+    var wrap=document.createElement("div");
+    wrap.style.cssText="width:"+Math.round(FACE_W*sc)+"px;height:"+Math.round(FACE_H*sc)+"px;display:flex;justify-content:center;flex:none";
+    wrap.appendChild(inner);
+    return wrap;
   }
   function showBig(id){
     var n=faceNode(id,false); if(!n) return;   // 풀 데스크톱 카드 페이스
     hideBig();
     n.style.pointerEvents="none";
     var vw=window.innerWidth||360, vh=window.innerHeight||640;
-    var sc=Math.min(2.0,(vh*0.82)/220,(vw*0.92)/158); if(sc<1) sc=1;
-    // transform 은 레이아웃 박스를 안 바꾸므로 겉박스를 확대 크기(FACE*sc)로 직접 잡는다.
-    // (미적용 시 Switch 카드는 아래 변신폼 행과 겹치고 col의 overflow가 클리핑 → 확대가 깨져 보였음)
-    var inner=document.createElement("div");
-    inner.style.cssText="transform:scale("+sc+");transform-origin:top center;filter:drop-shadow(0 16px 40px rgba(0,0,0,.6));flex:none";
-    inner.appendChild(n);
-    var wrap=document.createElement("div");
-    wrap.style.cssText="width:"+Math.round(FACE_W*sc)+"px;height:"+Math.round(FACE_H*sc)+"px;display:flex;justify-content:center;flex:none";
-    wrap.appendChild(inner);
     var back=document.createElement("div"); back.id="bigback";
-    var fr=formsRowH(id);
-    if(fr){ var col=document.createElement("div"); col.style.cssText="display:flex;flex-direction:column;align-items:center;gap:10px;max-height:96vh;overflow:auto"; col.appendChild(wrap); col.appendChild(fr); back.appendChild(col); }
-    else back.appendChild(wrap);
+    var forms=(CARDS[id]&&CARDS[id].switchForms)||[];
+    if(forms.length){
+      // Switch 카드: 본체는 왼쪽에 크게, 변신폼은 오른쪽에 세로로 나열 — 스크롤 없이 한 화면에 담는다.
+      // 폼 배율은 본체의 약 0.5배(세로 2장 ≈ 본체 높이)로 잡아 크게 보이면서도 넘치지 않게 한다.
+      var gap=30, fRel=0.5;
+      var scW=(vw*0.94-gap)/(FACE_W*(1+fRel));   // 가로: 본체 + 폼열이 화면 폭 안에
+      var scH=(vh*0.86)/FACE_H;                   // 세로: 라벨·간격 포함 폼열(본체보다 약간 큼)이 화면 안에
+      var sc=Math.min(2.2,scW,scH); if(sc<0.9) sc=0.9;
+      var fSc=sc*fRel; if(fSc<0.5) fSc=0.5;
+      var col=document.createElement("div"); col.style.cssText="display:flex;flex-direction:column;align-items:center;gap:14px;flex:none";
+      var lab=document.createElement("div"); lab.className="grot"; lab.style.cssText="font-size:13px;font-weight:700;letter-spacing:.05em;text-align:center;color:#e0a11f;text-shadow:none";
+      lab.textContent="⇄ 변신폼 · SWITCH FORMS"; col.appendChild(lab);
+      forms.forEach(function(fid){ var fn=faceNode(fid,false); if(fn){ fn.style.pointerEvents="none"; col.appendChild(bigFace(fn,fSc)); } });
+      var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;justify-content:center;gap:"+gap+"px;flex-wrap:nowrap";
+      row.appendChild(bigFace(n,sc)); row.appendChild(col);
+      back.appendChild(row);
+    } else {
+      var sc0=Math.min(2.0,(vh*0.82)/FACE_H,(vw*0.92)/FACE_W); if(sc0<1) sc0=1;
+      back.appendChild(bigFace(n,sc0));
+    }
     back.addEventListener("click",hideBig);
     document.body.appendChild(back); _bigBack=back;
   }
@@ -312,8 +324,12 @@
 
   // ---------- counts ----------
   var fnCount = allIds.filter(function(id){return CARDS[id].kind==="pointer";}).length;
-  document.getElementById("catcount").textContent =
-    allIds.length+"종 · 인스턴스 "+(allIds.length-fnCount)+" / 함수 "+fnCount;
+  function updateCatCount(){
+    document.getElementById("catcount").textContent = EN()
+      ? allIds.length+" types · instance "+(allIds.length-fnCount)+" / function "+fnCount
+      : allIds.length+"종 · 인스턴스 "+(allIds.length-fnCount)+" / 함수 "+fnCount;
+  }
+  updateCatCount();
 
   // ---------- 카드 도감 (실제 카드풀 자동 연동) ----------
   var state={f:"all",q:""};
@@ -332,7 +348,7 @@
       any=true;
       var grp=document.createElement("div"); grp.className="grp";
       var hd=document.createElement("div"); hd.className="grphd"; hd.style.color="var(--"+cls+")";
-      hd.innerHTML='<span class="gly">'+GLY[cls]+"</span>"+cls+'<span class="cnt">'+rows.length+"종</span>";
+      hd.innerHTML='<span class="gly">'+GLY[cls]+"</span>"+cls+'<span class="cnt">'+rows.length+(EN()?" types":"종")+"</span>";
       grp.appendChild(hd);
       // 모바일: 미니 카드로 통일(한 줄에 여러 장) + 탭 시 큰 카드. 데스크톱: 기존 풀카드 그대로.
       var mob=isMobile();
@@ -348,7 +364,7 @@
       });
       grp.appendChild(g); catalogEl.appendChild(grp);
     });
-    if(!any) catalogEl.innerHTML='<div class="empty">검색 결과가 없습니다.</div>';
+    if(!any) catalogEl.innerHTML='<div class="empty">'+(EN()?"No results.":"검색 결과가 없습니다.")+'</div>';
     // 커스텀 카드 페이지(덱빌더)와 동일 — 넘치는 효과문(특히 포인터) 폰트를 자리에 맞게 자동 축소.
     if(UI.fitCards) requestAnimationFrame(function(){ try{ UI.fitCards(catalogEl); }catch(e){} });
   }
@@ -380,14 +396,14 @@
     var byCls={}; seq.forEach(function(id){ var c=(CARDS[id]||{}).cls||"?"; byCls[c]=(byCls[c]||0)+counts[id]; });
     var kinds={o:0,f:0}; seq.forEach(function(id){ kinds[(CARDS[id]||{}).kind==="pointer"?"f":"o"]+=counts[id]; });
     var mixTxt=Object.keys(byCls).map(function(c){return "<b>"+(GLY[c]||"?")+" "+c+"</b> "+byCls[c];}).join("　")+
-      "　·　<b>인스턴스</b> "+kinds.o+" / <b>함수</b> "+kinds.f;
+      "　·　<b>"+(EN()?"instance":"인스턴스")+"</b> "+kinds.o+" / <b>"+(EN()?"function":"함수")+"</b> "+kinds.f;
     var name=(d.name||k).replace(/^\w+\s·\s/,"");
     navHtml+='<a href="#deck-'+k+'">'+k+"</a>";
 
     var det=document.createElement("details"); det.className="deckblk"; det.id="deck-"+k;
     det.style.setProperty("--dc","var(--"+cls+")");
     det.innerHTML='<summary><span class="gly">'+GLY[cls]+'</span><span class="k">'+k+"</span>"+
-      '<span class="nm">'+esc(name)+'</span><span class="ct">'+tot+"장 · "+seq.length+"종</span>"+
+      '<span class="nm">'+esc(name)+'</span><span class="ct">'+tot+(EN()?" cards · ":"장 · ")+seq.length+(EN()?" types":"종")+"</span>"+
       '<span class="chev">▶</span></summary>'+
       '<div class="deckwrap"><div class="deckmix">'+mixTxt+'</div><div class="cardgrid mini"></div></div>';
 
@@ -407,6 +423,14 @@
     det.addEventListener("toggle",function(){
       if(det.open && !det._rendered){ det._rendered=true; det._render(); }
     });
+    // 언어 전환 시 요약(장/종·인스턴스/함수)만 갱신 — 펼침 상태·카드 노드는 보존.
+    det._syncLang=function(){
+      var ct=det.querySelector(".ct");
+      if(ct) ct.textContent=tot+(EN()?" cards · ":"장 · ")+seq.length+(EN()?" types":"종");
+      var mix=det.querySelector(".deckmix");
+      if(mix) mix.innerHTML=Object.keys(byCls).map(function(c){return "<b>"+(GLY[c]||"?")+" "+c+"</b> "+byCls[c];}).join("　")+
+        "　·　<b>"+(EN()?"instance":"인스턴스")+"</b> "+kinds.o+" / <b>"+(EN()?"function":"함수")+"</b> "+kinds.f;
+    };
     openDecks.push(det);
     decksHost.appendChild(det);
   });
@@ -416,9 +440,44 @@
   // SKIN 은 살아있는 공유 객체라 기존 카드 노드는 저절로 재도색되지 않음 → 재생성 필요.
   document.getElementById("themebtn").addEventListener("click",function(){
     applyTheme(themeMode==="dark"?"light":"dark");
-    drawCat();
-    openDecks.forEach(function(det){ if(det.open && det._rendered) det._render(); });
+    redrawAll();
   });
+
+  // ---------- 언어(KO/EN) 토글 ----------
+  // 카드 효과문은 RT_I18N.cardText(=lang) 를 소스레벨에서 읽으므로 언어 전환 시 카드 노드 재생성 필요.
+  // 크롬(제목·라벨·버튼 등 정적 문자열)은 i18n.js 의 DOM 번역기가 자동 처리(setLang 이 리프레시).
+  function syncLangBtn(){
+    var b=document.getElementById("langbtn"); if(!b||!I18N) return;
+    b.textContent = I18N.lang==="en" ? "🌐 한국어" : "🌐 EN";
+  }
+  // DOM 번역기가 못 잡는 것(숫자조합 카운트 · INPUT placeholder)은 여기서 직접 갱신.
+  function syncChromeDynamic(){
+    updateCatCount();
+    openDecks.forEach(function(det){ if(det._syncLang) det._syncLang(); });
+    var q=document.getElementById("q");
+    if(q) q.placeholder = EN() ? "Search cards (name·effect)…" : "카드 검색 (이름·효과)…";
+    var pl=document.getElementById("playlbl");
+    if(pl) pl.textContent = EN() ? "Play" : "플레이";
+  }
+  function redrawAll(){
+    drawCat();                                                                  // 카탈로그 카드(효과문 언어 반영) 전체 재생성
+    openDecks.forEach(function(det){ if(det.open && det._rendered) det._render(); });  // 펼친 덱 카드 재생성
+    syncChromeDynamic();
+  }
+  syncChromeDynamic();   // 최초 진입 언어에 맞춰 placeholder 등 세팅
+  if(I18N){
+    syncLangBtn();
+    document.getElementById("langbtn").addEventListener("click",function(){
+      I18N.setLang(I18N.lang==="en"?"ko":"en");   // 저장 + DOM 번역기 리프레시
+      syncLangBtn();
+      redrawAll();                                 // 카드 효과문 재생성
+      if(I18N.refresh) I18N.refresh();             // 새로 그린 카드 노드의 크롬 문자열 번역
+    });
+    // 최초 진입이 EN(저장값/자동감지)인 경우에도 카드가 EN 으로 그려지도록 자동감지 뒤 한 번 재렌더.
+    // (i18n.autoDetect 는 비동기 IP 조회라, 초기 drawCat 시점엔 lang 이 아직 확정 안 됐을 수 있음.)
+    var _lastLang=I18N.lang;
+    setTimeout(function(){ if(I18N.lang!==_lastLang){ _lastLang=I18N.lang; syncLangBtn(); redrawAll(); if(I18N.refresh) I18N.refresh(); } }, 1700);
+  }
 })();
 </script>
 </body>

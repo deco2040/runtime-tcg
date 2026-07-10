@@ -669,22 +669,24 @@
     <script src="sound.js?v=80"></script>
     <script src="theme.js?v=80"></script>
     <!-- 다국어(i18n): 언어 상태·IP 자동 선택·DOM 번역기(i18n.js) + EN 사전 데이터(i18n-en.js). core 앞에 로드. -->
-    <script src="i18n.js?v=1"></script>
-    <script src="i18n-en.js?v=121"></script>
+    <script src="i18n.js?v=3"></script>
+    <script src="i18n-en.js?v=123"></script>
+    <!-- <title> 은 <head> 라 DOM 번역기가 못 잡음 → 언어(EN)면 소스에서 직접 교체(자동감지 지연 대비 재확인). -->
+    <script>(function(){function t(){try{if(window.RT_I18N&&RT_I18N.is('en'))document.title='RUNTIME — programming-themed web TCG';}catch(e){}}t();setTimeout(t,1700);})();</script>
     <!-- 멀티플레이 기반: config(백엔드 설정) → net(Supabase 클라이언트/게스트 인증). core 앞뒤 무관(UI 네임스페이스 공유). -->
     <script src="config.js?v=80"></script>
     <script src="net.js?v=85"></script>
-    <script src="core.js?v=121"></script>
+    <script src="core.js?v=123"></script>
     <script src="title.js?v=86"></script>
     <script src="tutorial.js?v=85"></script>
-    <script src="deckbuilder.js?v=121"></script>
+    <script src="deckbuilder.js?v=122"></script>
     <!-- 공개 채팅 로비(기능 1) — core 뒤(공유 헬퍼 준비) -->
-    <script src="lobby.js?v=82"></script>
+    <script src="lobby.js?v=83"></script>
     <!-- 계정/로그인(기능 3) -->
-    <script src="auth.js?v=84"></script>
+    <script src="auth.js?v=85"></script>
     <!-- 매치메이킹(기능 2, 마일스톤 2a: 페어링) -->
-    <script src="online.js?v=86"></script>
+    <script src="online.js?v=87"></script>
     <!-- 유저 리더보드(온라인 랭킹) — core 뒤(공유 헬퍼 준비) -->
-    <script src="leaderboard.js?v=82"></script>
+    <script src="leaderboard.js?v=83"></script>
   </body>
 </html>

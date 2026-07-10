@@ -28,6 +28,8 @@
   I.is = function (l) { return I.lang === l; };
   // 소스레벨/크롬 문자열 번역(정확 일치). EN 이 아니거나 매핑 없으면 원문. tutRich·라벨 등에서 직접 호출.
   I.t = function (s) { if (I.lang !== 'en' || s == null) return s; var v = I.dict[s]; return (v == null) ? s : v; };
+  // 소스레벨 언어 분기 — DOM 번역기가 못 잡는 동적 문자열·INPUT placeholder 용. EN 이면 en, 아니면 ko.
+  I.pick = function (ko, en) { return I.lang === 'en' ? en : ko; };
   // 카드 효과문(현재 언어).
   I.cardText = function (card) { if (!card) return ''; if (I.lang === 'en' && I.card[card.id] != null) return I.card[card.id]; return card.text || ''; };
 
@@ -66,6 +68,47 @@
     });
   }
   I.refresh = scheduleTranslate;
+
+  // ---- 미번역 감시(대책): EN 모드에서 화면에 남은 한글을 전수 수집한다. ----
+  // 콘솔에서 `RT_I18N.audit()` 실행 → 아직 한글인 텍스트노드/placeholder/title 를 중복 제거해 표로 출력하고 배열 반환.
+  // DOM 번역기가 못 잡는 동적 조합/속성/사전 누락을 즉시 찾아 사전 추가나 소스 pick() 처리로 이어가기 위한 개발 도구.
+  var HANGUL = /[가-힣]/;
+  I.audit = function (root) {
+    root = root || document.body;
+    var hits = {}, order = [];
+    function add(text, kind, el) {
+      var t = (text == null ? '' : String(text)).trim();
+      if (!t || !HANGUL.test(t)) return;
+      if (!hits[t]) { hits[t] = { text: t, kind: kind, count: 0, sample: el }; order.push(t); }
+      hits[t].count++;
+    }
+    // 1) 텍스트 노드
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        var p = n.parentNode; if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE') return NodeFilter.FILTER_REJECT;
+        if (p.closest && p.closest('[data-noi18n]')) return NodeFilter.FILTER_REJECT;
+        return HANGUL.test(n.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    var n; while ((n = walker.nextNode())) add(n.nodeValue, 'text', n.parentNode);
+    // 2) placeholder / title / aria-label 속성
+    var els = root.querySelectorAll('[placeholder],[title],[aria-label]');
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i];
+      if (e.closest('[data-noi18n]')) continue;
+      add(e.getAttribute('placeholder'), 'placeholder', e);
+      add(e.getAttribute('title'), 'title', e);
+      add(e.getAttribute('aria-label'), 'aria-label', e);
+    }
+    var list = order.map(function (k) { return hits[k]; });
+    try {
+      if (I.lang !== 'en') console.warn('[i18n.audit] 현재 언어가 EN 이 아닙니다 — EN 으로 전환 후 실행하세요.');
+      console.log('[i18n.audit] 미번역 한글 ' + list.length + '종 (총 ' + list.reduce(function (s, x) { return s + x.count; }, 0) + '개 노드)');
+      if (console.table) console.table(list.map(function (x) { return { kind: x.kind, count: x.count, text: x.text.slice(0, 80) }; }));
+    } catch (e2) {}
+    return list;
+  };
 
   function startObserver() {
     if (_observer || typeof MutationObserver === 'undefined') return;
