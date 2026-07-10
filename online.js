@@ -152,12 +152,12 @@
       return UI.Net.client().rpc('create_custom_room', { p_nick: nick, p_deck: myDeckList(), p_code: roomCode })
         .then(function (r) {
           if (!active) return;
-          if (r.error) { phase = 'error'; status = '방 생성 오류: ' + r.error.message; redraw(); return; }
+          if (r.error) { phase = 'error'; status = RT_I18N.pick('방 생성 오류: ', 'Room creation error: ') + r.error.message; redraw(); return; }
           room = r.data; myIdx = 0;
           joinRoomChannel();      // 호스트 대기 — presence 로 게스트 입장 감지
           phase = 'waitcode'; redraw();
         });
-    }).catch(function (e) { if (active) { phase = 'error'; status = '오류: ' + (e && e.message ? e.message : e); redraw(); } });
+    }).catch(function (e) { if (active) { phase = 'error'; status = RT_I18N.pick('오류: ', 'Error: ') + (e && e.message ? e.message : e); redraw(); } });
   }
   function submitJoin() {
     var code = (codeInput || '').trim().toUpperCase();
@@ -176,7 +176,7 @@
           if (room.status === 'full') toMatched(); else phase = 'search';
           redraw();
         });
-    }).catch(function (e) { if (active) { phase = 'joinform'; status = '오류: ' + (e && e.message ? e.message : e); redraw(); } });
+    }).catch(function (e) { if (active) { phase = 'joinform'; status = RT_I18N.pick('오류: ', 'Error: ') + (e && e.message ? e.message : e); redraw(); } });
   }
 
   function leave() {
@@ -235,7 +235,7 @@
             if (!active) return;
             if (r.error) {
               phase = 'error';
-              status = '매칭 오류: ' + r.error.message;
+              status = RT_I18N.pick('매칭 오류: ', 'Matchmaking error: ') + r.error.message;
               redraw();
               return;
             }
@@ -258,7 +258,7 @@
       .catch(function (e) {
         if (!active) return;
         phase = 'error';
-        status = '오류: ' + (e && e.message ? e.message : e);
+        status = RT_I18N.pick('오류: ', 'Error: ') + (e && e.message ? e.message : e);
         redraw();
       });
   }
@@ -433,7 +433,7 @@
         ]),
         el('div', { style: { fontSize: '12px', color: p.dim, marginBottom: '18px', maxWidth: '360px', lineHeight: 1.6 } }, [
           '내 덱 ▸ ',
-          el('b', { style: { color: p.hi } }, [myDeckKey() || '(없음)']),
+          el('b', { style: { color: p.hi } }, [myDeckKey() || RT_I18N.pick('(없음)', '(none)')]),
           ' · 상대가 들어오면 자동으로 매칭됩니다.',
         ]),
         el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
@@ -468,7 +468,7 @@
       var g = prof.games || 0, w = prof.wins || 0, l = prof.losses || 0, d = prof.draws || 0;
       var rate = g ? Math.round((w / g) * 100) : 0;
       kids.push(el('div', { style: { fontSize: '12px', color: p.amb, marginBottom: '5px' } }, [
-        g + '판 · ', el('b', { style: { color: accent } }, [w + '승']), ' ' + l + '패 ' + d + '무',
+        g + RT_I18N.pick('판 · ', ' games · '), el('b', { style: { color: accent } }, [w + RT_I18N.pick('승', 'W')]), ' ' + l + RT_I18N.pick('패 ', 'L ') + d + RT_I18N.pick('무', 'D'),
       ]));
       kids.push(el('div', { style: { fontSize: '11px', color: p.dim, marginBottom: '4px' } }, ['승률 ', el('b', { style: { color: accent } }, [rate + '%'])]));
       kids.push(el('div', { style: { height: '6px', border: '1px solid ' + p.line, position: 'relative', overflow: 'hidden' } }, [
@@ -493,8 +493,8 @@
       el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: p.dim, alignSelf: 'center', flex: 'none' } }, ['VS']),
       profileCard(p, oppNick, oppProfile, false),
     ]));
-    wrap.appendChild(infoRow(p, '내 덱', myDeckKey() + ' (' + ((myDeck || []).length) + '장)'));
-    wrap.appendChild(infoRow(p, '상대 덱', (oppDeck || []).length + '장'));
+    wrap.appendChild(infoRow(p, '내 덱', myDeckKey() + ' (' + ((myDeck || []).length) + RT_I18N.pick('장)', ' cards)')));
+    wrap.appendChild(infoRow(p, '상대 덱', (oppDeck || []).length + RT_I18N.pick('장', ' cards')));
     wrap.appendChild(infoRow(p, '선공', iFirst ? '나' : '상대'));
     wrap.appendChild(infoRow(p, 'SEED', String(room.seed)));
     wrap.appendChild(

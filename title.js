@@ -6,6 +6,11 @@
   var el = UI.el, clear = UI.clear, app = UI.app;
   var DECKS = UI.DECKS, RT = UI.RT;
   var GLY = { thread: '▲', memory: '■', process: '◇', generic: '●', mixed: '◆', none: '▦' };
+  // i18n 헬퍼 — 숫자 포함 동적/연결 문자열은 DOM 번역기 사각지대라 소스에서 직접 언어분기.
+  function pL(ko, en) { var I = window.RT_I18N; return (I && I.pick) ? I.pick(ko, en) : ko; }
+  function tL(s) { var I = window.RT_I18N; return (I && I.t) ? I.t(s) : s; }
+  // 덱 이름(접두어 제거형) — 사전 등재. 다른 문자열과 연결되면 DOM 번역기가 못 잡으므로 소스에서 tL.
+  function deckDispName(d) { return tL((d && d.name ? d.name : '').replace(/^\w+ · /, '')); }
   var CLS = UI.CLS || { thread: '#d8472b', memory: '#2456a6', process: '#c8951b', generic: '#6b6b75', mixed: '#8a6fb0', none: '#1d1d24' };
   // 덱 구성별 대표색: 순수 클래스=고유색 · generic 최다=회색 · 혼합=보라. core 의 판정 헬퍼 우선.
   function deckColor(d) { var c = (UI.deckCoverCls ? UI.deckCoverCls(d.list) : (d.cls || 'generic')); return CLS[c] || CLS.generic; }
@@ -61,9 +66,9 @@
 
     // 푸터 — 개인정보처리방침 · 이용약관(새 탭). 상대경로라 라이브·로컬 어디서든 동작.
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', letterSpacing: '.03em' } }, [
-      footLink('개인정보처리방침', 'privacy/'),
+      footLink('개인정보처리방침', 'privacy/index.html'),
       el('span', { style: { opacity: '.5' } }, ['·']),
-      footLink('이용약관', 'terms/')
+      footLink('이용약관', 'terms/index.html')
     ]));
 
     screen.appendChild(b);
@@ -143,7 +148,7 @@
     var meta = RT.analyzeDeck(DECKS[myDeck].list);
     b.appendChild(crtLabel('▸ SYSTEM'));
     b.appendChild(crtInfo([
-      ['DECK', DECKS[myDeck].name.replace(/^\w+ · /, '') + '  ·  30 cards  ·  ' + (meta.singleClass ? 'single-class(' + (meta.classes[0] || 'generic') + ')' : 'mixed')],
+      ['DECK', deckDispName(DECKS[myDeck]) + '  ·  30 cards  ·  ' + (meta.singleClass ? 'single-class(' + (meta.classes[0] || 'generic') + ')' : 'mixed')],
       ['RULES', 'HP40 · 2 actions/turn · basic atk(adj·free·1x) · fn/trigger free'],
       ['LIMIT', G_capText()]
     ]));
@@ -154,7 +159,7 @@
       el('button', { class: 'crt-btn ghost', style: { fontSize: '17px', minWidth: '132px' }, onclick: UI.startChallenge }, ['🏆 CHALLENGE'])
     ]));
     b.appendChild(el('div', { style: { fontSize: '10px', color: AMB_DIM, marginTop: '10px', lineHeight: 1.7 } }, [
-      'CHALLENGE — 내 덱으로 연속 대결. 스테이지마다 런타임 환경이 바뀌고, 5·10단계는 👑보스전(10단계 클리어시 👑 프로필 선택 가능). ',
+      pL('CHALLENGE — 내 덱으로 연속 대결. 스테이지마다 런타임 환경이 바뀌고, 5·10단계는 👑보스전(10단계 클리어시 👑 프로필 선택 가능). ', 'CHALLENGE — consecutive matches with your deck. The runtime environment changes each stage, and stages 5·10 are 👑 boss fights (clear stage 10 to unlock the 👑 profile). '),
       el('span', { style: { color: AMB } }, ['BEST ' + myDeck + ' ' + UI.bestStreak(myDeck) + 'W'])
     ]));
     var recs = UI.bestMap(), recKeys = Object.keys(recs).filter(function (k) { return recs[k] > 0 && DECKS[k]; }).sort(function (a, b) { return recs[b] - recs[a]; });
@@ -198,7 +203,7 @@
       style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px', margin: '0 0 20px', border: '1px solid ' + box, cursor: 'pointer' }
     }, [av, el('div', { style: { minWidth: '0' } }, [line1, line2]), cta]);
   }
-  function G_capText() { return '턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정'; }
+  function G_capText() { return pL('턴 상한 ' + RT.DEFAULT_TURN_CAP + ' → 본체 HP 판정', 'Turn cap ' + RT.DEFAULT_TURN_CAP + ' → decided by core HP'); }
 
   // 덱 대표 카드 id — 명시된 d.cover 우선, 없으면 리스트에서 첫 '비토큰 인스턴스(가능하면 아트 보유)'.
   function deckCoverId(d) {
@@ -262,9 +267,9 @@
         coverThumb(d, 44),
         el('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '0', flex: '1 1 auto' } }, [
           el('span', { style: { fontSize: '15px', fontWeight: 700, letterSpacing: '.04em' } }, [(on2 ? '▶ ' : '') + gly + ' ' + k]),
-          el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || '(이름 없음)') + ' · ' + d.list.length + '장'])
+          el('span', { style: { fontSize: '11px', opacity: '.72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [(d.name || pL('(이름 없음)', '(no name)')) + ' · ' + pL(d.list.length + '장', d.list.length + ' cards')])
         ]),
-        el('button', { title: '편집', onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k, 'single'); }, style: { position: 'absolute', top: '5px', right: '6px', fontSize: '15px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
+        el('button', { title: tL('편집'), onclick: function (e) { e.stopPropagation(); UI.openDeckBuilder(k, 'single'); }, style: { position: 'absolute', top: '5px', right: '6px', fontSize: '15px', padding: '1px 5px', color: 'inherit', background: 'transparent' } }, ['✎'])
       ]));
     });
     // 새 덱 만들기

@@ -85,7 +85,7 @@
   }
   function bDelete() {
     if (!bDeck.key) return;
-    var ok = true; try { ok = window.confirm('이 커스텀 덱을 삭제할까요?'); } catch (e) {}
+    var ok = true; try { ok = window.confirm(tL('이 커스텀 덱을 삭제할까요?')); } catch (e) {}
     if (!ok) return;
     UI.deleteCustomDeck(bDeck.key);
     closeBuilder(); returnFromBuilder();
@@ -196,7 +196,7 @@
     var mob = isMobileDB();
     var grid = el('div', { id: 'db-pool', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(' + (mob ? 102 : Math.round(FACE_W * poolScale() + 20)) + 'px,1fr))', gap: mob ? '10px 8px' : '16px 14px', maxHeight: '72vh', overflowY: 'auto', padding: '4px 2px' } });
     function fillGrid() {
-      clear(grid);
+      while (grid.firstChild) grid.removeChild(grid.firstChild);   // 그리드만 비운다 — clear()는 app 전체를 지우므로(입력 시 화면이 배경만 남는 버그) 쓰지 않는다
       var lastCls = null, shown = 0;
       deckPool().forEach(function (id) {
         var c = CARDS[id];
@@ -353,7 +353,7 @@
     ]);
     var body = el('div', { style: { padding: '7px 9px 9px', display: 'flex', flexDirection: 'column', gap: '5px', background: dark ? '#17110a' : '#f4f5f8', textShadow: 'none' } }, [
       badges.length ? el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } }, badges) : null,
-      el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: readTxt } }, [isP ? '◆ 포인터 · ' + String(c.cls).toUpperCase() : ('⚔ 공 ' + c.atk + '   ♥ 체 ' + c.hp)]),
+      el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 700, color: readTxt } }, [isP ? pL('◆ 포인터 · ' + String(c.cls).toUpperCase(), '◆ Pointer · ' + String(c.cls).toUpperCase()) : pL('⚔ 공 ' + c.atk + '   ♥ 체 ' + c.hp, '⚔ ATK ' + c.atk + '   ♥ HP ' + c.hp)]),
       el('div', { style: { fontSize: '12px', lineHeight: 1.55, color: readTxt, fontWeight: 500 } }, richText((window.RT_I18N && window.RT_I18N.cardText) ? window.RT_I18N.cardText(c) : (c.text || ''))),
       formsRow(id, 0.72)
     ]);
@@ -435,7 +435,7 @@
     var dist = el('div', { style: { display: 'flex', gap: '11px', flexWrap: 'wrap', marginBottom: '10px', fontSize: '13px' } });
     ['thread', 'memory', 'process', 'generic'].forEach(function (cc) { if (byCls[cc]) dist.appendChild(el('span', { class: 'grot', style: { color: CLS[cc], fontWeight: 700, textShadow: 'none' } }, [(GLY[cc] || '●') + ' ' + byCls[cc]])); });
     if (bDeck.list.length) box.appendChild(dist);
-    if (bDeck.cover && CARDS[bDeck.cover]) box.appendChild(el('div', { class: 'grot', style: { fontSize: '11.5px', fontWeight: 700, color: AMB, marginBottom: '9px', textShadow: 'none' } }, ['★ 대표 카드: ' + CARDS[bDeck.cover].name]));
+    if (bDeck.cover && CARDS[bDeck.cover]) box.appendChild(el('div', { class: 'grot', style: { fontSize: '11.5px', fontWeight: 700, color: AMB, marginBottom: '9px', textShadow: 'none' } }, [pL('★ 대표 카드: ' + CARDS[bDeck.cover].name, '★ Cover card: ' + CARDS[bDeck.cover].name)]));
     if (!bDeck.list.length) { box.appendChild(el('div', { class: 'grot', style: { fontSize: '12.5px', color: AMB, padding: '12px 2px', textShadow: 'none' } }, ['비어 있음 — 왼쪽에서 카드를 추가하세요.'])); col.appendChild(box); return col; }
     var counts = {}; bDeck.list.forEach(function (id) { counts[id] = (counts[id] || 0) + 1; });
     var readTxt = dark ? '#f6e3ba' : '#1d1d24';
@@ -453,13 +453,13 @@
       }, [face]);
       w.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '19px', textAlign: 'center', fontSize: '11px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '10px', padding: '1px 5px', boxShadow: '0 1px 4px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + counts[id]]));
       // 모바일: 호버가 없으므로 덱리스트 미니 카드에도 🔍 탭 확대(풀 타일과 동일). 탭=제거와 겹치지 않게 stopPropagation.
-      if (isMobileDB()) w.appendChild(el('button', { title: '크게 보기', onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', bottom: '-7px', right: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
+      if (isMobileDB()) w.appendChild(el('button', { title: tL('크게 보기'), onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', bottom: '-7px', right: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
       // ★ 대표(표지) 카드 지정 토글 — 클릭 시 카드 제거와 겹치지 않게 stopPropagation.
       (function (cid, cname) {
         var isCover = bDeck.cover === cid;
         w.appendChild(el('button', {
-          title: isCover ? '대표 카드 (클릭 시 해제)' : '대표(표지) 카드로 지정', class: 'grot',
-          onclick: function (e) { e.stopPropagation(); bDeck.cover = isCover ? null : cid; bMsg = isCover ? '' : (cname + ' 을(를) 대표 카드로 지정'); UI.render(); },
+          title: isCover ? tL('대표 카드 (클릭 시 해제)') : tL('대표(표지) 카드로 지정'), class: 'grot',
+          onclick: function (e) { e.stopPropagation(); bDeck.cover = isCover ? null : cid; bMsg = isCover ? '' : pL(cname + ' 을(를) 대표 카드로 지정', cname + ' set as cover card'); UI.render(); },
           style: { position: 'absolute', top: '-8px', left: '-8px', fontSize: '12px', lineHeight: 1, padding: '2px 5px', background: isCover ? AMB : (dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)'), color: isCover ? (dark ? '#0a0a0c' : '#f4f5f8') : AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' }
         }, [isCover ? '★' : '☆']));
       })(id, c.name);

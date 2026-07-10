@@ -24,6 +24,10 @@
   var UI = (window.RTUI = window.RTUI || {});
   var CFG = window.RT_SUPABASE || {};
 
+  // 언어 분기(EN이면 en, 아니면 ko) — 반환되는 에러 문자열은 auth.js msg 영역에 그대로 표시되므로
+  // DOM 번역기가 못 잡는다. 여기서 미리 현재 언어로 만든다.
+  function pL(ko, en) { var I = window.RT_I18N; return (I && I.pick) ? I.pick(ko, en) : ko; }
+
   // placeholder/빈 값이면 미설정으로 간주
   var configured = !!(
     CFG.url &&
@@ -252,8 +256,8 @@
   function updateNickname(nick) {
     nick = (nick || '').trim().slice(0, 24);
     if (!_client || !_session)
-      return Promise.resolve({ ok: false, error: '로그인이 필요해요', profile: _profile });
-    if (!nick) return Promise.resolve({ ok: false, error: '닉네임을 입력하세요', profile: _profile });
+      return Promise.resolve({ ok: false, error: pL('로그인이 필요해요', 'You need to log in'), profile: _profile });
+    if (!nick) return Promise.resolve({ ok: false, error: pL('닉네임을 입력하세요', 'Enter a nickname'), profile: _profile });
     return _client
       .from('profiles')
       .update({ nickname: nick })
@@ -265,7 +269,7 @@
           var dup = r.error.code === '23505' || /duplicate|unique/i.test(r.error.message || '');
           return {
             ok: false,
-            error: dup ? '이미 사용 중인 닉네임이에요' : (r.error.message || '저장 실패'),
+            error: dup ? pL('이미 사용 중인 닉네임이에요', 'That nickname is already taken') : (r.error.message || pL('저장 실패', 'Save failed')),
             profile: _profile,
           };
         }
@@ -321,7 +325,7 @@
   }
   // 커스텀 덱 맵 전체를 계정에 저장(덮어쓰기). 반환: Promise<{ok, error}>.
   function saveDecks(map) {
-    if (!_client || !_session) return Promise.resolve({ ok: false, error: '로그인이 필요해요' });
+    if (!_client || !_session) return Promise.resolve({ ok: false, error: pL('로그인이 필요해요', 'You need to log in') });
     if (!map || typeof map !== 'object') map = {};
     return _client
       .from('profiles')
@@ -333,7 +337,7 @@
         if (r && r.data) _profile = r.data;
         return { ok: !(r && r.error), error: r && r.error ? r.error.message : '' };
       })
-      .catch(function (e) { return { ok: false, error: (e && e.message) || '저장 실패' }; });
+      .catch(function (e) { return { ok: false, error: (e && e.message) || pL('저장 실패', 'Save failed') }; });
   }
 
   var ADJ = [
@@ -393,8 +397,8 @@
   // 인증 메일 재전송 — 신규가입(signup) 먼저, 실패 시 전환(email_change) 폴백.
   function resendConfirmation(email) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
-      if (!c.auth.resend) return { ok: false, error: '재전송 미지원 SDK' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
+      if (!c.auth.resend) return { ok: false, error: pL('재전송 미지원 SDK', 'This SDK does not support resend') };
       var redirectTo = appRedirect();
       var opts = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
       return c.auth
@@ -419,7 +423,7 @@
   // 닉네임은 user_metadata 로 넘겨 인증 복귀 후 loadProfile 이 프로필 생성 시 사용한다.
   function signUpEmail(email, password, nick) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
       var guestUid = (_session && _session.user && !_session.user.email) ? _session.user.id : null;
       var pre;
       if (guestUid) {
@@ -457,7 +461,7 @@
   // 기존 계정 로그인(현재 게스트 세션은 대체됨)
   function signInEmail(email, password) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
       return c.auth
         .signInWithPassword({ email: email, password: password })
         .then(function (r) {
@@ -478,7 +482,7 @@
   // 복귀 시 email 이 confirmed 되므로 maybeConfirmUpgrade 가 정회원(is_guest=false)으로 승격.
   function signInOAuth(provider) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
       var redirectTo = appRedirect();
       var opts = redirectTo ? { redirectTo: redirectTo } : {};
       var isGuest = _session && _session.user && !_session.user.email;
@@ -515,7 +519,7 @@
   // 비밀번호 재설정 메일 전송 — 링크 클릭 시 appRedirect 로 복귀 → SDK 가 PASSWORD_RECOVERY 발화.
   function resetPassword(email) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
       var redirectTo = appRedirect();
       var opts = redirectTo ? { redirectTo: redirectTo } : undefined;
       return c.auth.resetPasswordForEmail(email, opts).then(function (r) {
@@ -527,7 +531,7 @@
   // 새 비밀번호 확정(재설정 링크 복귀 후) — 현재 세션(복구 세션)의 비밀번호 갱신.
   function updatePassword(newPass) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
       return c.auth.updateUser({ password: newPass }).then(function (r) {
         if (r.error) return { ok: false, error: r.error.message };
         _recovery = false;
@@ -541,8 +545,8 @@
   // 로그인 회원의 비밀번호 변경 — 현재 세션에 새 비번 적용(재설정 링크 흐름과 별개, recovery 플래그 무관).
   function changePassword(newPass) {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
-      if ((newPass || '').length < 6) return { ok: false, error: '비밀번호는 6자 이상이어야 해요' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
+      if ((newPass || '').length < 6) return { ok: false, error: pL('비밀번호는 6자 이상이어야 해요', 'Password must be at least 6 characters') };
       return c.auth.updateUser({ password: newPass }).then(function (r) {
         if (r.error) return { ok: false, error: r.error.message };
         return refreshSession().then(function () { return { ok: true }; });
@@ -554,14 +558,14 @@
   // 성공 시 로컬 세션 정리 후 새 게스트로 복귀. 함수 미배포/오류면 ok:false.
   function deleteAccount() {
     return loadClient().then(function (c) {
-      if (!c) return { ok: false, error: '백엔드 미설정' };
-      if (!_session) return { ok: false, error: '로그인이 필요해요' };
+      if (!c) return { ok: false, error: pL('백엔드 미설정', 'Backend not configured') };
+      if (!_session) return { ok: false, error: pL('로그인이 필요해요', 'You need to log in') };
       return c.functions
         .invoke('delete-account', { body: {} })
         .then(function (r) {
           var data = r && r.data;
-          if (r && r.error) return { ok: false, error: (data && data.error) || r.error.message || '탈퇴 실패(함수 미배포일 수 있어요)' };
-          if (data && data.ok === false) return { ok: false, error: data.error || '탈퇴 실패' };
+          if (r && r.error) return { ok: false, error: (data && data.error) || r.error.message || pL('탈퇴 실패(함수 미배포일 수 있어요)', 'Account deletion failed (the function may not be deployed)') };
+          if (data && data.ok === false) return { ok: false, error: data.error || pL('탈퇴 실패', 'Account deletion failed') };
           // 삭제 성공 → 세션 완전 정리 후 새 게스트 확보
           return c.auth.signOut().then(function () {
             _session = null; _profile = null;
@@ -569,7 +573,7 @@
           });
         })
         .catch(function (e) {
-          return { ok: false, error: (e && e.message) || '탈퇴 요청 실패' };
+          return { ok: false, error: (e && e.message) || pL('탈퇴 요청 실패', 'Account deletion request failed') };
         });
     });
   }

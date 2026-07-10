@@ -4,91 +4,204 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>이용약관 — RUNTIME</title>
-<meta name="description" content="RUNTIME(runtimetcg.com) 이용약관" />
+<meta name="description" content="RUNTIME(runtimetcg.com) 이용약관 · Terms of Service" />
+<script>
+  // 게임과 동일한 저장키(rt_theme·rt_lang)를 읽어 렌더 전에 적용 → 깜빡임(FOUC) 방지.
+  (function () {
+    var d = document.documentElement;
+    function g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    var t = g('rt_theme'); if (t !== 'dark' && t !== 'light') t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    var l = g('rt_lang'); if (l !== 'ko' && l !== 'en') l = ((navigator.language || 'en').toLowerCase().indexOf('ko') === 0) ? 'ko' : 'en';
+    d.setAttribute('data-theme', t); d.setAttribute('data-lang', l); d.setAttribute('lang', l);
+  })();
+</script>
 <style>
-  :root { color-scheme: dark light; }
+  :root { color-scheme: light dark; }
+  html[data-theme="dark"] { --bg:#0d0a04; --fg:#f2e2c2; --p:#e6d6b6; --muted:#b7a074; --head:#ffd27a; --accent:#ffb000; --brandsub:#b7a074; --line:#3d3220; --codebg:#17110a; --link:#7ad0ff; --thbg:#17110a; --btnbg:rgba(255,176,0,.08); }
+  html[data-theme="light"] { --bg:#f6f0e4; --fg:#2a2418; --p:#3d3324; --muted:#6f6247; --head:#8a5a00; --accent:#b5810f; --brandsub:#8a7b5e; --line:#e2d8c2; --codebg:#ece3d0; --link:#1257c9; --thbg:#ece3d0; --btnbg:rgba(29,29,36,.05); }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 0;
-    background: #0d0a04; color: #f2e2c2;
+    background: var(--bg); color: var(--fg);
     font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
     line-height: 1.75; font-size: 15px;
+    transition: background .2s ease, color .2s ease;
   }
   .wrap { max-width: 760px; margin: 0 auto; padding: 40px 22px 80px; }
-  header { border-bottom: 1px solid #3d3220; padding-bottom: 18px; margin-bottom: 28px; }
-  .brand { font-family: "Space Mono", ui-monospace, monospace; font-weight: 700; letter-spacing: .16em; font-size: 15px; color: #ffb000; text-decoration: none; }
-  .brand span { color: #b7a074; }
-  h1 { font-size: 24px; margin: 16px 0 4px; color: #ffd27a; }
-  .eff { font-size: 12px; color: #b7a074; margin: 0; font-family: "Space Mono", monospace; }
-  h2 { font-size: 17px; margin: 34px 0 8px; color: #ffd27a; border-left: 3px solid #ffb000; padding-left: 10px; }
-  p, li { color: #e6d6b6; }
-  a { color: #7ad0ff; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 28px; }
+  .brand { font-family: "Space Mono", ui-monospace, monospace; font-weight: 700; letter-spacing: .16em; font-size: 15px; color: var(--accent); text-decoration: none; }
+  .brand span { color: var(--brandsub); }
+  h1 { font-size: 24px; margin: 16px 0 4px; color: var(--head); }
+  .eff { font-size: 12px; color: var(--brandsub); margin: 0; font-family: "Space Mono", monospace; }
+  h2 { font-size: 17px; margin: 34px 0 8px; color: var(--head); border-left: 3px solid var(--accent); padding-left: 10px; }
+  p, li { color: var(--p); }
+  a { color: var(--link); }
   ul { padding-left: 20px; }
   li { margin: 4px 0; }
-  code { font-family: "Space Mono", monospace; background: #17110a; padding: 1px 5px; border-radius: 3px; color: #ffd27a; }
-  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #3d3220; font-size: 13px; color: #b7a074; display: flex; gap: 18px; flex-wrap: wrap; }
-  footer a { color: #b7a074; }
+  code { font-family: "Space Mono", monospace; background: var(--codebg); padding: 1px 5px; border-radius: 3px; color: var(--head); }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--brandsub); display: flex; gap: 18px; flex-wrap: wrap; }
+  footer a { color: var(--brandsub); }
+  /* 우상단 토글(테마·언어) */
+  .toolbar { position: fixed; top: 12px; right: 12px; display: flex; gap: 6px; z-index: 10; }
+  .toolbar button {
+    font-family: "Space Mono", ui-monospace, monospace; font-size: 12px; font-weight: 700;
+    color: var(--accent); background: var(--btnbg); border: 1px solid var(--line);
+    padding: 6px 10px; cursor: pointer; line-height: 1; border-radius: 4px; min-width: 34px;
+  }
+  .toolbar button:hover { border-color: var(--accent); }
+  /* 언어 표시/숨김 */
+  html[data-lang="ko"] [data-i18n="en"] { display: none; }
+  html[data-lang="en"] [data-i18n="ko"] { display: none; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <a class="brand" href="https://runtimetcg.com/">RUNTIME<span>.TCG</span></a>
-    <h1>이용약관</h1>
-    <p class="eff">시행일 · 2026년 7월 5일</p>
-  </header>
-
-  <p>본 약관은 RUNTIME(이하 “서비스”, <a href="https://runtimetcg.com/">https://runtimetcg.com</a>)의
-  이용 조건을 정합니다. 서비스를 이용하면 본 약관에 동의한 것으로 봅니다.</p>
-
-  <h2>1. 서비스 개요</h2>
-  <p>서비스는 프로그래밍 테마의 무료 웹 카드 게임으로, 싱글플레이(AI 대전)와 온라인
-  멀티플레이, 덱 빌딩, 통계 기능을 제공합니다. 서비스는 별도의 유료 상품을 판매하지 않습니다.</p>
-
-  <h2>2. 계정</h2>
-  <ul>
-    <li>로그인 없이 <b>게스트</b>로 즉시 플레이할 수 있습니다.</li>
-    <li>이메일 또는 Google 계정으로 <b>정회원</b> 전환 시 전적·프로필이 기기 간 유지됩니다.</li>
-    <li>이용자는 자신의 계정과 로그인 정보를 안전하게 관리할 책임이 있습니다.</li>
-  </ul>
-
-  <h2>3. 이용자의 의무 — 금지 행위</h2>
-  <ul>
-    <li>서비스의 정상 운영을 방해하는 행위(비정상 요청, 자동화 어뷰징, 취약점 악용 등)</li>
-    <li>타인의 계정·닉네임을 도용하거나 사칭하는 행위</li>
-    <li>게임 결과·통계를 부정하게 조작하는 행위(치팅)</li>
-    <li>불법적이거나 타인의 권리를 침해하는 목적의 이용</li>
-  </ul>
-
-  <h2>4. 지식재산권</h2>
-  <p>서비스에 포함된 코드·디자인·카드 텍스트·아트 등 콘텐츠에 대한 권리는 서비스 제공자에게
-  있으며, 사전 허가 없이 무단 복제·배포·상업적 이용을 할 수 없습니다.</p>
-
-  <h2>5. 면책 및 책임 제한</h2>
-  <p>서비스는 “있는 그대로(as-is)” 제공되며, 특정 목적에의 적합성이나 무중단·무오류 동작을
-  보증하지 않습니다. 서비스 이용 또는 이용 불가로 발생한 손해에 대해, 관련 법령이 허용하는
-  범위 내에서 서비스 제공자는 책임을 지지 않습니다.</p>
-
-  <h2>6. 서비스의 변경·중단</h2>
-  <p>서비스 제공자는 운영·기술상 필요에 따라 서비스의 전부 또는 일부를 변경하거나 중단할 수
-  있으며, 중요한 변경은 서비스 내 또는 본 페이지를 통해 공지합니다.</p>
-
-  <h2>7. 개인정보</h2>
-  <p>개인정보의 수집·이용에 관한 사항은 <a href="https://runtimetcg.com/privacy/">개인정보처리방침</a>을
-  따릅니다.</p>
-
-  <h2>8. 준거법 및 분쟁</h2>
-  <p>본 약관은 대한민국 법률에 따라 해석되며, 서비스와 관련한 분쟁은 관련 법령이 정한 절차와
-  관할에 따릅니다.</p>
-
-  <h2>9. 문의</h2>
-  <p>약관 관련 문의: <a href="mailto:object.bae@gmail.com">object.bae@gmail.com</a></p>
-
-  <footer>
-    <a href="https://runtimetcg.com/">← 게임으로</a>
-    <a href="https://runtimetcg.com/privacy/">개인정보처리방침</a>
-    <span>© RUNTIME</span>
-  </footer>
+<div class="toolbar">
+  <button id="langBtn" type="button" aria-label="Language">EN</button>
+  <button id="themeBtn" type="button" aria-label="Theme">🌙</button>
 </div>
+<div class="wrap">
+
+  <!-- ===================== KO ===================== -->
+  <div data-i18n="ko">
+    <header>
+      <a class="brand" href="https://runtimetcg.com/">RUNTIME<span>.TCG</span></a>
+      <h1>이용약관</h1>
+      <p class="eff">시행일 · 2026년 7월 5일</p>
+    </header>
+
+    <p>본 약관은 RUNTIME(이하 “서비스”, <a href="https://runtimetcg.com/">https://runtimetcg.com</a>)의
+    이용 조건을 정합니다. 서비스를 이용하면 본 약관에 동의한 것으로 봅니다.</p>
+
+    <h2>1. 서비스 개요</h2>
+    <p>서비스는 프로그래밍 테마의 무료 웹 카드 게임으로, 싱글플레이(AI 대전)와 온라인
+    멀티플레이, 덱 빌딩, 통계 기능을 제공합니다. 서비스는 별도의 유료 상품을 판매하지 않습니다.</p>
+
+    <h2>2. 계정</h2>
+    <ul>
+      <li>로그인 없이 <b>게스트</b>로 즉시 플레이할 수 있습니다.</li>
+      <li>이메일 또는 Google 계정으로 <b>정회원</b> 전환 시 전적·프로필이 기기 간 유지됩니다.</li>
+      <li>이용자는 자신의 계정과 로그인 정보를 안전하게 관리할 책임이 있습니다.</li>
+    </ul>
+
+    <h2>3. 이용자의 의무 — 금지 행위</h2>
+    <ul>
+      <li>서비스의 정상 운영을 방해하는 행위(비정상 요청, 자동화 어뷰징, 취약점 악용 등)</li>
+      <li>타인의 계정·닉네임을 도용하거나 사칭하는 행위</li>
+      <li>게임 결과·통계를 부정하게 조작하는 행위(치팅)</li>
+      <li>불법적이거나 타인의 권리를 침해하는 목적의 이용</li>
+    </ul>
+
+    <h2>4. 지식재산권</h2>
+    <p>서비스에 포함된 코드·디자인·카드 텍스트·아트 등 콘텐츠에 대한 권리는 서비스 제공자에게
+    있으며, 사전 허가 없이 무단 복제·배포·상업적 이용을 할 수 없습니다.</p>
+
+    <h2>5. 면책 및 책임 제한</h2>
+    <p>서비스는 “있는 그대로(as-is)” 제공되며, 특정 목적에의 적합성이나 무중단·무오류 동작을
+    보증하지 않습니다. 서비스 이용 또는 이용 불가로 발생한 손해에 대해, 관련 법령이 허용하는
+    범위 내에서 서비스 제공자는 책임을 지지 않습니다.</p>
+
+    <h2>6. 서비스의 변경·중단</h2>
+    <p>서비스 제공자는 운영·기술상 필요에 따라 서비스의 전부 또는 일부를 변경하거나 중단할 수
+    있으며, 중요한 변경은 서비스 내 또는 본 페이지를 통해 공지합니다.</p>
+
+    <h2>7. 개인정보</h2>
+    <p>개인정보의 수집·이용에 관한 사항은 <a href="https://runtimetcg.com/privacy/index.html">개인정보처리방침</a>을
+    따릅니다.</p>
+
+    <h2>8. 준거법 및 분쟁</h2>
+    <p>본 약관은 대한민국 법률에 따라 해석되며, 서비스와 관련한 분쟁은 관련 법령이 정한 절차와
+    관할에 따릅니다.</p>
+
+    <h2>9. 문의</h2>
+    <p>약관 관련 문의: <a href="mailto:object.bae@gmail.com">object.bae@gmail.com</a></p>
+
+    <footer>
+      <a href="https://runtimetcg.com/">← 게임으로</a>
+      <a href="https://runtimetcg.com/privacy/index.html">개인정보처리방침</a>
+      <span>© RUNTIME</span>
+    </footer>
+  </div>
+
+  <!-- ===================== EN ===================== -->
+  <div data-i18n="en">
+    <header>
+      <a class="brand" href="https://runtimetcg.com/">RUNTIME<span>.TCG</span></a>
+      <h1>Terms of Service</h1>
+      <p class="eff">Effective · July 5, 2026</p>
+    </header>
+
+    <p>These Terms govern the use of RUNTIME (the “Service”, <a href="https://runtimetcg.com/">https://runtimetcg.com</a>).
+    By using the Service, you are deemed to have agreed to these Terms.</p>
+
+    <h2>1. Service Overview</h2>
+    <p>The Service is a free, programming-themed web card game offering single-player (vs. AI),
+    online multiplayer, deck building, and statistics. The Service does not sell any separate paid
+    products.</p>
+
+    <h2>2. Accounts</h2>
+    <ul>
+      <li>You can play instantly as a <b>guest</b> without logging in.</li>
+      <li>When you upgrade to a <b>member</b> via email or a Google account, your records and profile
+      are kept across devices.</li>
+      <li>You are responsible for keeping your own account and login information secure.</li>
+    </ul>
+
+    <h2>3. User Obligations — Prohibited Conduct</h2>
+    <ul>
+      <li>Interfering with the normal operation of the Service (abnormal requests, automated abuse,
+      exploiting vulnerabilities, etc.)</li>
+      <li>Stealing or impersonating another person's account or nickname</li>
+      <li>Fraudulently manipulating game results or statistics (cheating)</li>
+      <li>Use for unlawful purposes or purposes that infringe others' rights</li>
+    </ul>
+
+    <h2>4. Intellectual Property</h2>
+    <p>Rights to the content included in the Service — code, design, card text, art, and so on —
+    belong to the Service provider, and may not be reproduced, distributed, or used commercially
+    without prior permission.</p>
+
+    <h2>5. Disclaimer and Limitation of Liability</h2>
+    <p>The Service is provided “as-is” and does not warrant fitness for a particular purpose or
+    uninterrupted, error-free operation. To the extent permitted by applicable law, the Service
+    provider is not liable for any damages arising from the use of, or inability to use, the
+    Service.</p>
+
+    <h2>6. Changes and Suspension of the Service</h2>
+    <p>The Service provider may change or discontinue all or part of the Service as needed for
+    operational or technical reasons, and will announce significant changes within the Service or on
+    this page.</p>
+
+    <h2>7. Personal Information</h2>
+    <p>Matters regarding the collection and use of personal information are governed by the
+    <a href="https://runtimetcg.com/privacy/index.html">Privacy Policy</a>.</p>
+
+    <h2>8. Governing Law and Disputes</h2>
+    <p>These Terms are interpreted under the laws of the Republic of Korea, and any disputes relating
+    to the Service follow the procedures and jurisdiction set by applicable law.</p>
+
+    <h2>9. Contact</h2>
+    <p>Questions about these Terms: <a href="mailto:object.bae@gmail.com">object.bae@gmail.com</a></p>
+
+    <footer>
+      <a href="https://runtimetcg.com/">← To game</a>
+      <a href="https://runtimetcg.com/privacy/index.html">Privacy Policy</a>
+      <span>© RUNTIME</span>
+    </footer>
+  </div>
+
+</div>
+<script>
+  (function () {
+    var d = document.documentElement;
+    function s(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    var tb = document.getElementById('themeBtn'), lb = document.getElementById('langBtn');
+    var TITLE = { ko: '이용약관 — RUNTIME', en: 'Terms of Service — RUNTIME' };
+    function syncTheme() { tb.textContent = d.getAttribute('data-theme') === 'dark' ? '☀' : '🌙'; }
+    function syncLang() { var l = d.getAttribute('data-lang'); lb.textContent = l === 'en' ? '한국어' : 'EN'; document.title = TITLE[l] || TITLE.en; }
+    syncTheme(); syncLang();
+    tb.addEventListener('click', function () { var n = d.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; d.setAttribute('data-theme', n); s('rt_theme', n); syncTheme(); });
+    lb.addEventListener('click', function () { var n = d.getAttribute('data-lang') === 'en' ? 'ko' : 'en'; d.setAttribute('data-lang', n); d.setAttribute('lang', n); s('rt_lang', n); syncLang(); });
+  })();
+</script>
 </body>
 </html>

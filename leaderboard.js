@@ -115,7 +115,7 @@
   }
 
   function playerRow(p, entry, rank, narrow, isMe) {
-    var nick = entry.nickname || '익명';
+    var nick = entry.nickname || RT_I18N.pick('익명', 'Anon');
     var rate = entry.games > 0 ? Math.round(winRate(entry) * 100) + '%' : '—';
     var wld = narrow ? (entry.wins + '-' + entry.losses) : (entry.wins + '-' + entry.losses + '-' + (entry.draws || 0));
     var rankCol = rank <= 3 ? p.gold : p.dim;
@@ -124,7 +124,7 @@
     var who = el('div', { style: { flex: '2 1 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px' } }, [
       (UI.avatarEl ? UI.avatarEl(entry, narrow ? 24 : 28) : el('span')),
       el('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column' } }, [
-        el('div', { class: 'grot', style: { fontSize: narrow ? '12px' : '13px', fontWeight: 700, color: isMe ? p.me : p.hi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [nick + (isMe ? ' (나)' : '')]),
+        el('div', { class: 'grot', style: { fontSize: narrow ? '12px' : '13px', fontWeight: 700, color: isMe ? p.me : p.hi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [nick + (isMe ? RT_I18N.pick(' (나)', ' (you)') : '')]),
         (entry.is_guest === false ? el('div', { style: { fontSize: '8px', color: p.dim, letterSpacing: '.08em' } }, ['● 정회원']) : null),
       ]),
     ]);

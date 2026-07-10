@@ -147,7 +147,7 @@
       })
       .catch(function (e) {
         if (!active) return;
-        status = '오류: ' + (e && e.message ? e.message : e);
+        status = RT_I18N.pick('오류: ', 'Error: ') + (e && e.message ? e.message : e);
         redraw();
       });
   }
@@ -237,7 +237,7 @@
       .then(function (r) {
         sending = false;
         if (r.error) {
-          status = '전송 실패: ' + r.error.message;
+          status = RT_I18N.pick('전송 실패: ', 'Send failed: ') + r.error.message;
           draft = text; // 되돌림
           redraw();
         }
@@ -245,7 +245,7 @@
       })
       .catch(function (e) {
         sending = false;
-        status = '전송 실패: ' + (e && e.message ? e.message : e);
+        status = RT_I18N.pick('전송 실패: ', 'Send failed: ') + (e && e.message ? e.message : e);
         draft = text;
         redraw();
       });
@@ -277,7 +277,7 @@
               marginRight: '7px',
             },
           },
-          [(m.nickname || 'guest') + (mine ? ' (나)' : '')]
+          [(m.nickname || 'guest') + (mine ? RT_I18N.pick(' (나)', ' (you)') : '')]
         ),
         el('span', { style: { color: p.amb } }, [String(m.body || '')]),
       ]
@@ -355,7 +355,7 @@
             [nick]
           ),
           el('div', { style: { fontSize: '10px', color: p.dim, letterSpacing: '.06em', marginTop: '2px' } }, [
-            (isMember ? '● 정회원' : '○ 게스트') + '  ·  ' + (s.src === 'cloud' ? 'CLOUD' : 'LOCAL') + ' 기록',
+            (isMember ? RT_I18N.t('● 정회원') : RT_I18N.pick('○ 게스트', '○ Guest')) + '  ·  ' + (s.src === 'cloud' ? 'CLOUD' : 'LOCAL') + RT_I18N.pick(' 기록', ' record'),
           ]),
         ]),
         el(
@@ -454,7 +454,7 @@
     var cg = deckGridBox();
     customs.forEach(function (k) {
       var editBtn = el('button', {
-        title: '편집',
+        title: RT_I18N.t('편집'),
         onclick: function (e) {
           e.stopPropagation();
           if (UI.openDeckBuilder) goTo(function () { UI.openDeckBuilder(k, 'lobby'); });
@@ -493,9 +493,9 @@
             borderTop: '1px solid ' + p.line, paddingTop: '7px',
           },
         }, [
-          '선택 ▸ ',
+          RT_I18N.pick('선택 ▸ ', 'Selected ▸ '),
           el('span', { style: { color: p.hi, fontWeight: 700 } }, [(d.name || myDeck).replace(/^\w+ · /, '')]),
-          '  ·  ' + (d.list || []).length + '장  ·  ' +
+          '  ·  ' + (d.list || []).length + RT_I18N.pick('장  ·  ', ' cards  ·  ') +
             (meta.singleClass ? 'single-class' : 'mixed'),
         ])
       );
@@ -554,7 +554,7 @@
           padding: '7px 9px', borderBottom: '1px solid ' + p.line,
         },
       }, [
-        el('span', { style: { fontWeight: 700, color: p.amb } }, ['💬 채팅 · 최근 ' + CHAT_RESET_MIN + '분']),
+        el('span', { style: { fontWeight: 700, color: p.amb } }, [RT_I18N.pick('💬 채팅 · 최근 ' + CHAT_RESET_MIN + '분', '💬 CHAT · LAST ' + CHAT_RESET_MIN + ' MIN')]),
         el('span', { id: 'lobby-online' }, ['● ONLINE ' + (presenceCount || 1)]),
       ])
     );

@@ -83,7 +83,7 @@
     UI.Net.updateNickname(v)
       .then(function (r) {
         busy = false;
-        msg = r && r.ok ? '✔ 닉네임을 저장했어요' : '⚠ ' + ((r && r.error) || '저장 실패');
+        msg = r && r.ok ? '✔ 닉네임을 저장했어요' : '⚠ ' + ((r && r.error) || RT_I18N.pick('저장 실패', 'Save failed'));
         redraw();
       })
       .catch(function (e) { busy = false; msg = '⚠ ' + (e && e.message ? e.message : e); redraw(); });
@@ -143,9 +143,9 @@
     wrap.appendChild(el('div', { style: { fontSize: '11px', color: p.dim, marginBottom: '8px', letterSpacing: '.06em' } }, ['▸ 통계 · STATS  (AI 대국)']));
     wrap.appendChild(
       el('div', { style: { fontSize: '13px', color: p.amb, marginBottom: '6px' } }, [
-        s.games + '판 · ',
-        el('b', { style: { color: p.hi } }, [s.wins + '승']),
-        ' ' + s.losses + '패 ' + s.draws + '무 · 승률 ',
+        RT_I18N.pick(s.games + '판 · ', s.games + ' games · '),
+        el('b', { style: { color: p.hi } }, [RT_I18N.pick(s.wins + '승', s.wins + 'W')]),
+        RT_I18N.pick(' ' + s.losses + '패 ' + s.draws + '무 · 승률 ', ' ' + s.losses + 'L ' + s.draws + 'D · Win rate '),
         el('b', { style: { color: p.hi } }, [rate + '%']),
       ])
     );
@@ -265,7 +265,7 @@
       }
       return UI.Net.signUpEmail(email.trim(), pass, wantNick).then(function (r) {
         if (!r || !r.ok) {
-          busy = false; msg = '⚠ ' + ((r && r.error) || '가입 실패'); redraw(); return;
+          busy = false; msg = '⚠ ' + ((r && r.error) || RT_I18N.pick('가입 실패', 'Sign-up failed')); redraw(); return;
         }
         if (r.needConfirm) {
           // 순수 signUp — 아직 세션이 없어(로그아웃 상태) 닉네임은 인증 복귀 후 프로필 생성 시
@@ -291,18 +291,18 @@
     UI.Net.signInEmail(email.trim(), pass)
       .then(function (r) {
         busy = false;
-        if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || '로그인 실패'); redraw(); return; }
+        if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || RT_I18N.pick('로그인 실패', 'Login failed')); redraw(); return; }
         msg = ''; page = 'account'; redraw();
       })
       .catch(function (e) { busy = false; msg = '⚠ ' + (e && e.message ? e.message : e); redraw(); });
   }
 
   function doOAuth(provider) {
-    busy = true; msg = provider + ' 로 이동 중…'; redraw();
+    busy = true; msg = RT_I18N.pick(provider + ' 로 이동 중…', 'Redirecting to ' + provider + '…'); redraw();
     UI.Net.signInOAuth(provider).then(function (r) {
       if (!r || !r.ok) {
         busy = false;
-        msg = '⚠ ' + ((r && r.error) || 'OAuth 실패 — 대시보드에서 provider 설정이 필요할 수 있어요');
+        msg = '⚠ ' + ((r && r.error) || RT_I18N.pick('OAuth 실패 — 대시보드에서 provider 설정이 필요할 수 있어요', 'OAuth failed — you may need to set up the provider in the dashboard'));
         redraw();
       }
       // 성공 시 페이지가 리다이렉트됨
@@ -324,7 +324,7 @@
       busy = false;
       msg = r && r.ok
         ? '✔ 비밀번호 재설정 메일을 보냈어요 — 메일의 링크를 눌러 새 비밀번호를 설정하세요. (링크는 이 사이트로 돌아옵니다)'
-        : '⚠ ' + ((r && r.error) || '실패');
+        : '⚠ ' + ((r && r.error) || RT_I18N.pick('실패', 'Failed'));
       redraw();
     });
   }
@@ -340,7 +340,7 @@
     busy = true; msg = '새 비밀번호 저장 중…'; redraw();
     UI.Net.updatePassword(pass).then(function (r) {
       busy = false;
-      if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || '실패 — 링크가 만료되었을 수 있어요. 다시 요청해 주세요.'); redraw(); return; }
+      if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || RT_I18N.pick('실패 — 링크가 만료되었을 수 있어요. 다시 요청해 주세요.', 'Failed — the link may have expired. Please request a new one.')); redraw(); return; }
       pass = ''; pass2 = '';
       if (UI.Net.clearRecovery) UI.Net.clearRecovery();
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
@@ -362,7 +362,7 @@
     busy = true; msg = '비밀번호 변경 중…'; redraw();
     UI.Net.changePassword(pass).then(function (r) {
       busy = false;
-      if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || '변경 실패'); redraw(); return; }
+      if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || RT_I18N.pick('변경 실패', 'Change failed')); redraw(); return; }
       pass = ''; pass2 = '';
       msg = '✔ 비밀번호를 변경했어요'; page = 'account'; redraw();
     });
@@ -373,7 +373,7 @@
     busy = true; msg = '탈퇴 처리 중…'; redraw();
     UI.Net.deleteAccount().then(function (r) {
       busy = false; delStage = 0;
-      if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || '탈퇴 실패'); redraw(); return; }
+      if (!r || !r.ok) { msg = '⚠ ' + ((r && r.error) || RT_I18N.pick('탈퇴 실패', 'Account deletion failed')); redraw(); return; }
       msg = '탈퇴가 완료됐어요. 게스트로 전환했습니다.'; page = 'login'; redraw();
     }).catch(function (e) { busy = false; msg = '⚠ ' + (e && e.message ? e.message : e); redraw(); });
   }
@@ -384,7 +384,7 @@
     busy = true; msg = '인증 메일 재전송 중…'; redraw();
     UI.Net.resendConfirmation(addr).then(function (r) {
       busy = false;
-      msg = r && r.ok ? '✔ 인증 메일을 다시 보냈어요' : '⚠ ' + ((r && r.error) || '재전송 실패');
+      msg = r && r.ok ? '✔ 인증 메일을 다시 보냈어요' : '⚠ ' + ((r && r.error) || RT_I18N.pick('재전송 실패', 'Resend failed'));
       redraw();
     });
   }
@@ -457,7 +457,7 @@
     b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.6, marginBottom: '12px' } }, [
       '간단한 정보로 가입해요. ',
       el('b', { style: { color: p.hi } }, ['지금까지 게스트로 쌓은 전적·프로필은 그대로 유지']),
-      '됩니다.',
+      RT_I18N.pick('됩니다.', '.'),
     ]));
     b.appendChild(field('auth-email', 'email', RT_I18N.pick('이메일','Email'), email, p, doSignup));
     b.appendChild(field('auth-pass', 'password', RT_I18N.pick('비밀번호 (6자 이상)','Password (6+ chars)'), pass, p, doSignup));
@@ -479,10 +479,11 @@
     b.appendChild(el('label', { style: { display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '11px', color: p.dim, lineHeight: 1.6, margin: '4px 0 12px', cursor: 'pointer' } }, [
       el('input', { type: 'checkbox', checked: agree ? 'checked' : null, onchange: function (e) { agree = !!e.target.checked; }, style: { marginTop: '2px', accentColor: p.amb } }),
       el('span', {}, [
-        el('a', { href: 'privacy/', target: '_blank', rel: 'noopener', style: { color: p.ok, textDecoration: 'underline', textUnderlineOffset: '2px' } }, ['개인정보처리방침']),
-        ' 및 ',
-        el('a', { href: 'terms/', target: '_blank', rel: 'noopener', style: { color: p.ok, textDecoration: 'underline', textUnderlineOffset: '2px' } }, ['이용약관']),
-        '에 동의합니다.',
+        RT_I18N.pick('', 'I agree to the '),
+        el('a', { href: 'privacy/index.html', target: '_blank', rel: 'noopener', style: { color: p.ok, textDecoration: 'underline', textUnderlineOffset: '2px' } }, ['개인정보처리방침']),
+        RT_I18N.pick(' 및 ', ' and '),
+        el('a', { href: 'terms/index.html', target: '_blank', rel: 'noopener', style: { color: p.ok, textDecoration: 'underline', textUnderlineOffset: '2px' } }, ['이용약관']),
+        RT_I18N.pick('에 동의합니다.', '.'),
       ]),
     ]));
     b.appendChild(el('button', { class: 'crt-btn', onclick: doSignup, disabled: busy, style: { fontSize: '13px', width: '100%', marginBottom: '8px' } }, ['회원가입']));
@@ -562,7 +563,7 @@
   }
 
   function verifyPage(b, p) {
-    var addr = (UI.Net.pendingEmail && UI.Net.pendingEmail()) || email.trim() || '(이메일)';
+    var addr = (UI.Net.pendingEmail && UI.Net.pendingEmail()) || email.trim() || RT_I18N.pick('(이메일)', '(email)');
     b.appendChild(header('▸ 이메일 인증 · VERIFY'));
     b.appendChild(el('div', { style: { fontSize: '13px', color: p.amb, margin: '2px 0 4px' } }, [el('b', { style: { color: p.hi } }, [addr])]));
     b.appendChild(el('div', { style: { fontSize: '12px', color: p.dim, lineHeight: 1.7, marginBottom: '14px' } }, [

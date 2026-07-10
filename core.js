@@ -755,7 +755,7 @@
   }
   function cardTipContent(id, unit) {
     var card = CARDS[id], cl = CLS[card.cls] || CLS.generic, isP = card.kind === 'pointer';
-    if (card.kind === 'body') { var bh = unit ? G.curHp(unit) : 0, bm = unit ? G.effMaxHp(unit) : 40; return el('div', { style: { padding: '9px 10px' } }, [el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '15px' } }, [(unit && unit.owner === HUMAN ? '내' : '상대') + ' 본체']), el('div', { class: 'mono', style: { fontSize: '12px', marginTop: '3px' } }, ['HP ' + bh + ' / ' + bm])]); }
+    if (card.kind === 'body') { var bh = unit ? G.curHp(unit) : 0, bm = unit ? G.effMaxHp(unit) : 40; return el('div', { style: { padding: '9px 10px' } }, [el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '15px' } }, [pickLang((unit && unit.owner === HUMAN ? '내' : '상대') + ' 본체', (unit && unit.owner === HUMAN ? 'My' : 'Opponent') + ' core')]), el('div', { class: 'mono', style: { fontSize: '12px', marginTop: '3px' } }, ['HP ' + bh + ' / ' + bm])]); }
     var atk = unit ? G.effAtk(unit) : card.atk, hp = unit ? G.curHp(unit) : card.hp;
     return el('div', {}, [
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: isP ? '#1d1d24' : cl, borderBottom: isP ? '2px solid ' + cl : 'none' } }, [
@@ -770,7 +770,7 @@
         condLine(condSpec(card), { fs: 9, margin: '0 0 5px' }),
         deckRuleLine(card, { fs: 9, margin: '0 0 5px' }),
         isP ? null : el('div', { class: 'mono', style: { fontSize: '9px', color: SKIN.enemy, fontWeight: 700, marginBottom: '5px' } }, ['⚔ 기본 공격 · 옆칸 1칸']),
-        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ OP 카드 · 덱당 ' + card.deckLimit + '장']) : null,
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '9px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, [pickLang('★ OP 카드 · 덱당 ' + card.deckLimit + '장', '★ OP card · max ' + card.deckLimit + ' per deck')]) : null,
         rangeGridEl(RT.cardRange(id), cl)
       ])
     ]);
@@ -1173,8 +1173,9 @@
   function fatigueFx(bodyKey, amt) {
     var r = rectOf(bodyKey);
     if (r) { punchNum(r, '🃏 −' + amt, 24, SKIN.heat); flashTile(r, hexa(SKIN.heat, .65), 320); screenShake(1); }
-    var whose = (bodyKey === RT.bodyKey(HUMAN)) ? '내 ' : '상대 ';
-    var t = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '108px', transform: 'translateX(-50%)', zIndex: 60, fontWeight: 700, fontSize: '13px', padding: '7px 15px', background: SKIN.heat, color: '#fff', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.35)', pointerEvents: 'none', whiteSpace: 'nowrap' } }, ['🃏 덱 소진(피로) · ' + whose + '본체 −' + amt + ' (드로우할 카드 없음)']);
+    var mineBody = (bodyKey === RT.bodyKey(HUMAN));
+    var fatText = pickLang('🃏 덱 소진(피로) · ' + (mineBody ? '내 ' : '상대 ') + '본체 −' + amt + ' (드로우할 카드 없음)', '🃏 Deck exhausted (fatigue) · ' + (mineBody ? 'my' : 'opponent') + ' core −' + amt + ' (no cards to draw)');
+    var t = el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '108px', transform: 'translateX(-50%)', zIndex: 60, fontWeight: 700, fontSize: '13px', padding: '7px 15px', background: SKIN.heat, color: '#fff', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.35)', pointerEvents: 'none', whiteSpace: 'nowrap' } }, [fatText]);
     fxLayer().appendChild(t);
     anim(t, [{ opacity: 0, transform: 'translate(-50%,-8px)' }, { opacity: 1, transform: 'translate(-50%,0)', offset: .12 }, { opacity: 1, transform: 'translate(-50%,0)', offset: .82 }, { opacity: 0, transform: 'translate(-50%,-8px)' }], { duration: 1800, easing: 'ease-out' });
   }
@@ -1197,7 +1198,7 @@
   function myDeckStartable() {
     var d = DECKS[myDeck];
     if (d && d.list && d.list.length === 30) return true;
-    try { window.alert('선택한 덱이 30장이 아니어서 대국을 시작할 수 없습니다.\n커스텀 덱은 ✎ 편집에서 30장으로 맞춰 저장하세요. (현재 ' + ((d && d.list) ? d.list.length : 0) + '장)'); } catch (e) {}
+    try { var _cur = (d && d.list) ? d.list.length : 0; window.alert(pickLang('선택한 덱이 30장이 아니어서 대국을 시작할 수 없습니다.\n커스텀 덱은 ✎ 편집에서 30장으로 맞춰 저장하세요. (현재 ' + _cur + '장)', 'This deck does not have 30 cards, so the match cannot start.\nEdit your custom deck via ✎ to fill it to 30 cards and save. (currently ' + _cur + ')')); } catch (e) {}
     return false;
   }
   function startMatch() { if (!myDeckStartable()) return; challenge = null; beginMatch(oppDeck === '__random' ? randomDeck() : oppDeck); }
@@ -1545,8 +1546,8 @@
     } else {
       // 상단 상태 스트립 삭제(턴/덱/도전 정보는 titlebar·디스펜서·컨트롤과 중복) → 그만큼 보드에 세로를 양보.
       // 턴·런타임 환경 정보는 디스펜서 바에 표기되므로 titlebar 에서는 생략(중복 제거). 도전 연승만 우측에 합쳐 표기.
-      var tbText = tutorial ? 'RUNTIME — 튜토리얼 · 실습' : 'RUNTIME — MATCH.app';
-      if (challenge) tbText += '   ·   🏆 ' + challenge.stage + '단계 ' + challenge.wins + '연승' + (challenge.boss ? ' 👑BOSS' : '');
+      var tbText = tutorial ? pickLang('RUNTIME — 튜토리얼 · 실습', 'RUNTIME — Tutorial · Practice') : 'RUNTIME — MATCH.app';
+      if (challenge) tbText += pickLang('   ·   🏆 ' + challenge.stage + '단계 ' + challenge.wins + '연승', '   ·   🏆 Stage ' + challenge.stage + ' · ' + challenge.wins + 'W') + (challenge.boss ? ' 👑BOSS' : '');
       wrap.appendChild(titlebar(tbText));
       if (tutorial) wrap.appendChild(tutBanner());
 
@@ -1573,7 +1574,7 @@
     }
 
     var pop = fieldPopover(); if (pop) app.appendChild(pop);
-    if (actionToast) app.appendChild(el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '80px', transform: 'translateX(-50%)', zIndex: 55, fontWeight: 700, fontSize: '13px', padding: '7px 16px', background: actionToast.actor === HUMAN ? SKIN.own : SKIN.enemy, color: '#fff', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.3)', animation: 'popIn .25s ease', pointerEvents: 'none' } }, [(actionToast.actor === HUMAN ? '나 · ' : '상대 · ') + actionToast.text]));
+    if (actionToast) app.appendChild(el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '80px', transform: 'translateX(-50%)', zIndex: 55, fontWeight: 700, fontSize: '13px', padding: '7px 16px', background: actionToast.actor === HUMAN ? SKIN.own : SKIN.enemy, color: '#fff', border: '1px solid ' + SKIN.ink, boxShadow: '2px 2px 0 rgba(0,0,0,.3)', animation: 'popIn .25s ease', pointerEvents: 'none' } }, [(actionToast.actor === HUMAN ? pickLang('나 · ', 'Me · ') : pickLang('상대 · ', 'Opp · ')) + actionToast.text]));
     if (toast) {
       // 모바일: 손패와 겹치지 않게 화면 중앙에 띄움. 데스크톱: 기존 하단.
       var tStyle = COMPACT
@@ -1622,7 +1623,7 @@
     var me = owner === HUMAN, pl = G.players[owner], b = G.body(owner);
     var hp = b ? G.curHp(b) : 0, mx = b ? G.effMaxHp(b) : 1, accent = ownerColor(owner), low = mx && hp / mx <= 0.34;
     var who = sideLabel(owner);
-    if (onlineMatch) { var k = me ? (G.myKey || '나') : (G.oppKey || '상대'); who = k.length > 10 ? k.slice(0, 9) + '…' : k; }
+    if (onlineMatch) { var k = me ? (G.myKey || pickLang('나', 'Me')) : (G.oppKey || pickLang('상대', 'Opponent')); who = k.length > 10 ? k.slice(0, 9) + '…' : k; }
     var kids = [];
     // 온라인 대전: 이름 앞에 아바타 — 서로 상대를 눈으로 확인.
     if (onlineMatch && UI.avatarEl) {
@@ -1656,7 +1657,7 @@
     var etr = envTurnRow(); if (etr) etr.style.paddingLeft = 'calc(10px + ' + SAL + ')', etr.style.paddingRight = 'calc(10px + ' + SAR + ')', wrap.appendChild(etr);
 
     // 포인터 시전 안내(짧게)
-    if (ptr) wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.enemy, padding: '3px 10px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisSunk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' } }, ['◆ ' + ptr.card.name + ' 시전 — 빨강 대상 선택']));
+    if (ptr) wrap.appendChild(el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: SKIN.enemy, padding: '3px 10px', borderBottom: '1px solid ' + SKIN.ink, background: SKIN.chassisSunk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' } }, [pickLang('◆ ' + ptr.card.name + ' 시전 — 빨강 대상 선택', '◆ Cast ' + ptr.card.name + ' — pick a red target')]));
 
     // ── 필드(중앙) — 화면 폭을 꽉 채우는 보드. 세로 패딩을 얇게 해 필드를 최대한 크게 ──
     wrap.appendChild(el('div', { style: { flex: '1 1 auto', minHeight: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px calc(4px + ' + SAR + ') 2px calc(4px + ' + SAL + ')' } }, [boardEl(true)]));
@@ -1717,7 +1718,7 @@
       el('span', { style: { color: SKIN.muted } }, [(isEN()?'Opp ':'상대 ') + (G.oppKey || '?')]),
       el('span', { style: { flex: 1 } })
     ]);
-    if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + '연승']));
+    if (challenge) strip.appendChild(el('span', { style: { fontWeight: 700, color: SKIN.rangeGold } }, [pickLang('🏆 스테이지 ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + '연승', '🏆 Stage ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + 'W')]));
     wrap.appendChild(strip);
 
     // stage: 남은 높이를 채우는 무대(블러 배경 + 정중앙 멀리건 오버레이). 넘치는 배경은 크롭.
@@ -1752,7 +1753,7 @@
     ov.appendChild(el('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '19px', color: SKIN.own, textShadow: '0 1px 4px rgba(0,0,0,.6)' } }, ['◈ 멀리건']),
       el('span', { class: 'mono', style: { fontSize: '12px', color: '#e9eaee', opacity: .85 } }, [(DECKS[myDeck] ? myDeck : '') + ' vs ' + (G.oppKey || '?')]),
-      challenge ? el('span', { class: 'mono', style: { fontSize: '12px', fontWeight: 700, color: SKIN.rangeGold } }, ['🏆 스테이지 ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + '연승']) : null
+      challenge ? el('span', { class: 'mono', style: { fontSize: '12px', fontWeight: 700, color: SKIN.rangeGold } }, [pickLang('🏆 스테이지 ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + '연승', '🏆 Stage ' + challenge.stage + '/' + CHAL_MAX_STAGE + ' · ' + challenge.wins + 'W')]) : null
     ]));
     ov.appendChild(el('div', { class: 'mono', style: { fontSize: '12px', color: '#e9eaee', opacity: .8, textAlign: 'center', minHeight: '15px', maxWidth: '92%', textShadow: '0 1px 3px rgba(0,0,0,.6)' } }, [mullReady ? '바꿀 카드를 클릭 → 덱으로 반환하고 새로 뽑습니다. 선택 안 하면 그대로 유지 (1회).' : '패를 나눠주는 중…']));
 
@@ -1927,7 +1928,7 @@
       counter
     ]);
     var who = sideLabel(owner);
-    if (onlineMatch) { var nk = me ? (G.myKey || '나') : (G.oppKey || '상대'); who = nk.length > 12 ? nk.slice(0, 11) + '…' : nk; }
+    if (onlineMatch) { var nk = me ? (G.myKey || pickLang('나', 'Me')) : (G.oppKey || pickLang('상대', 'Opponent')); who = nk.length > 12 ? nk.slice(0, 11) + '…' : nk; }
     return el('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '0 12px', background: me ? SKIN.chassisAlt : SKIN.chassisSunk, color: SKIN.txt, border: '1px solid ' + SKIN.ink, boxShadow: 'inset 1px 1px 0 ' + SKIN.bevelHi + ', inset -2px -2px 0 ' + SKIN.bevelLo } }, [
       dispenserFace(owner),
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: accent, flex: 'none', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: who }, [who]),
@@ -1941,7 +1942,7 @@
         el('span', { style: { color: SKIN.txt } }, [String(G.turnNo)]),
         el('span', { style: { fontSize: '9px', color: SKIN.muted } }, ['/' + G.TURN_CAP])
       ]) : null,
-      pl.bodyShield ? el('span', { class: 'mono', title: '방어막', style: { fontSize: '10px', color: SKIN.ally, fontWeight: 700, flex: 'none' } }, ['방어 ' + pl.bodyShield]) : null
+      pl.bodyShield ? el('span', { class: 'mono', title: tL('방어막'), style: { fontSize: '10px', color: SKIN.ally, fontWeight: 700, flex: 'none' } }, [pickLang('방어 ' + pl.bodyShield, 'Shield ' + pl.bodyShield)]) : null
     ]);
   }
   // 드로우 시 슬롯에서 카드가 배출되는 애니메이션(전자기기 배출구). human=아래(손패쪽), ai=위.
@@ -1970,7 +1971,7 @@
       Sound.draw();
       var slot = document.getElementById('deckslot-' + owner);
       var r = slot ? slot.getBoundingClientRect() : null;
-      if (!r) { setActionToast(owner, '🪙 후공 보정 — 추가 카드 「동전」'); return; }
+      if (!r) { setActionToast(owner, pickLang('🪙 후공 보정 — 추가 카드 「동전」', '🪙 Second-turn bonus — extra card 「Coin」')); return; }
       var hand = document.getElementById('handrow');
       var hr = hand ? hand.getBoundingClientRect() : null, dir = me ? 1 : -1;
       var sx = r.left + r.width / 2, sy = r.top + r.height / 2;
@@ -2208,7 +2209,7 @@
       // 봉쇄(🔒)는 뷰포트 상단 상태이상 칩(statusChips)으로 크게 표시 — 타이틀바 중복 배지 제거.
     ]);
     // 필드 For 잔여 횟수 = 뷰포트 좌상단 코너 배지(눈에 띄게). 발동가능=녹색+펄스, 남았지만 이번 턴 소진/불가=중립.
-    var forBadge = forN ? el('span', { class: 'mono', title: 'For 함수 잔여 ' + forN + '회' + (forFire ? ' · 지금 발동 가능' : ''), style: { position: 'absolute', top: '1px', left: '1px', zIndex: 6, fontSize: '10px', fontWeight: 700, lineHeight: 1, color: '#fff', background: forFire ? '#3c8a66' : 'rgba(29,29,36,.82)', border: '1px solid ' + (forFire ? '#c4ea9f' : 'rgba(255,255,255,.4)'), borderRadius: '3px', padding: '1px 3px', boxShadow: forFire ? '0 0 0 1px rgba(0,0,0,.35), 0 0 7px rgba(60,138,102,.85)' : '0 1px 2px rgba(0,0,0,.4)', animation: forFire ? 'readyPulse 1.5s ease-in-out infinite' : 'none' } }, ['⟳' + forN]) : null;
+    var forBadge = forN ? el('span', { class: 'mono', title: pickLang('For 함수 잔여 ' + forN + '회' + (forFire ? ' · 지금 발동 가능' : ''), 'For uses left: ' + forN + (forFire ? ' · ready now' : '')), style: { position: 'absolute', top: '1px', left: '1px', zIndex: 6, fontSize: '10px', fontWeight: 700, lineHeight: 1, color: '#fff', background: forFire ? '#3c8a66' : 'rgba(29,29,36,.82)', border: '1px solid ' + (forFire ? '#c4ea9f' : 'rgba(255,255,255,.4)'), borderRadius: '3px', padding: '1px 3px', boxShadow: forFire ? '0 0 0 1px rgba(0,0,0,.35), 0 0 7px rgba(60,138,102,.85)' : '0 1px 2px rgba(0,0,0,.4)', animation: forFire ? 'readyPulse 1.5s ease-in-out infinite' : 'none' } }, ['⟳' + forN]) : null;
     return el('div', { style: st }, [
       // 타이틀바(클래스색) — LED(오너) + 이름(축소) + 배지. 적 = 빗금(비활성 창).
       winTitlebar(card, { led: u.owner, ledPx: 9, icon: false, nameFs: 7, hatch: !me, pad: '2px 3px', gap: 2, right: badges }),
@@ -2558,7 +2559,7 @@
     // 포인터 시전 안내: 데스크톱은 우측 패널(전투 기록 위, ptrCastBanner)에 표시 → 컨트롤 바가 줄바꿈으로 늘어나지 않게 한다.
     // 모바일(COMPACT)만 액션 바에 간략 표기.
     if (ptr && COMPACT) {
-      row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, ['◆ ' + ptr.card.name + ' 시전']));
+      row.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.enemy, fontWeight: 700 } }, [pickLang('◆ ' + ptr.card.name + ' 시전', '◆ Cast ' + ptr.card.name)]));
     }
     row.appendChild(el('span', { style: { flex: 1 } }));
     if (sel) row.appendChild(el('button', { class: 'btn ghost', style: { fontSize: '11px', padding: '6px 11px' }, onclick: function () { sel = ptr = null; render(); } }, ['선택 해제']));
@@ -2615,7 +2616,7 @@
   // 날씨 배너 — 현재 게임 날씨(6종/clear)를 아이콘·이름·효과로 상시 표시. 호버 시 상세 효과 툴팁.
   function weatherBanner() {
     var info = weatherInfo(G.weather);
-    var tip = { t: info.icon + ' ' + info.name + ' · ' + info.en, d: weatherDetail(G.weather) };
+    var tip = { t: info.icon + ' ' + tL(info.name) + ' · ' + info.en, d: weatherDetail(G.weather) };
     return el('div', {
       onmouseenter: function (e) { showKwTip(e.currentTarget, tip); },
       onmouseleave: hideKwTip,
@@ -2655,9 +2656,9 @@
     box.appendChild(el('div', { class: 'grot', style: { fontSize: '9px', letterSpacing: '.18em', color: SKIN.muted, margin: '2px 0 6px' } }, ['덱 트래커 · DECK']));
     // 요약(남은 덱 / 손패 / 트래쉬)
     box.appendChild(el('div', { class: 'mono', style: { display: 'flex', gap: '8px', fontSize: '9.5px', color: SKIN.muted, marginBottom: '7px', flexWrap: 'wrap' } }, [
-      el('span', {}, ['덱 ', el('b', { style: { color: pl.deck.length <= 3 ? SKIN.heat : SKIN.gold } }, [String(pl.deck.length)]), ' / ' + startList.length]),
-      el('span', {}, ['패 ', el('b', { style: { color: SKIN.txt } }, [String(pl.hand.length)])]),
-      el('span', {}, ['트래쉬 ', el('b', { style: { color: SKIN.txt } }, [String(pl.graveyard.length)])])
+      el('span', {}, [pickLang('덱 ', 'Deck '), el('b', { style: { color: pl.deck.length <= 3 ? SKIN.heat : SKIN.gold } }, [String(pl.deck.length)]), ' / ' + startList.length]),
+      el('span', {}, [pickLang('패 ', 'Hand '), el('b', { style: { color: SKIN.txt } }, [String(pl.hand.length)])]),
+      el('span', {}, [pickLang('트래쉬 ', 'Trash '), el('b', { style: { color: SKIN.txt } }, [String(pl.graveyard.length)])])
     ]));
     var list = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto', minHeight: 0, flex: 1, maxHeight: '52vh' } });
     if (!order.length) {
@@ -2709,7 +2710,7 @@
   }
   // 데스크톱 포인터 시전 안내 배너 — 우측 패널 전투 기록 바로 위. 컨트롤 바 대신 여기에 표시해 하단 필드 세로를 아낀다.
   function ptrCastBanner() {
-    return el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: '#fff', background: SKIN.enemy, border: '1px solid ' + SKIN.ink, padding: '7px 9px', lineHeight: 1.45, boxShadow: '2px 2px 0 rgba(0,0,0,.3)', wordBreak: 'keep-all' } }, ['◆ ' + ptr.card.name + ' 시전 — 파란 구역 안 빨강 대상 클릭/드래그']);
+    return el('div', { class: 'mono', style: { flex: 'none', fontSize: '11px', fontWeight: 700, color: '#fff', background: SKIN.enemy, border: '1px solid ' + SKIN.ink, padding: '7px 9px', lineHeight: 1.45, boxShadow: '2px 2px 0 rgba(0,0,0,.3)', wordBreak: 'keep-all' } }, [pickLang('◆ ' + ptr.card.name + ' 시전 — 파란 구역 안 빨강 대상 클릭/드래그', '◆ Cast ' + ptr.card.name + ' — click/drag a red target inside the blue zone')]);
   }
   // 좌우 패널 높이를 보드 컬럼(#boardcol)에 맞춰 명시적 px 로 고정한다. 렌더 직후 RAF 에서 호출(페인트 전 실행 → 깜빡임 없음).
   // 먼저 패널을 0 으로 접어 라인 높이가 보드 컬럼 실제 높이가 되게 한 뒤 측정 → 패널을 그 높이로 설정(패널이 라인을 부풀리지 않음).
@@ -2790,9 +2791,9 @@
           statBar('ATK', atk, ATK_MAX, SKIN.heat, bu ? card.atk : null),
           statBar('HP', hp, HP_MAX, SKIN.own)
         ]),
-        (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.enemy, marginBottom: '7px' } }, ['피해 누적 ' + (mx - hp) + ' · 최대 ' + mx]) : null,
+        (bu && hp < mx) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.enemy, marginBottom: '7px' } }, [pickLang('피해 누적 ' + (mx - hp) + ' · 최대 ' + mx, 'Damage taken ' + (mx - hp) + ' · max ' + mx)]) : null,
         (bu && bu.owner === HUMAN && bu.attackedTurn === G.turnNo) ? el('div', { class: 'mono', style: { fontSize: '10.5px', color: SKIN.faint, marginBottom: '7px' } }, ['⚔ 이번 턴 기본 공격 완료']) : null,
-        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, ['★ OP 카드 · 덱당 ' + card.deckLimit + '장 제한']) : null,
+        card.deckLimit ? el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: SKIN.gold, marginBottom: '5px' } }, [pickLang('★ OP 카드 · 덱당 ' + card.deckLimit + '장 제한', '★ OP card · max ' + card.deckLimit + ' per deck')]) : null,
         el('div', { style: { fontSize: '14.5px', color: SKIN.txt, lineHeight: 1.62, marginBottom: '11px' } }, richText(effectOnly(cardTextOf(card)))),
         condLine(condSpec(card), { fs: 11.5, margin: '0 0 9px' }),
         deckRuleLine(card, { fs: 11.5, margin: '0 0 9px' }),
@@ -2825,7 +2826,7 @@
     function col(nick, prof, mine) {
       var accent = mine ? SKIN.own : SKIN.enemy;
       var kids = [
-        el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginBottom: '2px' } }, [mine ? '나' : '상대']),
+        el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted, marginBottom: '2px' } }, [pickLang(mine ? '나' : '상대', mine ? 'Me' : 'Opponent')]),
         el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', marginBottom: '3px' } }, [
           (UI.avatarEl ? UI.avatarEl({ nickname: nick, avatar: prof && prof.avatar }, 30) : null),
           el('div', { class: 'grot', style: { fontSize: '14px', fontWeight: 700, color: accent, wordBreak: 'break-all', lineHeight: 1.2, minWidth: 0 } }, [nick || '???']),
@@ -2834,8 +2835,8 @@
       if (prof) {
         var g = prof.games || 0, w = prof.wins || 0, l = prof.losses || 0, d = prof.draws || 0;
         var rate = g ? Math.round((w / g) * 100) : 0;
-        kids.push(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.txt } }, [w + '승 ' + l + '패 ' + d + '무']));
-        kids.push(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['승률 ' + rate + '%']));
+        kids.push(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.txt } }, [pickLang(w + '승 ' + l + '패 ' + d + '무', w + 'W ' + l + 'L ' + d + 'D')]));
+        kids.push(el('div', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, [pickLang('승률 ' + rate + '%', 'Win ' + rate + '%')]));
       }
       return el('div', { style: { flex: 1, minWidth: '0' } }, kids);
     }
@@ -2849,12 +2850,12 @@
   function resultOverlay() {
     var win = G.winner === HUMAN, draw = G.winner === 'draw';
     var color = draw ? '#6b6b75' : win ? '#3c8a66' : '#c23c70';
-    var label = draw ? '무승부' : win ? '승리' : '패배';
+    var label = tL(draw ? '무승부' : win ? '승리' : '패배');
     if (!winSoundDone) { winSoundDone = true; setTimeout(function () { if (win) Sound.win(); else if (!draw) Sound.lose(); }, 200); }
     var ov = el('div', { style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(28,28,38,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' } });
-    var stat = el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, margin: '6px 0 18px' } }, ['turn ' + G.turnNo + ' · 내 본체 ' + G.curHp(G.body(0)) + ' · 상대 ' + G.curHp(G.body(1))]);
+    var stat = el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, margin: '6px 0 18px' } }, [pickLang('turn ' + G.turnNo + ' · 내 본체 ' + G.curHp(G.body(0)) + ' · 상대 ' + G.curHp(G.body(1)), 'turn ' + G.turnNo + ' · my core ' + G.curHp(G.body(0)) + ' · opp ' + G.curHp(G.body(1)))]);
     // 결과 오버레이를 닫고 최종 보드를 살펴볼 수 있게 하는 보조 버튼 + 액션 버튼을 나란히 배치
-    function viewBtn() { return el('button', { class: 'btn', style: { background: 'transparent', color: SKIN.txt, border: '1px solid ' + SKIN.ink }, onclick: function () { reviewMode = true; render(); } }, ['🔍 게임 보기']); }
+    function viewBtn() { return el('button', { class: 'btn', style: { background: 'transparent', color: SKIN.txt, border: '1px solid ' + SKIN.ink }, onclick: function () { reviewMode = true; render(); } }, [tL('🔍 게임 보기')]); }
     function btnRow(action) { return el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' } }, [action, viewBtn()]); }
     var kids;
     if (challenge) {
@@ -2862,33 +2863,33 @@
       setBestStreak(challenge.deck, streak);                     // 덱별 최고치 즉시 저장(더 높을 때만)
       var isRecord = streak > challenge.baseBest && streak > 0;
       var recordLine = el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.muted, margin: '0 0 14px' } }, [
-        challenge.deck + ' 덱 · ',
-        isRecord ? el('b', { style: { color: SKIN.rangeGold } }, ['🎉 신기록! 최고 ' + streak + '연승']) : ('최고 기록 ' + bestStreak(challenge.deck) + '연승')
+        pickLang(challenge.deck + ' 덱 · ', challenge.deck + ' deck · '),
+        isRecord ? el('b', { style: { color: SKIN.rangeGold } }, [pickLang('🎉 신기록! 최고 ' + streak + '연승', '🎉 New record! Best ' + streak + 'W')]) : pickLang('최고 기록 ' + bestStreak(challenge.deck) + '연승', 'Best ' + bestStreak(challenge.deck) + 'W')
       ]);
       if (win && challenge.stage >= CHAL_MAX_STAGE) {
         // 최종(10) 단계 정복 — 왕관 아바타 해금
         unlockCrown();
         kids = [
-          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['👑 전 스테이지 정복']),
-          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승 · CHALLENGE 클리어']),
+          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, [tL('👑 전 스테이지 정복')]),
+          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, [pickLang('🏆 ' + streak + '연승 · CHALLENGE 클리어', '🏆 ' + streak + 'W · CHALLENGE cleared')]),
           stat, recordLine,
-          el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.rangeGold, marginBottom: '12px', fontWeight: 700 } }, ['★ 왕관 프로필 아바타(👑)가 해금되었습니다 — 프로필에서 선택 가능']),
-          btnRow(el('button', { class: 'btn', onclick: function () { endChallenge(); } }, ['타이틀로']))
+          el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.rangeGold, marginBottom: '12px', fontWeight: 700 } }, [tL('★ 왕관 프로필 아바타(👑)가 해금되었습니다 — 프로필에서 선택 가능')]),
+          btnRow(el('button', { class: 'btn', onclick: function () { endChallenge(); } }, [tL('타이틀로')]))
         ];
       } else if (win) {
         kids = [
-          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, ['스테이지 ' + challenge.stage + ' 클리어']),
-          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, ['🏆 ' + streak + '연승']),
+          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.rangeGold } }, [pickLang('스테이지 ' + challenge.stage + ' 클리어', 'Stage ' + challenge.stage + ' cleared')]),
+          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.rangeGold, margin: '6px 0 2px' } }, [pickLang('🏆 ' + streak + '연승', '🏆 ' + streak + 'W')]),
           stat, recordLine,
-          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? '👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 런타임 환경' : '다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 런타임 환경 · 추가 카드/선발 인스턴스']),
-          btnRow(el('button', { class: 'btn', onclick: function () { nextChallenge(); } }, ['다음 스테이지 ▶']))
+          el('div', { class: 'mono', style: { fontSize: '10px', color: isBossStage(challenge.stage + 1) ? SKIN.enemy : SKIN.muted, marginBottom: '12px', fontWeight: isBossStage(challenge.stage + 1) ? 700 : 400 } }, [isBossStage(challenge.stage + 1) ? pickLang('👑 다음은 보스전! — 본체 +' + (challenge.stage * 8 + 16) + ' · 강덱 · 가혹한 런타임 환경', '👑 Boss fight next! — core +' + (challenge.stage * 8 + 16) + ' · strong deck · harsh runtime environment') : pickLang('다음 상대는 더 강해집니다 — 본체 +' + (challenge.stage * 8) + ' · 새로운 런타임 환경 · 추가 카드/선발 인스턴스', 'The next opponent is tougher — core +' + (challenge.stage * 8) + ' · new runtime environment · extra cards/starting instances')]),
+          btnRow(el('button', { class: 'btn', onclick: function () { nextChallenge(); } }, [tL('다음 스테이지 ▶')]))
         ];
       } else {
         kids = [
-          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.enemy } }, ['도전 종료']),
-          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.txt, margin: '6px 0 2px' } }, ['최종 🏆 ' + challenge.wins + '연승 · 스테이지 ' + challenge.stage + ' 에서 패배']),
+          el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '34px', letterSpacing: '.05em', color: SKIN.enemy } }, [tL('도전 종료')]),
+          el('div', { class: 'mono', style: { fontSize: '13px', fontWeight: 700, color: SKIN.txt, margin: '6px 0 2px' } }, [pickLang('최종 🏆 ' + challenge.wins + '연승 · 스테이지 ' + challenge.stage + ' 에서 패배', 'Final 🏆 ' + challenge.wins + 'W · defeated at stage ' + challenge.stage)]),
           stat, recordLine,
-          btnRow(el('button', { class: 'btn', onclick: function () { endChallenge(); } }, ['타이틀로']))
+          btnRow(el('button', { class: 'btn', onclick: function () { endChallenge(); } }, [tL('타이틀로')]))
         ];
       }
     } else if (onlineMatch) {
@@ -2897,15 +2898,15 @@
         onlineResultProfiles(),
         stat,
         el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' } }, [
-          el('button', { class: 'btn', disabled: rematchReq.mine ? 'disabled' : null, onclick: requestRematch }, [rematchReq.mine ? (rematchReq.opp ? '재시작 중…' : '재대결 대기 중…') : '🔁 재대결']),
-          el('button', { class: 'btn', style: { background: 'transparent', color: SKIN.txt, border: '1px solid ' + SKIN.ink }, onclick: leaveOnlineToLobby }, ['로비로'])
+          el('button', { class: 'btn', disabled: rematchReq.mine ? 'disabled' : null, onclick: requestRematch }, [rematchReq.mine ? (rematchReq.opp ? tL('재시작 중…') : tL('재대결 대기 중…')) : tL('🔁 재대결')]),
+          el('button', { class: 'btn', style: { background: 'transparent', color: SKIN.txt, border: '1px solid ' + SKIN.ink }, onclick: leaveOnlineToLobby }, [tL('로비로')])
         ])
       ];
     } else {
       kids = [
         el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '38px', letterSpacing: '.06em', color: color } }, [label]),
         stat,
-        btnRow(el('button', { class: 'btn', onclick: function () { G = null; UI.renderTitle(); } }, ['다시 하기']))
+        btnRow(el('button', { class: 'btn', onclick: function () { G = null; UI.renderTitle(); } }, [tL('다시 하기')]))
       ];
     }
     ov.appendChild(el('div', { style: { background: SKIN.chassis, color: SKIN.txt, border: '2px solid ' + SKIN.ink, boxShadow: '6px 6px 0 rgba(0,0,0,.4)', padding: '26px 34px', textAlign: 'center', animation: 'pop .35s ease both' } }, kids));
@@ -2967,7 +2968,7 @@
       kids = [
         header('규칙 요약', 'menu'),
         el('div', { style: { overflowY: 'auto', maxHeight: '58vh', WebkitOverflowScrolling: 'touch' } }, [
-          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, ['런타임 환경 · RUNTIME ENV' + (G && G.weather ? '  —  이번 판: ' + weatherInfo(G.weather).icon + ' ' + weatherInfo(G.weather).name : '')]),
+          el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '2px 0' } }, [pickLang('런타임 환경 · RUNTIME ENV', 'Runtime Environment · RUNTIME ENV') + (G && G.weather ? pickLang('  —  이번 판: ', '  —  this game: ') + weatherInfo(G.weather).icon + ' ' + tL(weatherInfo(G.weather).name) : '')]),
           el('div', {}, weatherRuleRows()),
           el('div', { class: 'grot', style: { fontSize: '11px', letterSpacing: '.16em', color: SKIN.muted, margin: '14px 0 2px' } }, ['특수능력 · 발동 방식']),
           el('div', {}, ruleRows(RULE_ABILITY)),
@@ -3001,11 +3002,11 @@
   function reviewBar() {
     var win = G.winner === HUMAN, draw = G.winner === 'draw';
     var color = draw ? '#6b6b75' : win ? '#3c8a66' : '#c23c70';
-    var label = draw ? '무승부' : win ? '승리' : '패배';
+    var label = tL(draw ? '무승부' : win ? '승리' : '패배');
     return el('div', { class: 'grot', style: { position: 'fixed', left: '50%', top: '14px', transform: 'translateX(-50%)', zIndex: 60, display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 700, fontSize: '13px', padding: '8px 14px', background: SKIN.chassis, color: SKIN.txt, border: '2px solid ' + SKIN.ink, boxShadow: '3px 3px 0 rgba(0,0,0,.35)' } }, [
-      el('span', { style: { color: color } }, ['게임 종료 · ' + label]),
-      el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, ['보드를 살펴보는 중']),
-      el('button', { class: 'btn', style: { fontSize: '11px', padding: '4px 10px' }, onclick: function () { reviewMode = false; render(); } }, ['결과 보기 ▲'])
+      el('span', { style: { color: color } }, [pickLang('게임 종료 · ' + label, 'Game over · ' + label)]),
+      el('span', { class: 'mono', style: { fontSize: '10px', color: SKIN.muted } }, [tL('보드를 살펴보는 중')]),
+      el('button', { class: 'btn', style: { fontSize: '11px', padding: '4px 10px' }, onclick: function () { reviewMode = false; render(); } }, [tL('결과 보기 ▲')])
     ]);
   }
 
@@ -3313,7 +3314,7 @@
     var mine = G.active === HUMAN, warn = mine && rem <= 15000;
     var fill = document.getElementById('rt-turnbar-fill'), txt = document.getElementById('rt-turnbar-txt');
     if (fill) { fill.style.width = (frac * 100) + '%'; fill.style.background = mine ? (warn ? SKIN.heat : SKIN.own) : hexa(SKIN.enemy, .55); }
-    if (txt) { var s = Math.ceil(rem / 1000); txt.textContent = (mine ? '⏱ 내 턴 ' : '⏱ 상대 턴 ') + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); txt.style.color = warn ? SKIN.heat : (mine ? SKIN.own : SKIN.muted); }
+    if (txt) { var s = Math.ceil(rem / 1000); txt.textContent = (mine ? pickLang('⏱ 내 턴 ', '⏱ My turn ') : pickLang('⏱ 상대 턴 ', '⏱ Opp turn ')) + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); txt.style.color = warn ? SKIN.heat : (mine ? SKIN.own : SKIN.muted); }
     if (mine && rem > 0 && rem <= 5000) { var sec = Math.ceil(rem / 1000); if (turnClock.lastBeep !== sec) { turnClock.lastBeep = sec; try { Sound.tick(); } catch (e) {} } }
     if (mine && rem <= 0 && !turnClock.fired) { turnClock.fired = true; if (G.active === HUMAN && G.winner === undefined && !mullPhase) { sel = ptr = null; endTurn(); } }
     RAF(turnClockTick);
@@ -3322,7 +3323,7 @@
     if (!onlineMatch || !G || G.winner !== undefined) return null;
     var mine = G.active === HUMAN;
     return el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 10px', background: SKIN.chassisAlt, borderTop: '1px solid ' + SKIN.ink } }, [
-      el('span', { id: 'rt-turnbar-txt', class: 'mono', style: { fontSize: '11px', fontWeight: 700, flex: 'none', color: mine ? SKIN.own : SKIN.muted } }, ['⏱ ' + (mine ? '내 턴' : '상대 턴')]),
+      el('span', { id: 'rt-turnbar-txt', class: 'mono', style: { fontSize: '11px', fontWeight: 700, flex: 'none', color: mine ? SKIN.own : SKIN.muted } }, ['⏱ ' + (mine ? pickLang('내 턴', 'My turn') : pickLang('상대 턴', 'Opp turn'))]),
       el('div', { style: { flex: 1, height: '7px', background: SKIN.chassisSunk, border: '1px solid ' + SKIN.ink, position: 'relative', overflow: 'hidden' } }, [
         el('div', { id: 'rt-turnbar-fill', style: { position: 'absolute', inset: '0', width: '100%', background: mine ? SKIN.own : hexa(SKIN.enemy, .55) } })
       ])
