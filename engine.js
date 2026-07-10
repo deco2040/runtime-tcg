@@ -1203,15 +1203,40 @@
     if (bestIdx < 0) return false;
     return g.declare(me, bestIdx, cells[0]);
   }
+  // 한 칸 이동으로 targetKey 에 더 가까워지는 빈 직교칸(가장 가까운 순) — 없으면 null.
+  function aiStepToward(g, u, targetKey) {
+    var cells = g.moveCells(u); if (!cells.length) return null;
+    var tp = P(targetKey), cur = P(unitKey(g, u));
+    var curD = Math.abs(cur[0] - tp[0]) + Math.abs(cur[1] - tp[1]);
+    cells.sort(function (a, b) { var pa = P(a), pb = P(b); return (Math.abs(pa[0] - tp[0]) + Math.abs(pa[1] - tp[1])) - (Math.abs(pb[0] - tp[0]) + Math.abs(pb[1] - tp[1])); });
+    var bp = P(cells[0]); return (Math.abs(bp[0] - tp[0]) + Math.abs(bp[1] - tp[1])) < curD ? cells[0] : null;
+  }
+  // 방어형(공≤2·체≥6 벽/탱크)인가 — 돌격 대신 본체 전면을 지켜야 하는 유닛.
+  function aiIsDefender(g, u) { return g.effAtk(u) <= 2 && g.effMaxHp(u) >= 6; }
   function aiMove(g, me) {
-    // advance an object toward enemy body (forward) if it frees an attack lane
+    if (g.actions <= 0) return false;
     var objs = g.allyObjects(me).filter(function (u) { return !g.isMoveLocked(u); });
+    // ── 방어형 배치: 도발이 없는 룰이라 벽은 '적이 본체를 때리려 서는 칸'을 물리적으로 점유해야 방어가 된다.
+    //    본체 전면 중앙칸(열3·본체 앞줄)이 최우선 가드칸. 본체가 실제로 압박받을 때만 수렴하고, 적진 돌격은 하지 않는다.
+    var guardKey = K(3, homeRow(me) + fwd(me));
+    // 본체위협 게이트: 본체가 이미 피해를 입었거나(≥6) 적 공격 유닛이 본체 근처(맨해튼 ≤3)로 접근했을 때만 가드.
+    // (게이트가 느슨하면 공격적 국면의 탱크까지 후퇴시켜 압박을 죽인다.)
+    var _body = g.body(me), _bp = P(bodyKey(me));
+    var threat = (_body && _body.dmg >= 6) || g.enemyObjects(me).some(function (e) {
+      if (g.effAtk(e) <= 0) return false; var ek = unitKey(g, e); if (!ek) return false; var ep = P(ek);
+      return Math.abs(ep[0] - _bp[0]) + Math.abs(ep[1] - _bp[1]) <= 3;
+    });
+    if (threat && !g.board[guardKey]) {
+      var defs = objs.filter(function (u) { return aiIsDefender(g, u) && unitKey(g, u) !== guardKey; });
+      // 가드칸에 가장 가까운 방어형부터 한 칸 수렴
+      defs.sort(function (a, b) { var pa = P(unitKey(g, a)), pb = P(unitKey(g, b)), gp = P(guardKey); return (Math.abs(pa[0] - gp[0]) + Math.abs(pa[1] - gp[1])) - (Math.abs(pb[0] - gp[0]) + Math.abs(pb[1] - gp[1])); });
+      for (var d = 0; d < defs.length; d++) { var step = aiStepToward(g, defs[d], guardKey); if (step) return g.move(defs[d], step, false); }
+    }
+    // ── 공격형 전진: 적 본체 쪽으로 한 칸(방어형은 위 가드 블록이 처리 — 돌격 금지).
     for (var i = 0; i < objs.length; i++) {
-      var u = objs[i], k = unitKey(g, u), p = P(k), dest = K(p[0], p[1] + fwd(me));
-      if (inB(p[0], p[1] + fwd(me)) && !g.board[dest] && g.actions > 0) {
-        // only advance attackers (atk>0) and not past mid into danger blindly: advance toward rows 2-3
-        if ((u.baseAtk || 0) > 0) return g.move(u, dest, false);
-      }
+      var u = objs[i]; if (aiIsDefender(g, u) || g.effAtk(u) <= 0) continue;
+      var p = P(unitKey(g, u)), dest = K(p[0], p[1] + fwd(me));
+      if (inB(p[0], p[1] + fwd(me)) && !g.board[dest]) return g.move(u, dest, false);
     }
     return false;
   }

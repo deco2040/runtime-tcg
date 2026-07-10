@@ -40,6 +40,11 @@
     function knightEmpty(G, u) { var k = unitKey(G, u); if (!k) return null; var q = P(k), bk = bodyKey(1 - u.owner); var cs = knight(q[0], q[1]).filter(function (x) { return !G.board[x]; }); if (!cs.length) return null; cs.sort(function (a, b) { return manh(a, bk) - manh(b, bk); }); return cs[0]; }
     // 3칸이내 빈 칸(적 본체 방향 가장 가까운) — Jump·goto (경로 무시 이동)
     function jumpEmpty(G, u) { var k = unitKey(G, u); if (!k) return null; var q = P(k), bk = bodyKey(1 - u.owner); var cs = square(q[0], q[1], 3).filter(function (x) { return !G.board[x]; }); if (!cs.length) return null; cs.sort(function (a, b) { return manh(a, bk) - manh(b, bk); }); return cs[0]; }
+    // Switch 변신 폼 판단 공통 — 이 유닛이 '방어·지속형' 폼을 골라야 하는 상황인가.
+    // 변신은 유닛 활성화 턴에 즉시 소비된다. aiMove 초크-가드로 벽이 실전 기능하게 된 만큼(engine.js) 방어형을
+    // 조금 더 적극적으로 — '본체가 압박받는(≥10, ~25% 소실)' 국면이면 방어형. 후반 열세 유닛일수록 자연히 뽑힌다.
+    // (그래도 공격 폼이 승률 우위라 과하게 올리진 않음. 시뮬: dmg10=DEF 9~13%·N2 -0.8pt. Morph·Failover는 별도 판단.)
+    function switchWantDef(G, u) { var b = G.body(u.owner); return !!(b && b.dmg >= 10); }
 
     // ============================================================ THREAD — objects
     def({ id: 'Fiber', cls: 'thread', kind: 'object', atk: 6, hp: 3, text: 'For(2) 「옆칸」 적 하나에게 공격력만큼 피해',
@@ -362,32 +367,40 @@
       abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '공격형' }, { label: '방어형' }], forms: ['Switch_ATK', 'Switch_DEF'],
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Switch_ATK', 'Switch_DEF']; G.transformUnit(u, fm[(ch.opt || 0)]); },
-        aiOpt: function (G, u) { var myBody = G.body(u.owner); if (myBody && myBody.dmg >= 20 && G.enemyObjects(u.owner).length >= 2) return 1; return 0; } }] });
+        aiOpt: function (G, u) { return switchWantDef(G, u) ? 1 : 0; } }] });
     def({ id: 'Adaptive', cls: 'thread', kind: 'object', atk: 4, hp: 3, switchForms: ['Adaptive_ATK', 'Adaptive_DEF'], text: 'Switch 변신(게임당 1회) · [공세형] 공6·체2 / [수비형] 공2·체6',
       abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '공세형' }, { label: '수비형' }], forms: ['Adaptive_ATK', 'Adaptive_DEF'],
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Adaptive_ATK', 'Adaptive_DEF']; G.transformUnit(u, fm[(ch.opt || 0)]); },
-        aiOpt: function (G, u) { var b = G.body(u.owner); if (b && b.dmg >= 18 && G.enemyObjects(u.owner).length >= 2) return 1; return 0; } }] });
+        aiOpt: function (G, u) { return switchWantDef(G, u) ? 1 : 0; } }] });
     def({ id: 'Failover', cls: 'memory', kind: 'object', atk: 2, hp: 6, switchForms: ['Failover_STBY', 'Failover_ACT'], text: 'Switch 변신(게임당 1회) · [대기형] 공2·체7(피격 시 보호) / [가동형] 공5·체4',
       abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '대기형' }, { label: '가동형' }], forms: ['Failover_STBY', 'Failover_ACT'],
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Failover_STBY', 'Failover_ACT']; G.transformUnit(u, fm[(ch.opt || 0)]); },
-        aiOpt: function (G, u) { return G.enemyObjects(u.owner).length >= 2 ? 0 : 1; } }] });
+        // STBY(0 공2·체7·피격보호)=튼튼한 지속딜러 → 적 인스턴스가 있거나 압박 국면이면 기본 선택. 빈 판/무저항이면 ACT(1 공5·체4)로 화력.
+        aiOpt: function (G, u) { return (G.enemyObjects(u.owner).length >= 2 || switchWantDef(G, u)) ? 0 : 1; } }] });
     def({ id: 'Morph', cls: 'process', kind: 'object', atk: 3, hp: 4, switchForms: ['Morph_MELEE', 'Morph_RANGE'], text: 'Switch 변신(게임당 1회) · [근접형] 공5·체3 / [원격형] 공2·체5',
       abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '근접형' }, { label: '원격형' }], forms: ['Morph_MELEE', 'Morph_RANGE'],
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Morph_MELEE', 'Morph_RANGE']; G.transformUnit(u, fm[(ch.opt || 0)]); },
-        aiOpt: function (G, u) { return 0; } }] });
+        // MELEE(0 공5·체3, 옆칸) vs RANGE(1 공2·체5, 앞직선3): 인접·근접 적 있으면 근접 강타, 없고 라인 표적/본체각이면 원격 견제, 기본은 원격(내구+라인).
+        aiOpt: function (G, u) {
+          if (pickAdjEnemy(G, u, {})) return 0;
+          if (G.firstEnemyInLine(unitKey(G, u), u.owner, 3, false) || inLineToBody(G, u, 3)) return 1;
+          if (nearestEnemyWithin(G, u, 2)) return 0;
+          return 1;
+        } }] });
     def({ id: 'Duplex', cls: 'generic', kind: 'object', atk: 3, hp: 3, switchForms: ['Duplex_TX', 'Duplex_RX'], text: 'Switch 변신(게임당 1회) · [송신형] 공5·체2 / [수신형] 공1·체6(옆칸 아군 회복)',
       abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '송신형' }, { label: '수신형' }], forms: ['Duplex_TX', 'Duplex_RX'],
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Duplex_TX', 'Duplex_RX']; G.transformUnit(u, fm[(ch.opt || 0)]); },
-        aiOpt: function (G, u) { var b = G.body(u.owner); if (b && b.dmg >= 18) return 1; return 0; } }] });
+        // TX(0 공5·체2 공격) vs RX(1 공1·체6 옆칸 아군 회복): 실제 회복 가치(부상 아군 dmg≥4)나 방어 국면이면 RX, 아니면 TX로 압박.
+        aiOpt: function (G, u) { var w = woundedAlly(G, u.owner); return (switchWantDef(G, u) || (w && w.dmg >= 4)) ? 1 : 0; } }] });
     def({ id: 'Toggle', cls: 'thread', kind: 'object', atk: 3, hp: 3, switchForms: ['Toggle_HI', 'Toggle_LO'], text: 'Switch 변신(게임당 1회) · [점화형] 공6·체1 / [절전형] 공1·체6',
       abilities: [{ kw: 'Switch', forCount: 1, trigger: 'onActive', options: [{ label: '점화형' }, { label: '절전형' }], forms: ['Toggle_HI', 'Toggle_LO'],
         ready: function (G, u) { return true; },
         fn: function (G, u, ch) { var fm = ['Toggle_HI', 'Toggle_LO']; G.transformUnit(u, fm[(ch.opt || 0)]); },
-        aiOpt: function (G, u) { var b = G.body(u.owner); if (b && b.dmg >= 20) return 1; return 0; } }] });
+        aiOpt: function (G, u) { return switchWantDef(G, u) ? 1 : 0; } }] }); // HI(0 공6·체1 유리대포) / LO(1 공1·체6 벽)
     def({ id: 'Branch', cls: 'process', kind: 'object', atk: 4, hp: 5, text: 'If 선택 발동 · [도약] 자기 「1칸이동」 후 「옆칸」 적 하나 2 피해 / [교란] 적 인스턴스 하나를 적 진영 쪽으로 「1칸이동」',
       abilities: [{ kw: 'If', forCount: 1, trigger: 'onActive', options: [{ label: '도약' }, { label: '교란' }],
         ready: function (G, u) { return G.moveCells(u).length > 0 || G.enemyObjects(u.owner).some(function (x) { var k = unitKey(G, x); if (!k) return false; var q = P(k), nr = q[1] + fwd(u.owner); return inB(q[0], nr) && !G.board[K(q[0], nr)]; }); },
