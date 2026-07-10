@@ -289,6 +289,17 @@
     var row = el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' } }, faces);
     return el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', marginTop: '8px' } }, [label, row]);
   }
+  // 변신폼 세로 나열(라벨 + 폼 카드 세로 스택) — 확대 뷰 오른쪽에 붙여 스크롤 없이 크게 보이게 한다.
+  function formsCol(id, sc) {
+    var forms = switchFormsOf(id); if (!forms.length) return null;
+    sc = sc || 0.8;
+    var label = el('div', { class: 'grot', style: { fontSize: '12px', fontWeight: 700, color: AMB, textShadow: 'none', textAlign: 'center', letterSpacing: '.05em' } }, ['⇄ 변신폼 · SWITCH FORMS']);
+    var faces = forms.map(function (fid) {
+      var raw = faceFor(fid, false);
+      return raw ? scaledFace(raw, sc) : el('div', { class: 'grot', style: { padding: '8px', border: '1px solid ' + AMB, color: AMB, fontSize: '11px' } }, [fid]);
+    });
+    return el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', flex: 'none' } }, [label].concat(faces));
+  }
 
   // 카드 풀 타일 — 인게임 손패 카드 모습 그대로 + 보유수량 배지 + 추가/제거 컨트롤 스트립.
   // 카드 클릭 = 1장 추가, 스트립의 − = 1장 제거. OP 카드(덱당 1장 제한)는 카드 타이틀바 금박 젬으로 표시됨.
@@ -369,9 +380,15 @@
     var w = raw ? Math.round(FACE_W * DECK_PREVIEW_SC) : 212;
     var h = raw ? Math.round(FACE_H * DECK_PREVIEW_SC) : (node.offsetHeight || 320);
     var t = tipEl(); while (t.firstChild) t.removeChild(t.firstChild);
-    var fr = (raw && switchFormsOf(id).length) ? formsRow(id, 0.72) : null;   // raw 없으면 cardDetailNode 가 폼 포함 → 중복 방지
-    if (fr) { var col = el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } }, [node, fr]); t.appendChild(col); h += Math.round(FACE_H * 0.72) + 26; }
-    else t.appendChild(node);
+    var forms = raw ? switchFormsOf(id) : [];   // raw 없으면 cardDetailNode 가 폼 포함 → 중복 방지
+    if (forms.length) {
+      // Switch 카드: 본체는 왼쪽 크게, 변신폼은 오른쪽에 세로로 나열 — 스크롤 없이 한 화면에.
+      var fSc = DECK_PREVIEW_SC * 0.5;   // 폼 세로 2장 ≈ 본체 높이(넘치지 않게)
+      var gap = 16;
+      var row = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: gap + 'px', flexWrap: 'nowrap' } }, [node, formsCol(id, fSc)]);
+      t.appendChild(row);
+      w = Math.round(FACE_W * DECK_PREVIEW_SC) + gap + Math.round(FACE_W * fSc);   // 폼열 포함 전체 폭(본체가 폼열보다 높으므로 h 는 그대로)
+    } else t.appendChild(node);
     t.style.display = 'block';
     var r = anchor.getBoundingClientRect(), gap = 12, vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
     var left = r.right + gap;                                  // 기본은 카드 오른쪽, 공간 없으면 왼쪽
@@ -390,10 +407,17 @@
     var raw = faceFor(id, false); if (!raw) return;
     hideBigDB();
     var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
-    var scl = Math.min(2.0, (vh * 0.82) / FACE_H, (vw * 0.92) / FACE_W); if (scl < 1) scl = 1;
-    var node = scaledFace(raw, scl); node.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
-    var fr = formsRow(id, Math.min(0.78, scl * 0.62));
-    var content = fr ? el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', maxHeight: '96vh', overflowY: 'auto' } }, [node, fr]) : node;
+    var forms = switchFormsOf(id), content;
+    if (forms.length) {
+      // Switch 카드: 본체는 왼쪽 크게, 변신폼은 오른쪽에 세로로 — 스크롤 없이 한 화면에.
+      var gap = 24, fRel = 0.5;
+      var scl = Math.min(2.0, (vw * 0.9 - gap) / (FACE_W * (1 + fRel)), (vh * 0.86) / FACE_H); if (scl < 0.85) scl = 0.85;
+      var node = scaledFace(raw, scl); node.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
+      content = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: gap + 'px', flexWrap: 'nowrap' } }, [node, formsCol(id, scl * fRel)]);
+    } else {
+      var scl0 = Math.min(2.0, (vh * 0.82) / FACE_H, (vw * 0.92) / FACE_W); if (scl0 < 1) scl0 = 1;
+      content = scaledFace(raw, scl0); content.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
+    }
     _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [content]);
     if (document.body) document.body.appendChild(_dbBig);
   }
