@@ -1130,11 +1130,38 @@
     }
     return null;
   }
+  // AI 낭비 방지 분류 — 회복(부상 대상 없으면 무의미)·공격강화(이번 턴 때릴 아군 없으면 무의미).
+  var AI_HEAL = { 'restore()': 1, 'compact()': 1, 'sync()': 1, 'mend()': 1 };
+  var AI_ATKBUFF = { 'boost()': 1, 'overclock()': 1, 'rush()': 1, 'amplify()': 1, 'retry()': 1 };
+  function aiHasWounded(g, me, cls) { return g.allyObjects(me).some(function (u) { return u.dmg > 0 && (!cls || cardCls(u) === cls); }); }
+  // 이번 턴 아직 기본공격이 남은(=공격강화가 즉시 값어치 하는) 아군 중 공격력 최대. 없으면 null.
+  function aiFreshAttacker(g, me, cls) {
+    var a = g.allyObjects(me).filter(function (u) { return g.canBasicAttack(u) && (!cls || cardCls(u) === cls); });
+    a.sort(function (x, y) { return g.effAtk(y) - g.effAtk(x); }); return a[0] || null;
+  }
+  // 공격력이 있고 사거리 내 표적이 있는 아군(이미 공격했어도 무방) — 추가공격(retry)이 값어치 하는 대상.
+  function aiWouldAttack(g, me, cls) {
+    var a = g.allyObjects(me).filter(function (u) { return (!cls || cardCls(u) === cls) && g.effAtk(u) > 0 && g.basicAttackTargets(u).length > 0; });
+    a.sort(function (x, y) { return g.effAtk(y) - g.effAtk(x); }); return a[0] || null;
+  }
   function aiCast(g, me) {
     var pl = g.players[me];
     for (var i = 0; i < pl.hand.length; i++) {
       var id = pl.hand[i], card = CARDS[id];
       if (card.kind !== 'pointer' || !g.canCast(me, id)) continue;
+      // 낭비 방지 게이트 — 회복은 다친 대상이 있을 때만(tk=null → 카드가 가장 다친 대상 자동선택),
+      // 공격강화는 이번 턴 아직 때릴 수 있는 아군이 있을 때만 그 유닛에 건다.
+      if (AI_HEAL[id]) {
+        var hcls = id === 'compact()' ? 'memory' : null;
+        var bodyHurt = id === 'restore()' && g.body(me).dmg > 0;
+        if (!aiHasWounded(g, me, hcls) && !bodyHurt) continue;
+        return g.cast(me, i, null, false);
+      }
+      if (AI_ATKBUFF[id]) {
+        var ben = id === 'retry()' ? aiWouldAttack(g, me, 'thread') : aiFreshAttacker(g, me, 'thread');
+        if (!ben) continue;
+        return g.cast(me, i, id === 'amplify()' ? null : unitKey(g, ben), false);
+      }
       var need = card.need, tk = null;
       if (need === 'enemy' || need === 'cell') {
         var ts = g.castTargets(me, id); if (!ts.length) continue;
