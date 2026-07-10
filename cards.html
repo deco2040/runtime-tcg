@@ -214,7 +214,7 @@
 <!-- 다국어(도감 EN 지원) -->
 <script src="i18n.js?v=4"></script>
 <script src="i18n-en.js?v=123"></script>
-<script src="core.js?v=123"></script>
+<script src="core.js?v=124"></script>
 <script>
 (function(){
   "use strict";
@@ -306,6 +306,9 @@
     }
     back.addEventListener("click",hideBig);
     document.body.appendChild(back); _bigBack=back;
+    // 리스트(drawCat)와 동일하게 — 확대 카드도 넘치는 효과문 폰트를 자리에 맞게 자동 축소(잘림 방지).
+    // scale transform 은 레이아웃(scrollHeight/clientHeight)을 안 바꾸므로 확대 후에도 측정이 정확하다.
+    if(UI.fitCards) requestAnimationFrame(function(){ try{ UI.fitCards(back); }catch(e){} });
   }
   document.addEventListener("keydown",function(e){ if(e.key==="Escape") hideBig(); });
   // 미니 카드 노드를 탭-확대 가능한 래퍼로 감싼다(내부 노드 이벤트는 죽이고 래퍼가 처리).

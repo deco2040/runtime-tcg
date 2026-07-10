@@ -548,14 +548,14 @@
     try { var cs = condSpec(card); if (cs && cs.text) ct = cs.text.length; } catch (e) {}
     return et + ct;
   }
-  // 디자인 규칙 기준: 인스턴스 = Singleton(선언조건+효과 합산 길이)의 85%. 포인터 = jitter()(합산 길이) — 포인터는 상태바가 없어 효과 패널이 커 더 쉽게 잘리므로 더 낮은(관대한) 임계값.
-  // Singleton 85% 여유: 조건 없이 효과문만 긴 카드(trace)나 Singleton 바로 아래 길이(Wormhole/ROM)도 포함. 포인터는 jitter() 이상이면 축소.
-  var _singletonThreshold = null, _jitterThreshold = null;
+  // 디자인 규칙 기준: 인스턴스 = Singleton(선언조건+효과 합산 길이)의 85%. 포인터 = swapfile()(시전조건+효과 합산 길이) — 포인터는 상태바가 없고, 시전 조건이 따로 있으면 조건문이 2줄을 먹어 효과 패널 높이가 줄어 더 쉽게 잘린다. 그래서 시전 조건이 붙은 swapfile() 길이만 돼도 폰트를 살짝 축소해 잘림을 막는다.
+  // Singleton 85% 여유: 조건 없이 효과문만 긴 카드(trace)나 Singleton 바로 아래 길이(Wormhole/ROM)도 포함.
+  var _singletonThreshold = null, _swapfileThreshold = null;
   function longEffectCard(card) {
     if (!card) return false;
     if (_singletonThreshold == null) _singletonThreshold = Math.round((CARDS.Singleton ? combinedTextLen(CARDS.Singleton) : 70) * 0.85);
-    if (_jitterThreshold == null) _jitterThreshold = CARDS['jitter()'] ? combinedTextLen(CARDS['jitter()']) : 55;
-    var threshold = card.kind === 'pointer' ? _jitterThreshold : _singletonThreshold;
+    if (_swapfileThreshold == null) _swapfileThreshold = CARDS['swapfile()'] ? combinedTextLen(CARDS['swapfile()']) : 49;
+    var threshold = card.kind === 'pointer' ? _swapfileThreshold : _singletonThreshold;
     return combinedTextLen(card) >= threshold;
   }
   // HP 뉴트럴 미터 — 정수1=칸1. 채움=hpFill, 저체력(≤34%)=heat. 빈칸=트랙.
