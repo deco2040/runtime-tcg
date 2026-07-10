@@ -52,10 +52,20 @@
     while ((n = walker.nextNode())) batch.push(n);
     for (var i = 0; i < batch.length; i++) {
       var node = batch[i], raw = node.nodeValue, key = raw.trim(), en = I.dict[key];
-      if (en != null) node.nodeValue = raw.replace(key, en);   // 앞뒤 공백 보존
+      // 원문(KO) 보존 후 교체 — KO 로 되돌릴 때 복원용. 이미 번역된 노드는 key(EN)가 사전에 없어 스킵된다.
+      if (en != null) { if (node.__i18nOrig == null) node.__i18nOrig = raw; node.nodeValue = raw.replace(key, en); }   // 앞뒤 공백 보존
     }
   }
   I.translateTree = translateTree;
+  // KO 복귀: translateTree 가 바꾼 텍스트 노드를 저장해둔 원문으로 되돌린다(단방향 사전이라 재렌더 없는 정적 페이지에 필수).
+  function restoreTree(root) {
+    if (!root || !root.querySelectorAll) return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var batch = [], n;
+    while ((n = walker.nextNode())) { if (n.__i18nOrig != null) batch.push(n); }
+    for (var i = 0; i < batch.length; i++) { batch[i].nodeValue = batch[i].__i18nOrig; batch[i].__i18nOrig = null; }
+  }
+  I.restoreTree = restoreTree;
 
   function scheduleTranslate() {
     if (_pending || I.lang !== 'en') return;
@@ -127,7 +137,7 @@
     try { if (window.__RT_UI && window.__RT_UI.clearFaceCache) window.__RT_UI.clearFaceCache(); } catch (e) {}
     var UI = window.RTUI;
     if (l === 'en') { startObserver(); scheduleTranslate(); }
-    else if (_observer) { _observer.disconnect(); }
+    else { if (_observer) _observer.disconnect(); try { restoreTree(document.body); } catch (e) {} }   // KO 복귀: 번역된 정적 텍스트를 원문으로 복원
     if (changed && UI && UI.render) { try { UI.render(); } catch (e) {} }
     if (l === 'en') scheduleTranslate();
   };
