@@ -504,6 +504,7 @@
 
   // forward-line first enemy (벽 너머 가능 = ignore blockers for "first enemy in line")
   Game.prototype.firstEnemyInLine = function (originKey, owner, n, throughWalls) {
+    if (originKey == null) return null; // 보드 이탈 유닛(키 없음) 방어
     var p = P(originKey), dr = fwd(owner);
     for (var k = 1; k <= n; k++) {
       var nc = p[0], nr = p[1] + dr * k; if (!inB(nc, nr)) break;
@@ -583,6 +584,7 @@
   Game.prototype.fireTurnStart = function (owner) {
     var self = this;
     this.allyObjects(owner).forEach(function (u) {
+      if (!unitKey(self, u)) return; // 스냅샷 순회 중 앞 유닛에 의해 파괴된 유닛은 발동 스킵(보드 이탈)
       (CARDS[u.cardId].abilities || []).forEach(function (ab) {
         if (ab.trigger === 'onTurnStart' && ab.kw === 'When') { self.beginResolve(); ab.fn(self, u, {}); self.endResolve(); }
       });
