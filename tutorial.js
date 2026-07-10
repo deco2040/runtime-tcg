@@ -45,7 +45,7 @@
   function tutLi(txt) { return el('div', { style: { fontSize: '12.5px', lineHeight: 1.55, color: SKIN.panelText, margin: '0 0 5px 4px', paddingLeft: '14px', position: 'relative' } }, [el('span', { style: { position: 'absolute', left: 0, color: SKIN.own, fontWeight: 700 } }, ['▸']), el('span', {}, tutRich(txt))]);
   }
   // 심화용 정의 리스트 — 왼쪽 키워드 칩 + 오른쪽 설명. left 가 문자열이면 다크 칩으로 감싼다.
-  function tutChip(label, bg) { return el('span', { class: 'mono', style: { fontSize: '9.5px', fontWeight: 700, color: '#fff', background: bg || '#1d1d24', padding: '1px 6px', borderRadius: '2px', whiteSpace: 'nowrap' } }, [label]); }
+  function tutChip(label, bg) { return el('span', { class: 'mono', style: { display: 'inline-block', maxWidth: '100%', fontSize: '9.5px', fontWeight: 700, lineHeight: 1.3, color: '#fff', background: bg || '#1d1d24', padding: '1px 6px', borderRadius: '2px', overflowWrap: 'anywhere' } }, [label]); }
   function tutDefList(rows) {
     var box = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', margin: '4px 0 8px' } });
     rows.forEach(function (r) {
@@ -120,7 +120,9 @@
       { t: '승리 · 무승부 · 팁', build: function () {
         var box = el('div', {});
         box.appendChild(tutLi('**승리** — 상대 본체 HP 0 이하로.'));
-        box.appendChild(tutLi('**턴 상한 ' + RT.DEFAULT_TURN_CAP + '** — 그때까지 안 끝나면 남은 본체 HP가 높은 쪽 승리(동률이면 무승부).'));
+        box.appendChild(tutLi((window.RT_I18N || {}).pick
+          ? window.RT_I18N.pick('**턴 상한 ' + RT.DEFAULT_TURN_CAP + '** — 그때까지 안 끝나면 남은 본체 HP가 높은 쪽 승리(동률이면 무승부).', '**Turn cap ' + RT.DEFAULT_TURN_CAP + '** — if it isn\'t over by then, the side with higher remaining core HP wins (tie = draw).')
+          : '**턴 상한 ' + RT.DEFAULT_TURN_CAP + '** — 그때까지 안 끝나면 남은 본체 HP가 높은 쪽 승리(동률이면 무승부).'));
         box.appendChild(tutLi('덱을 다 뽑아도 지지 않아요(대신 드로우 못 함).'));
         box.appendChild(el('div', { style: { height: '6px' } }));
         box.appendChild(tutP('**요령:** 홈에 인스턴스를 깔고 → 통로로 전진시켜 → 옆칸에서 기본 공격. 방어 인스턴스를 앞세워 상대 진격을 막으면서 본체를 노리세요.'));
@@ -219,11 +221,12 @@
     page = Math.max(0, Math.min(page, pages.length - 1));
     var pg = pages[page];
     var wrap = el('div', { class: 'bevel', style: { background: SKIN.chassis, color: SKIN.txt, maxWidth: '760px', margin: '0 auto', display: 'flex', flexDirection: 'column' } });
-    wrap.appendChild(titlebar('RUNTIME — 게임 방법   ·   ' + (page + 1) + ' / ' + pages.length));
+    var tbTitle = (window.RT_I18N || {}).pick ? window.RT_I18N.pick('RUNTIME — 게임 방법', 'RUNTIME — How to Play') : 'RUNTIME — 게임 방법';
+    wrap.appendChild(titlebar(tbTitle + '   ·   ' + (page + 1) + ' / ' + pages.length));
     var body = el('div', { style: { padding: 'clamp(14px,2.4vw,26px)' } });
     var tier = pg.tier || '기초';
     body.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '4px', flexWrap: 'wrap' } }, [
-      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '22px', letterSpacing: '.02em' } }, ['📖 ' + pg.t]),
+      el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '22px', letterSpacing: '.02em' } }, ['📖 ' + ((window.RT_I18N && window.RT_I18N.t) ? window.RT_I18N.t(pg.t) : pg.t)]),
       el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', padding: '2px 8px', color: '#fff', background: tier === '심화' ? SKIN.rangeGold : SKIN.own, border: '1px solid ' + SKIN.ink } }, [tier === '심화' ? '심화 과정' : '기초'])
     ]));
     body.appendChild(el('div', { style: { height: '1px', background: SKIN.line, margin: '8px 0 14px' } }));

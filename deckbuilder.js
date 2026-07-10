@@ -7,6 +7,9 @@
   var el = UI.el, clear = UI.clear, app = UI.app;
   var DECKS = UI.DECKS, RT = UI.RT, CARDS = UI.CARDS, CLS = UI.CLS, GLY = UI.GLY, richText = UI.richText;
   function Sound() { return UI.Sound || {}; }
+  // i18n — 동적 문자열(수량 포함)·속성(placeholder/title)은 DOM 번역기가 못 잡으므로 소스레벨에서 분기.
+  function tL(s) { var I = window.RT_I18N; return (I && I.t) ? I.t(s) : s; }
+  function pL(ko, en) { var I = window.RT_I18N; return (I && I.pick) ? I.pick(ko, en) : ko; }
 
   // 편집 상태
   var active = false;          // 빌더 화면 표시 중 여부(core.render 가 참조)
@@ -48,8 +51,8 @@
   function bCount(id) { var n = 0; for (var i = 0; i < bDeck.list.length; i++) if (bDeck.list[i] === id) n++; return n; }
   function bLimit(id) { return (CARDS[id] && CARDS[id].deckLimit) || 2; }
   function bAdd(id) {
-    if (bDeck.list.length >= 30) { bMsg = '덱은 30장까지입니다'; UI.render(); return; }
-    if (bCount(id) >= bLimit(id)) { bMsg = CARDS[id].name + ' 은(는) 최대 ' + bLimit(id) + '장'; UI.render(); return; }
+    if (bDeck.list.length >= 30) { bMsg = tL('덱은 30장까지입니다'); UI.render(); return; }
+    if (bCount(id) >= bLimit(id)) { bMsg = pL(CARDS[id].name + ' 은(는) 최대 ' + bLimit(id) + '장', CARDS[id].name + ' — max ' + bLimit(id)); UI.render(); return; }
     bDeck.list.push(id); bMsg = ''; if (Sound().draw) Sound().draw(); UI.render();
   }
   function bRemove(id) { var i = bDeck.list.lastIndexOf(id); if (i >= 0) { bDeck.list.splice(i, 1); if (bDeck.cover === id && bDeck.list.indexOf(id) < 0) bDeck.cover = null; bMsg = ''; if (Sound().move) Sound().move(); UI.render(); } }
@@ -72,9 +75,9 @@
   function bCancel() { closeBuilder(); returnFromBuilder(); }
   function bSave() {
     var name = (bDeck.name || '').trim();
-    if (!name) { bMsg = '덱 이름을 입력하세요'; UI.render(); return; }
+    if (!name) { bMsg = tL('덱 이름을 입력하세요'); UI.render(); return; }
     var v = RT.validateDeck(bDeck.list);
-    if (!v.ok) { bMsg = '덱 규칙 위반: ' + v.errors[0]; UI.render(); return; }
+    if (!v.ok) { bMsg = pL('덱 규칙 위반: ' + v.errors[0], 'Deck rule violation: ' + v.errors[0]); UI.render(); return; }
     var key = bDeck.key || UI.nextCustomKey();
     UI.saveCustomDeck(key, name, bDeck.list, bDeck.cover);
     UI.setMyDeck(key);
@@ -116,7 +119,7 @@
     // 상단 컨트롤: 이름 + 카운터 + 저장/삭제/취소
     var canSave = (n === 30 && v.ok && (bDeck.name || '').trim());
     var top = el('div', { style: { display: 'flex', gap: '9px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px' } });
-    var nameIn = el('input', { type: 'text', value: bDeck.name, placeholder: '덱 이름', maxlength: 24, class: 'grot', style: { flex: '1 1 180px', minWidth: '150px', padding: '11px 13px', fontSize: '16px', fontWeight: 700, color: dark ? '#f6e3ba' : '#1d1d24', background: dark ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.6)', border: '1px solid ' + (dark ? 'rgba(255,176,0,.45)' : 'rgba(29,29,36,.4)'), outline: 'none', textShadow: 'none' } });
+    var nameIn = el('input', { type: 'text', value: bDeck.name, placeholder: tL('덱 이름'), maxlength: 24, class: 'grot', style: { flex: '1 1 180px', minWidth: '150px', padding: '11px 13px', fontSize: '16px', fontWeight: 700, color: dark ? '#f6e3ba' : '#1d1d24', background: dark ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.6)', border: '1px solid ' + (dark ? 'rgba(255,176,0,.45)' : 'rgba(29,29,36,.4)'), outline: 'none', textShadow: 'none' } });
     nameIn.addEventListener('input', function (e) { bDeck.name = e.target.value; });
     top.appendChild(nameIn);
     top.appendChild(el('div', { class: 'grot', style: { fontWeight: 700, fontSize: '20px', color: canSave ? AMB : (dark ? '#ff9a4a' : '#c0392b'), minWidth: '82px', textAlign: 'center' } }, [n + ' / 30']));
@@ -130,8 +133,8 @@
     var msgColor = AMB_DIM, msgText;
     if (bMsg) { msgColor = dark ? '#E88A3A' : '#c0392b'; msgText = '⚠ ' + bMsg; }
     else if (!v.ok) { msgColor = dark ? '#E88A3A' : '#c0392b'; msgText = '⚠ ' + v.errors.join('  ·  '); }
-    else if (n === 30) { msgColor = dark ? '#7BB528' : '#3c8a66'; msgText = '✓ 유효한 덱 — ' + (meta.singleClass ? '단일 클래스(' + (meta.classes[0] || 'generic') + ')' : '혼합덱') + ' · 저장 가능'; }
-    else { msgText = (30 - n) + '장 더 필요 (30장 완성 시 저장)'; }
+    else if (n === 30) { msgColor = dark ? '#7BB528' : '#3c8a66'; msgText = pL('✓ 유효한 덱 — ' + (meta.singleClass ? '단일 클래스(' + (meta.classes[0] || 'generic') + ')' : '혼합덱') + ' · 저장 가능', '✓ Valid deck — ' + (meta.singleClass ? 'single class (' + (meta.classes[0] || 'generic') + ')' : 'mixed deck') + ' · ready to save'); }
+    else { msgText = pL((30 - n) + '장 더 필요 (30장 완성 시 저장)', (30 - n) + ' more needed (save at 30)'); }
     b.appendChild(el('div', { class: 'grot', style: { fontSize: '13px', fontWeight: 600, color: msgColor, marginBottom: '13px', lineHeight: 1.5, minHeight: '17px', textShadow: 'none' } }, [msgText]));
 
     // 본문: 좌 카드풀 / 우 현재 덱
@@ -317,19 +320,19 @@
     var faceBox = el('div', { style: { position: 'relative', display: 'flex', justifyContent: 'center' } }, [face]);
     if (cnt > 0) faceBox.appendChild(el('span', { class: 'grot', style: { position: 'absolute', top: '-7px', right: '-7px', minWidth: '23px', textAlign: 'center', fontSize: '13px', fontWeight: 700, background: AMB, color: dark ? '#0a0a0c' : '#f4f5f8', borderRadius: '12px', padding: '2px 7px', boxShadow: '0 1px 5px rgba(0,0,0,.5)', zIndex: 3, textShadow: 'none' } }, ['×' + cnt]));
     // 모바일 미니는 효과문이 안 보이므로 🔍 로 큰 카드 확인(탭=추가와 겹치지 않게 stopPropagation).
-    if (mob) faceBox.appendChild(el('button', { title: '크게 보기', onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', top: '-7px', left: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
+    if (mob) faceBox.appendChild(el('button', { title: tL('크게 보기'), onclick: function (e) { e.stopPropagation(); showBigDB(id); }, class: 'grot', style: { position: 'absolute', top: '-7px', left: '-7px', fontSize: '11px', lineHeight: 1, padding: '2px 5px', background: dark ? 'rgba(10,10,12,.85)' : 'rgba(244,245,248,.92)', color: AMB, border: '1px solid ' + AMB, borderRadius: '10px', cursor: 'pointer', zIndex: 4, textShadow: 'none' } }, ['🔍']));
     // 클래스 단일 카드(◈) 배지는 카드 페이스 자체에 이미 표시되므로 중복 태그 생략(요청)
 
     var strip = el('div', { style: { display: 'flex', alignItems: 'center', gap: '7px', width: stripW + 'px', maxWidth: '100%' } }, [
-      cnt > 0 ? el('button', { title: '1장 제거', onclick: function (e) { e.stopPropagation(); bRemove(id); }, class: 'grot', style: { fontSize: '13px', fontWeight: 700, lineHeight: 1, padding: '2px 9px', color: readTxt, background: 'transparent', border: '1.5px solid ' + (dark ? 'rgba(255,176,0,.6)' : 'rgba(29,29,36,.45)'), cursor: 'pointer', textShadow: 'none' } }, ['−']) : null,
-      el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: cnt > 0 ? readTxt : subTxt } }, [cnt + ' / ' + lim + '장']),
+      cnt > 0 ? el('button', { title: tL('1장 제거'), onclick: function (e) { e.stopPropagation(); bRemove(id); }, class: 'grot', style: { fontSize: '13px', fontWeight: 700, lineHeight: 1, padding: '2px 9px', color: readTxt, background: 'transparent', border: '1.5px solid ' + (dark ? 'rgba(255,176,0,.6)' : 'rgba(29,29,36,.45)'), cursor: 'pointer', textShadow: 'none' } }, ['−']) : null,
+      el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: cnt > 0 ? readTxt : subTxt } }, [pL(cnt + ' / ' + lim + '장', cnt + ' / ' + lim)]),
       el('span', { style: { flex: 1 } }),
       el('span', { class: 'grot', style: { fontSize: '11px', fontWeight: 700, color: full ? (dark ? '#ff9a4a' : '#c0392b') : subTxt } }, [full ? (cnt >= lim ? 'MAX' : '덱 30') : '＋ 추가'])
     ]);
 
     var border = cnt > 0 ? AMB : (dark ? 'rgba(255,176,0,.32)' : 'rgba(29,29,36,.28)');
     return el('div', {
-      onclick: function () { bAdd(id); }, title: '클릭 시 1장 추가',
+      onclick: function () { bAdd(id); }, title: tL('클릭 시 1장 추가'),
       style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid ' + border, boxShadow: cnt > 0 ? '0 0 0 2px ' + AMB : 'none', opacity: (full && cnt === 0) ? 0.5 : 1, cursor: 'pointer', padding: '8px 7px 7px' }
     }, [faceBox, strip]);
   }
@@ -341,8 +344,8 @@
     var lim = bLimit(id), oneOnly = lim === 1, singleNeed = c.deckRule ? String(c.deckRule).replace('Single', '') : null;
     var readTxt = dark ? '#f6e3ba' : '#1d1d24';
     var badges = [];
-    if (oneOnly) badges.push(poolBadge('OP 카드', '#e0a11f', '#1d1d24', '덱당 1장 제한'));
-    if (singleNeed) badges.push(poolBadge('◈ ' + singleNeed + ' 클래스 단일', CLS[singleNeed] || '#8a6fb0', '#fff'));
+    if (oneOnly) badges.push(poolBadge('OP 카드', '#e0a11f', '#1d1d24', tL('덱당 1장 제한')));
+    if (singleNeed) badges.push(poolBadge(pL('◈ ' + singleNeed + ' 클래스 단일', '◈ ' + singleNeed + ' single-class'), CLS[singleNeed] || '#8a6fb0', '#fff'));
     var title = el('div', { style: { display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 8px', background: cl, color: '#fff', textShadow: 'none' } }, [
       el('span', { style: { fontSize: '14px', flex: 'none' } }, [isP ? '◆' : (GLY[c.cls] || GLY.generic)]),
       el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '14px', flex: 1, minWidth: 0 } }, [c.name]),

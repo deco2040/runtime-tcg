@@ -960,16 +960,17 @@
   function castCondText(cond) {
     if (!cond) return null;
     var en = !!(typeof window !== 'undefined' && window.RT_I18N && window.RT_I18N.is && window.RT_I18N.is('en'));
+    // 복합 조건 연결자는 ' + '(피연산자가 대부분 'N+' 로 끝나 '6+ + 3+' 처럼 겹쳐 읽기 어려움) 대신 명시적 'and'/'그리고' 사용.
     if (en) {
       switch (cond.type) {
-        case 'turnCount': return 'your turn ' + cond.n + '+';
-        case 'destroyedAlly': return cond.n + '+ of your instances destroyed';
+        case 'turnCount': return 'turn ' + cond.n + '+';
+        case 'destroyedAlly': return cond.n + '+ allies lost';
         case 'pointersCast': return cond.n + '+ pointers cast';
-        case 'classOnBoard': return cond.n + '+ of your ' + cond.cls + ' on field';
-        case 'boardCount': return cond.n + '+ of your instances' + (cond.cls ? ' (' + cond.cls + ')' : '');
-        case 'selfBodyHP': return 'core HP ' + (cond.cmp || '=') + ' ' + cond.n;
+        case 'classOnBoard': return cond.n + '+ ' + cond.cls + ' on field';
+        case 'boardCount': return cond.n + '+ ' + (cond.token ? 'tokens' : 'instances') + (cond.cls ? ' (' + cond.cls + ')' : '');
+        case 'selfBodyHP': return 'core HP ' + (cond.cmp === '<=' ? cond.n + ' or less' : cond.cmp === '>=' ? cond.n + '+' : '= ' + cond.n);
         case 'or': return castCondText(cond.a) + ' or ' + castCondText(cond.b);
-        case 'and': return castCondText(cond.a) + ' + ' + castCondText(cond.b);
+        case 'and': return castCondText(cond.a) + ' and ' + castCondText(cond.b);
         default: return 'special condition';
       }
     }
@@ -978,10 +979,10 @@
       case 'destroyedAlly': return '내 인스턴스 ' + cond.n + '개+ 파괴됨';
       case 'pointersCast': return '포인터 ' + cond.n + '회+ 시전';
       case 'classOnBoard': return '내 ' + cond.cls + ' ' + cond.n + '개+ 필드에 존재';
-      case 'boardCount': return '내 인스턴스 ' + cond.n + '개+' + (cond.cls ? '(' + cond.cls + ')' : '');
-      case 'selfBodyHP': return '본체 HP ' + (cond.cmp || '=') + ' ' + cond.n;
+      case 'boardCount': return (cond.token ? '분신 ' : '내 인스턴스 ') + cond.n + '개+' + (cond.cls ? '(' + cond.cls + ')' : '');
+      case 'selfBodyHP': return '본체 HP ' + cond.n + (cond.cmp === '<=' ? ' 이하' : cond.cmp === '>=' ? ' 이상' : '');
       case 'or': return castCondText(cond.a) + ' 또는 ' + castCondText(cond.b);
-      case 'and': return castCondText(cond.a) + ' + ' + castCondText(cond.b);
+      case 'and': return castCondText(cond.a) + ' 그리고 ' + castCondText(cond.b);
       default: return '특수 조건';
     }
   }
@@ -1023,14 +1024,16 @@
     };
   }
   function validateDeck(list) {
+    // 검증 오류문은 동적(수량·카드명)이라 DOM 번역기가 못 잡으므로 여기서 언어 분기(castCondText 와 동일 방식).
+    var en = !!(typeof window !== 'undefined' && window.RT_I18N && window.RT_I18N.is && window.RT_I18N.is('en'));
     var errs = [];
-    if (list.length !== 30) errs.push('덱은 30장이어야 함 (현재 ' + list.length + ')');
+    if (list.length !== 30) errs.push(en ? ('Deck must be 30 cards (currently ' + list.length + ')') : ('덱은 30장이어야 함 (현재 ' + list.length + ')'));
     var counts = {};
     list.forEach(function (id) { counts[id] = (counts[id] || 0) + 1; });
     for (var id in counts) {
-      var card = CARDS[id]; if (!card) { errs.push('알 수 없는 카드: ' + id); continue; }
+      var card = CARDS[id]; if (!card) { errs.push(en ? ('Unknown card: ' + id) : ('알 수 없는 카드: ' + id)); continue; }
       var lim = card.deckLimit || 2;
-      if (counts[id] > lim) errs.push(card.name + ' ' + counts[id] + '장 (제한 ' + lim + ')');
+      if (counts[id] > lim) errs.push(en ? (card.name + ' ×' + counts[id] + ' (limit ' + lim + ')') : (card.name + ' ' + counts[id] + '장 (제한 ' + lim + ')'));
     }
     var a = analyzeDeck(list);
     // 클래스 단일(◈) 규칙 — deckRule='{cls}Single' 카드는 해당 클래스 단일 덱에서만 가능(generic 혼합 허용).
@@ -1040,7 +1043,7 @@
       var rm = /^(thread|memory|process)Single$/.exec(rc.deckRule); if (!rm) continue;
       var need = rm[1];
       var onlyClass = a.classes.length === 0 || (a.classes.length === 1 && a.classes[0] === need);
-      if (!onlyClass) errs.push(rc.name + '은(는) ' + need + ' 단일 클래스 덱에서만 가능');
+      if (!onlyClass) errs.push(en ? (rc.name + ' is only allowed in a ' + need + ' single-class deck') : (rc.name + '은(는) ' + need + ' 단일 클래스 덱에서만 가능'));
     }
     return { ok: errs.length === 0, errors: errs, meta: a };
   }

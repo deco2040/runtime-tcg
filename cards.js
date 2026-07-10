@@ -1,6 +1,9 @@
 /* RUNTIME TCG — 카드 풀 (seed cards v15 정합). engine.js가 kit(엔진 헬퍼)를 주입해 정의한다.
    engine.js보다 먼저 로드할 것. 텍스트/스탯/효과는 runtime-tcg-cards-v15.json 기준.
-   v15: Switch 변신 키워드 신설 · coalesce 융합 리메이크 · If/보호 확장(신규 19장) + 변신폼/Fused. */
+   v15: Switch 변신 키워드 신설 · coalesce 융합 리메이크 · If/보호 확장(신규 19장) + 변신폼/Fused.
+   ⚠ 새 카드/효과문 추가 전 텍스트 길이 가이드라인을 반드시 참조할 것(넘치면 카드 페이스에서 잘림).
+     가이드라인 원문: i18n-en.js 상단(I.card 앞) 주석 · 프로젝트 지침: CLAUDE.md.
+     KO 효과 본문(effectOnly 후): 시전조건/단일룰 없음 ≤78자 · 택1 있음 ≤62자 · 둘 다 ≤52자. */
 (function () {
   window.RT_DEFINE_CARDS = function (kit) {
     var def = kit.def, CARDS = kit.CARDS, COLS = kit.COLS, ROWS = kit.ROWS, K = kit.K, P = kit.P,

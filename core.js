@@ -431,10 +431,10 @@
   // ===== 조건 · 효과 분리/통일 (이슈 4·6) =====
   // 효과문에서 선행 메타 절(덱당 N · require … · 조건 … · XX 단일 덱)을 제거 — 이들은 리본/조건 라인으로 별도 렌더하므로
   // 효과문엔 효과만 남긴다. 조건이 여러 절(' · ')에 걸치기도 하므로:
-  //  · 모드 키워드(Once/While/When/If/For)가 있으면(=인스턴스) 그 지점부터가 효과 → 앞의 조건 절 전부 제거.
+  //  · 모드 키워드(Once/While/When/If/For/Switch)가 있으면(=인스턴스) 그 지점부터가 효과 → 앞의 조건 절 전부 제거.
   //  · 모드 키워드가 없으면(=포인터, 효과가 맨문장) 선행 메타 절만 앞에서부터 제거.
   var _META_LEAD = /^\s*(덱당|require|조건|1 per deck|single[- ]class deck|single[- ]deck)|단일\s*덱/i;   // 한글은 \b가 안 먹으므로 경계 없이 접두 매칭. EN 리드(1 per deck 등)도 스트립.
-  var _MODE_LEAD = /^\s*(Once|While|When|If|For)\b/;
+  var _MODE_LEAD = /^\s*(Once|While|When|If|For|Switch)\b/;
   function effectOnly(text) {
     if (!text) return text || '';
     var parts = text.split(' · ');
@@ -677,7 +677,7 @@
     if (isTouchDevice()) _kwTipT = setTimeout(hideKwTip, 2800);
   }
   function hideKwTip() { clearTimeout(_kwTipT); if (kwtip) kwtip.style.display = 'none'; }
-  var MODE_KW = { If: 1, When: 1, Once: 1, While: 1, For: 1 };
+  var MODE_KW = { If: 1, When: 1, Once: 1, While: 1, For: 1, Switch: 1 };
   // 옆칸 = 기본 공격과 같은 칸 → 텍스트에서도 빨강으로 색통일(보드 ⚔칸·기본공격 뱃지와 동색).
   var ATTACK_KW = { '옆칸': 1, '옆 칸': 1 };
   // 피격 트리거 강조(이슈 7). 룰상 「피격 시」로 단일화 — 가독성을 위해 앰버칩으로 강조.
@@ -1510,7 +1510,8 @@
       var nodes = (root || app).querySelectorAll('[data-fit]');
       for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i], fs = parseFloat(n.getAttribute('data-fit-fs')) || parseFloat(n.style.fontSize) || 9.5, guard = 0;
-        while (n.scrollHeight > n.clientHeight + 1 && fs > 6.5 && guard++ < 14) { fs -= 0.5; n.style.fontSize = fs + 'px'; }
+        // 하한 5.5px(구 6.5) — EN 은 KO 보다 글자수가 많아 6.5px 로도 긴 효과문(trace·chain·If분기 등)이 카드 높이를 넘겨 잘리던 문제. 더 줄여서라도 담는다(요청).
+        while (n.scrollHeight > n.clientHeight + 1 && fs > 5.5 && guard++ < 20) { fs -= 0.5; n.style.fontSize = fs + 'px'; }
       }
     } catch (e) {}
   }
@@ -1841,10 +1842,10 @@
         var pfx = isSwitch ? '⇄ ' : '◆ ';                    // Switch 변신은 ⇄ 마크로 구분
         var col = isSwitch ? '#8a5cc8' : '#4a6bd8';
         ab.options.forEach(function (op, oi) {
-          btns.push(el('button', { style: popBtn(ready ? col : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, oi); } : function () { flash('발동할 수 없음'); } }, [pfx + op.label]));
+          btns.push(el('button', { style: popBtn(ready ? col : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, oi); } : function () { flash('발동할 수 없음'); } }, [pfx + tL(op.label)]));
         });
       } else {
-        var mk = isIf ? '◆ 발동' : ('⚡ 발동 ' + left + '/' + N);
+        var mk = isIf ? tL('◆ 발동') : (pickLang('⚡ 발동 ', '⚡ Activate ') + left + '/' + N);
         btns.push(el('button', { style: popBtn(ready ? (isIf ? '#4a6bd8' : '#3c8a66') : '#7a7a82'), onclick: ready ? function () { fireFor(u, idx, ab, isIf ? 0 : undefined); } : function () { flash('이동/발동할 칸이 없음 — 발동 불가'); } }, [mk]));
       }
     });
@@ -3401,13 +3402,13 @@
   // ---- 실습: AI를 끄고 스크립트대로 선언 → 이동 → 공격 → 턴종료를 따라 하게 한다.
   function tutSteps() {
     return [
-      { key: '선언', title: '① 인스턴스 선언', tip: '손패의 **Race** 카드를 아래쪽 **초록색 ⊕ 홈칸**(4곳 중 아무 데나)으로 드래그해 놓으세요. 가운데 칸은 내 본체라 놓을 수 없어요. 인스턴스를 필드에 올리는 것을 «선언»이라 합니다.',
+      { key: '선언', keyEn: 'Declare', title: '① 인스턴스 선언', titleEn: '① Declare Instance', tip: '손패의 **Race** 카드를 아래쪽 **초록색 ⊕ 홈칸**(4곳 중 아무 데나)으로 드래그해 놓으세요. 가운데 칸은 내 본체라 놓을 수 없어요. 인스턴스를 필드에 올리는 것을 «선언»이라 합니다.', tipEn: 'Drag the **Race** card from your hand onto a **green ⊕ home cell** (any of the 4) along the bottom. The center cell is your core, so you can\'t place there. Putting an instance onto the field is called a «Declare».',
         done: function () { return tutHumanUnits().length >= 1; } },
-      { key: '이동', title: '② 앞으로 이동', tip: '방금 놓은 인스턴스를 **클릭**한 뒤, 한 칸 위의 **파란 ◆ 칸**을 눌러 전진하세요. 인스턴스는 상하좌우 빈 칸으로만 1칸씩 움직입니다.',
+      { key: '이동', keyEn: 'Move', title: '② 앞으로 이동', titleEn: '② Move Forward', tip: '방금 놓은 인스턴스를 **클릭**한 뒤, 한 칸 위의 **파란 ◆ 칸**을 눌러 전진하세요. 인스턴스는 상하좌우 빈 칸으로만 1칸씩 움직입니다.', tipEn: '**Click** the instance you just placed, then tap the **blue ◆ cell** one tile up to advance. Instances move 1 tile at a time into empty orthogonal cells.',
         done: function () { return tutHumanUnits().some(function (kr) { return kr.r !== 4; }); } },
-      { key: '공격', title: '③ 기본 공격', tip: '이제 **「옆칸」에 적(회색 인스턴스)** 이 있습니다. 내 인스턴스를 클릭하고 나타나는 **⚔ 공격** 버튼(또는 빨강 ⚔ 칸)을 눌러 적을 파괴하세요. 무료·턴당 1회입니다.',
+      { key: '공격', keyEn: 'Attack', title: '③ 기본 공격', titleEn: '③ Basic Attack', tip: '이제 **「옆칸」에 적(회색 인스턴스)** 이 있습니다. 내 인스턴스를 클릭하고 나타나는 **⚔ 공격** 버튼(또는 빨강 ⚔ 칸)을 눌러 적을 파괴하세요. 무료·턴당 1회입니다.', tipEn: 'Now there\'s an **enemy (gray instance) in an «adjacent cell»**. Click your instance and press the **⚔ Attack** button that appears (or the red ⚔ cell) to destroy it. Free, once per turn.',
         done: function () { return tutHumanUnits().some(function (kr) { return kr.u.attackedTurn === G.turnNo; }); } },
-      { key: '종료', title: '④ 턴 종료', tip: '잘했어요! 마지막으로 오른쪽 아래 **«턴 종료»** 를 누르세요. 실전이라면 이때 상대(AI) 차례로 넘어갑니다.' }
+      { key: '종료', keyEn: 'End', title: '④ 턴 종료', titleEn: '④ End Turn', tip: '잘했어요! 마지막으로 오른쪽 아래 **«턴 종료»** 를 누르세요. 실전이라면 이때 상대(AI) 차례로 넘어갑니다.', tipEn: 'Nicely done! Finally, press **«End Turn»** at the bottom right. In a real match, this would pass the turn to your opponent (AI).' }
     ];
   }
   function tutHumanUnits() {
@@ -3418,11 +3419,17 @@
   function tutSync() {
     var steps = tutorial.steps;
     while (tutorial.step < steps.length - 1 && steps[tutorial.step].done && steps[tutorial.step].done()) tutorial.step++;
+    // 소프트락 방지: 선언·이동 단계에서 플레이어가 액션을 낭비해도(옆으로 이동 등) 계속 시도할 수 있게
+    // 액션을 보충한다. 실습은 단일 턴이라 액션 경제가 학습 대상이 아니므로 무제한 허용해도 무방.
+    if (!tutorial.finished && G && G.active === HUMAN) {
+      var cur = steps[Math.min(tutorial.step, steps.length - 1)];
+      if (cur && (cur.key === '선언' || cur.key === '이동') && G.actions < 1) G.actions = 1;
+    }
   }
   function startTutorialPractice() {
     challenge = null;
     G = RT.newGame('T1', 'T1', { seed: 1, first: HUMAN, weather: 'clear' }); // 튜토리얼은 날씨 영향 없음
-    G.oppKey = '튜토리얼';
+    G.oppKey = isEN() ? 'Tutorial' : '튜토리얼';             // 표시용(덱 키 아님) — 언어별 고정
     weatherShown = true;                                     // 튜토리얼 리빌 생략
     G.players[HUMAN].hand = ['Race'];                       // 선언할 인스턴스 1장만
     for (var c = 1; c <= 5; c++) G.summon(AI, 'Token2', K(c, 2)); // 앞줄에 연습용 표적(공2 체2)
@@ -3438,15 +3445,15 @@
     var chips = el('div', { style: { display: 'flex', gap: '4px', padding: '2px 12px 8px', flexWrap: 'wrap' } });
     steps.forEach(function (st, idx) {
       var state = idx < tutorial.step ? 'done' : (idx === tutorial.step ? 'cur' : 'todo');
-      chips.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, padding: '3px 8px', border: '1px solid ' + SKIN.ink, background: state === 'cur' ? SKIN.silk : (state === 'done' ? SKIN.ally : SKIN.chassisSunk), color: state === 'cur' || state === 'done' ? '#fff' : SKIN.muted } }, [(state === 'done' ? '✓ ' : (idx + 1) + '. ') + st.key]));
+      chips.appendChild(el('span', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, padding: '3px 8px', border: '1px solid ' + SKIN.ink, background: state === 'cur' ? SKIN.silk : (state === 'done' ? SKIN.ally : SKIN.chassisSunk), color: state === 'cur' || state === 'done' ? '#fff' : SKIN.muted } }, [(state === 'done' ? '✓ ' : (idx + 1) + '. ') + (isEN() ? st.keyEn : st.key)]));
     });
     return el('div', { style: { background: SKIN.chassisAlt, borderBottom: '1px solid ' + SKIN.ink, color: SKIN.txt } }, [
       el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px 2px' } }, [
-        el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: SKIN.own } }, ['📖 튜토리얼 · ' + s.title]),
+        el('span', { class: 'grot', style: { fontWeight: 700, fontSize: '13px', color: SKIN.own } }, ['📖 ' + (isEN() ? 'Tutorial · ' + s.titleEn : '튜토리얼 · ' + s.title)]),
         el('span', { style: { flex: 1 } }),
         el('button', { class: 'btn ghost', style: { fontSize: '10px', padding: '3px 8px' }, onclick: function () { UI.renderTutorial(0); } }, ['✕ 가이드로'])
       ]),
-      el('div', { style: { fontSize: '12px', lineHeight: 1.55, padding: '0 12px 6px', color: SKIN.panelText } }, UI.tutRich(s.tip)),
+      el('div', { style: { fontSize: '12px', lineHeight: 1.55, padding: '0 12px 6px', color: SKIN.panelText } }, UI.tutRich(isEN() ? s.tipEn : s.tip)),
       chips
     ]);
   }
