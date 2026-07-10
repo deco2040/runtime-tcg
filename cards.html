@@ -283,13 +283,21 @@
     hideBig();
     n.style.pointerEvents="none";
     var vw=window.innerWidth||360, vh=window.innerHeight||640;
+    // 카드 옆(모바일은 아래)에 키워드·칩 설명 패널을 함께 띄운다(요청). 데스크톱은 패널 폭을 예약해 카드 배율을 줄인다.
+    var wide0=vw>=760;                           // 데스크톱: 카드 오른쪽에 나란히 / 좁은 화면: 아래로 래핑
+    // 데스크톱은 카드 옆에 전체를 그대로 펼쳐 스크롤 없음. 좁은 화면(래핑)은 카드 아래 패널을 봐야 하므로 스크롤 유지.
+    var gloss=(UI.cardGloss)?UI.cardGloss(id,{ maxH:Math.round(vh*0.82)+"px", w:Math.min(232,vw-24), scroll:!wide0 }):null;
+    var wide=gloss && wide0;
+    var GW=wide?232:0, GGAP=gloss?18:0;
+    var availW=vw-(wide?(GW+GGAP):0);            // 카드 클러스터가 쓸 수 있는 폭(패널 예약분 제외)
     var back=document.createElement("div"); back.id="bigback";
     var forms=(CARDS[id]&&CARDS[id].switchForms)||[];
+    var cluster;
     if(forms.length){
       // Switch 카드: 본체는 왼쪽에 크게, 변신폼은 오른쪽에 세로로 나열 — 스크롤 없이 한 화면에 담는다.
       // 폼 배율은 본체의 약 0.5배(세로 2장 ≈ 본체 높이)로 잡아 크게 보이면서도 넘치지 않게 한다.
       var gap=30, fRel=0.5;
-      var scW=(vw*0.94-gap)/(FACE_W*(1+fRel));   // 가로: 본체 + 폼열이 화면 폭 안에
+      var scW=(availW*0.94-gap)/(FACE_W*(1+fRel));   // 가로: 본체 + 폼열이 (패널 제외)화면 폭 안에
       var scH=(vh*0.86)/FACE_H;                   // 세로: 라벨·간격 포함 폼열(본체보다 약간 큼)이 화면 안에
       var sc=Math.min(2.2,scW,scH); if(sc<0.9) sc=0.9;
       var fSc=sc*fRel; if(fSc<0.5) fSc=0.5;
@@ -297,13 +305,21 @@
       var lab=document.createElement("div"); lab.className="grot"; lab.style.cssText="font-size:13px;font-weight:700;letter-spacing:.05em;text-align:center;color:#e0a11f;text-shadow:none";
       lab.textContent="⇄ 변신폼 · SWITCH FORMS"; col.appendChild(lab);
       forms.forEach(function(fid){ var fn=faceNode(fid,false); if(fn){ fn.style.pointerEvents="none"; col.appendChild(bigFace(fn,fSc)); } });
-      var row=document.createElement("div"); row.style.cssText="display:flex;align-items:center;justify-content:center;gap:"+gap+"px;flex-wrap:nowrap";
-      row.appendChild(bigFace(n,sc)); row.appendChild(col);
-      back.appendChild(row);
+      cluster=document.createElement("div"); cluster.style.cssText="display:flex;align-items:center;justify-content:center;gap:"+gap+"px;flex-wrap:nowrap;flex:none";
+      cluster.appendChild(bigFace(n,sc)); cluster.appendChild(col);
     } else {
-      var sc0=Math.min(2.0,(vh*0.82)/FACE_H,(vw*0.92)/FACE_W); if(sc0<1) sc0=1;
-      back.appendChild(bigFace(n,sc0));
+      var sc0=Math.min(2.0,(vh*0.82)/FACE_H,(availW*0.92)/FACE_W); if(sc0<1) sc0=1;
+      cluster=bigFace(n,sc0);
     }
+    if(gloss){
+      // 스크롤/읽기 중 오버레이가 닫히지 않게 패널 클릭은 버블 차단(빈 영역·Esc 로만 닫힘).
+      gloss.addEventListener("click",function(e){ e.stopPropagation(); });
+      var outer=document.createElement("div"); outer.className="rt-noscroll";
+      // 데스크톱(wide): 스크롤 없이 그대로. 좁은 화면(wrap): 카드 아래 패널까지 보도록 스크롤 유지.
+      outer.style.cssText="display:flex;align-items:center;justify-content:center;gap:"+GGAP+"px;flex-wrap:"+(wide?"nowrap":"wrap")+";max-width:100%;max-height:100%;overflow:"+(wide?"visible":"auto");
+      outer.appendChild(cluster); outer.appendChild(gloss);
+      back.appendChild(outer);
+    } else back.appendChild(cluster);
     back.addEventListener("click",hideBig);
     document.body.appendChild(back); _bigBack=back;
     // 리스트(drawCat)와 동일하게 — 확대 카드도 넘치는 효과문 폰트를 자리에 맞게 자동 축소(잘림 방지).

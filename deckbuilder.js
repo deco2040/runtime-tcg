@@ -331,10 +331,14 @@
     ]);
 
     var border = cnt > 0 ? AMB : (dark ? 'rgba(255,176,0,.32)' : 'rgba(29,29,36,.28)');
-    return el('div', {
+    // 데스크톱: 풀 카드 호버 시 확대 상세 + 키워드/칩 설명 패널(요청). 모바일은 호버가 없어 🔍 탭 확대 유지.
+    var tile = el('div', {
       onclick: function () { bAdd(id); }, title: tL('클릭 시 1장 추가'),
+      onmouseenter: mob ? null : function (e) { showCardFace(id, e.currentTarget, dark); },
+      onmouseleave: mob ? null : hideCardTip,
       style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid ' + border, boxShadow: cnt > 0 ? '0 0 0 2px ' + AMB : 'none', opacity: (full && cnt === 0) ? 0.5 : 1, cursor: 'pointer', padding: '8px 7px 7px' }
     }, [faceBox, strip]);
+    return tile;
   }
 
   // ---- 카드 상세 호버 툴팁(현재 덱 행 위) — 큰 일러스트 + 전체 효과문 ----
@@ -384,15 +388,24 @@
     var h = raw ? Math.round(FACE_H * DECK_PREVIEW_SC) : (node.offsetHeight || 320);
     var t = tipEl(); while (t.firstChild) t.removeChild(t.firstChild);
     var forms = raw ? switchFormsOf(id) : [];   // raw 없으면 cardDetailNode 가 폼 포함 → 중복 방지
+    var cluster;
     if (forms.length) {
       // Switch 카드: 본체는 왼쪽 크게, 변신폼은 오른쪽에 세로로 나열 — 스크롤 없이 한 화면에.
       var fSc = DECK_PREVIEW_SC * 0.5;   // 폼 세로 2장 ≈ 본체 높이(넘치지 않게)
       var gap = 16;
-      var row = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: gap + 'px', flexWrap: 'nowrap' } }, [node, formsCol(id, fSc)]);
-      t.appendChild(row);
+      cluster = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: gap + 'px', flexWrap: 'nowrap', flex: 'none' } }, [node, formsCol(id, fSc)]);
       w = Math.round(FACE_W * DECK_PREVIEW_SC) + gap + Math.round(FACE_W * fSc);   // 폼열 포함 전체 폭(본체가 폼열보다 높으므로 h 는 그대로)
-    } else t.appendChild(node);
+    } else cluster = node;
+    // 키워드·칩 설명 패널을 카드 오른쪽에 함께 표시(요청). 항목이 없으면(바닐라) 카드만.
+    // 패널은 뷰포트 높이 기준으로 제한(호버 프리뷰는 pointerEvents:none 이라 스크롤 불가 → 최대한 담고, 위치 클램프로 화면 안 유지).
+    var GW = 214, GGAP = 14, vhH = window.innerHeight || 800;
+    var gloss = (window.__RT_UI && window.__RT_UI.cardGloss) ? window.__RT_UI.cardGloss(id, { maxH: Math.round(vhH * 0.9) + 'px', w: GW }) : null;
+    if (gloss) {
+      t.appendChild(el('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: GGAP + 'px', flexWrap: 'nowrap' } }, [cluster, gloss]));
+      w = w + GGAP + GW;
+    } else t.appendChild(cluster);
     t.style.display = 'block';
+    if (t.firstChild && t.firstChild.offsetHeight) h = Math.max(h, t.firstChild.offsetHeight);   // 패널이 카드보다 길면 실제 높이로 클램프
     var r = anchor.getBoundingClientRect(), gap = 12, vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
     var left = r.right + gap;                                  // 기본은 카드 오른쪽, 공간 없으면 왼쪽
     if (left + w > vw - 8) left = r.left - w - gap;
@@ -410,18 +423,28 @@
     var raw = faceFor(id, false); if (!raw) return;
     hideBigDB();
     var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
+    // 카드 옆(좁은 화면은 아래)에 키워드·칩 설명 패널 동봉(요청). 데스크톱 호버(showCardFace)와 동일 취지.
+    var wide0 = vw >= 760;   // 데스크톱: 카드 옆 나란히(스크롤 off) / 좁은 화면: 아래로 래핑(스크롤 유지)
+    var gloss = (window.__RT_UI && window.__RT_UI.cardGloss) ? window.__RT_UI.cardGloss(id, { maxH: Math.round(vh * 0.82) + 'px', w: Math.min(232, vw - 24), scroll: !wide0 }) : null;
+    var wide = gloss && wide0, GW = wide ? 232 : 0, GGAP = gloss ? 18 : 0;
+    var availW = vw - (wide ? (GW + GGAP) : 0);
     var forms = switchFormsOf(id), content;
     if (forms.length) {
       // Switch 카드: 본체는 왼쪽 크게, 변신폼은 오른쪽에 세로로 — 스크롤 없이 한 화면에.
       var gap = 24, fRel = 0.5;
-      var scl = Math.min(2.0, (vw * 0.9 - gap) / (FACE_W * (1 + fRel)), (vh * 0.86) / FACE_H); if (scl < 0.85) scl = 0.85;
+      var scl = Math.min(2.0, (availW * 0.9 - gap) / (FACE_W * (1 + fRel)), (vh * 0.86) / FACE_H); if (scl < 0.85) scl = 0.85;
       var node = scaledFace(raw, scl); node.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
-      content = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: gap + 'px', flexWrap: 'nowrap' } }, [node, formsCol(id, scl * fRel)]);
+      content = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: gap + 'px', flexWrap: 'nowrap', flex: 'none' } }, [node, formsCol(id, scl * fRel)]);
     } else {
-      var scl0 = Math.min(2.0, (vh * 0.82) / FACE_H, (vw * 0.92) / FACE_W); if (scl0 < 1) scl0 = 1;
+      var scl0 = Math.min(2.0, (vh * 0.82) / FACE_H, (availW * 0.92) / FACE_W); if (scl0 < 1) scl0 = 1;
       content = scaledFace(raw, scl0); content.style.filter = 'drop-shadow(0 16px 40px rgba(0,0,0,.6))';
     }
-    _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [content]);
+    var inner = content;
+    if (gloss) {
+      gloss.addEventListener('click', function (e) { e.stopPropagation(); });   // 패널 조작 중 오버레이 안 닫히게
+      inner = el('div', { class: 'rt-noscroll', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: GGAP + 'px', flexWrap: wide ? 'nowrap' : 'wrap', maxWidth: '100%', maxHeight: '100%', overflow: wide ? 'visible' : 'auto' } }, [content, gloss]);
+    }
+    _dbBig = el('div', { onclick: hideBigDB, style: { position: 'fixed', inset: '0', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)', padding: '16px', cursor: 'zoom-out' } }, [inner]);
     if (document.body) document.body.appendChild(_dbBig);
   }
 

@@ -30,7 +30,7 @@
     clear: { name: '평온', en: 'STABLE', icon: '🟢', color: '#3c8a66', desc: '효과 없음' },
     overclock: { name: '오버클럭', en: 'OVERCLOCK', icon: '⚡', color: '#c8951b', desc: '전체 공격력 +1' },
     throttle: { name: '스로틀링', en: 'THROTTLE', icon: '🧊', color: '#3f7bd6', desc: '전체 공격력 −1' },
-    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴+ 매 턴 전체 HP −1' },
+    memleak: { name: '메모리 누수', en: 'MEM LEAK', icon: '🩸', color: '#c23c70', desc: '8턴+ 매 턴 양쪽 본체 HP −1' },
     ctxswitch: { name: '컨텍스트 스위치', en: 'CONTEXT SWITCH', icon: '🔀', color: '#3fae8f', desc: '매 턴 행동 +1' },
     deadlock: { name: '교착', en: 'DEADLOCK', icon: '⛓️', color: '#b8823a', desc: '교착 노드: 이동 불가' }
   };
@@ -593,57 +593,59 @@
   }
 
   // ---- keyword glossary + hover tooltips
+  // 각 항목: t/d = KO 제목·설명(간결), et/ed = EN 제목·설명(간결), en = EN 카드텍스트 앵커(문자열|배열, 없으면 EN 칩 없음).
+  // key(=한글) = KO 앵커. richText/패널이 현재 언어에 맞는 앵커로 스캔 → 카드 텍스트에 칩(밑줄·강조)되는 것과 패널이 일치.
   var GLOSS = {
-    'If': { t: 'If · 선택 발동', d: '조건 충족 시, 원할 때 선택 발동.' },
-    'Switch': { t: 'Switch · 변신', d: '게임당 1회, 원할 때 인스턴스를 두 형태(폼) 중 하나로 영구 변신. 공격력·체력·능력이 선택한 폼에 맞게 바뀐다.' },
-    'When': { t: 'When · 자동 발동', d: '조건이 맞을 때마다 강제로 자동 발동.' },
-    'Once': { t: 'Once · 1회 발동', d: '조건이 맞으면 게임 중 딱 한 번만 발동.' },
-    'While': { t: 'While · 지속 효과', d: '조건이 유지되는 동안 계속 적용되는 상시 효과.' },
-    'For': { t: 'For(N) · 능동·턴1회', d: '내 턴마다 1번 직접 발동, 게임 전체에서 총 N번까지. 발동은 무료(액션 소비 X).' },
-    'require': { t: 'require · 선언 조건', d: '이 인스턴스가 필드에 존재하기 위한 사전 조건.' },
-    '보호': { t: '보호 · 1턴 무피해', d: '이번 턴 동안 이 인스턴스가 받는 모든 피해를 무시한다(내 다음 턴 시작 시 해제).' },
-    '시전 조건': { t: '시전 조건', d: '이 포인터를 시전하기 위한 사전 조건.' },
-    '시전조건': { t: '시전 조건', d: '이 포인터를 시전하기 위한 사전 조건.' },
-    'thread': { t: 'thread · 공격형', d: '공高체低 글래스캐논. 집단 ATK 시너지·근접 압박. process에 강하고 memory에 약함.' },
-    'memory': { t: 'memory · 방어형', d: '공低체高. 벽·봉쇄·반사로 통제. thread에 강하고 process에 약함.' },
-    'process': { t: 'process · 유틸형', d: '변칙 사거리·강제 이동·포인터 콤보. memory에 강하고 thread에 약함.' },
-    'generic': { t: 'generic · 무클래스', d: '이종 시너지형. 3클래스가 동족 시너지라면 generic은 이종 시너지(다른 클래스를 섞을수록 강함) + 어디서나 작동하는 기본 부품. 참조값: 내 필드 클래스 종류 수(generic 포함, 최대 4).' },
-    '적': { t: '적 = 적 인스턴스 + 적 본체', d: '「적」은 적 인스턴스와 적 본체를 함께 가리킨다. 피해를 주는 능력·포인터는 범위·직선이 닿으면 본체도 직접 노린다. 봉쇄·강제 이동·약화·바운스 등 조작 효과는 인스턴스에만 적용. 「적 인스턴스」/「적 본체」로 명시된 경우엔 그 대상만.' },
-    '본체': { t: '본체', d: '플레이어 거점(HP 40). 0 이하면 패배. 보드 칸이라 「적」 피해(기본 공격·라인·데미지 포인터)의 대상에 포함된다.' },
-    '봉쇄': { t: '봉쇄', d: '봉쇄된 인스턴스는 이동·기본 공격·For 능동이 전부 불가. While 지속 오라와 When/If/Once 트리거는 유지된다.' },
-    '이동 불가': { t: '이동 불가', d: '이동만 막는 부분 제한(Cache·Const 자신·ROM). 기본 공격·For·능력은 정상. 봉쇄와 별개.' },
-    '관통': { t: '관통(벽 너머)', d: '중간의 벽·인스턴스를 무시하고 직선상의 대상을 지정·타격(대상 지정 관통). 피해량 수정과는 무관 — 피해감소 무시는 「직격」.' },
-    '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·인스턴스를 무시하고 직선상의 대상을 지정·타격.' },
-    '직격': { t: '직격 · 피해감소 무시', d: '대상의 받는 피해 감소(피해 -N·절반·상한·최소치 보정)를 무시하고 그대로 적용. 차단(막음)과 반사에는 정상 적용.' },
-    '분신': { t: '분신(토큰)', d: '카드가 아닌 효과로 생성된 인스턴스. 생성한 카드의 클래스를 상속한다. 「내 thread 전부」·클래스 종류 수 판정에 포함.' },
-    '인스턴스': { t: '인스턴스(오브젝트)', d: '필드 칸에 놓이는 카드. 공격력·체력을 가진다.' },
-    '포인터': { t: '포인터', d: '1회성 주문 카드. 필드에 남지 않고 시전에 액션 1을 쓴다. 기본 사거리 무제한(전역 지정).' },
-    '공격력': { t: '공격력(ATK)', d: '함수·기본 공격이 참조하는 피해 수치.' },
-    '체력': { t: '체력(HP)', d: '0 이하가 되면 파괴. 피해는 턴을 넘겨 누적된다.' },
-    '회복': { t: '회복', d: '받은 피해를 N만큼 제거한다. 최대 체력 초과 불가.' },
-    '수리': { t: '수리(받은 피해 전부 회복)', d: '받은 피해를 전량 제거(compact()·Snapshot).' },
-    '영구': { t: '영구', d: '지속시간 무표기 버프·디버프는 영구. 「(영구)」 별도 표기는 쓰지 않는다.' },
-    '옆칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 인스턴스의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
-    '옆 칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우로 붙은 4칸(직교 인접). 모든 인스턴스의 기본 공격이 닿는 범위와 같은 모양 — 보드의 빨강 ⚔ 칸.' },
-    '1칸이내': { t: '1칸이내 = 8칸', d: '체비셰프 거리 ≤ 1(중심 제외), 대각 포함 — 둘러싼 8칸. (구 「주위」 흡수)' },
-    '2칸이내': { t: '2칸이내', d: '체비셰프 거리 ≤ 2 블록(중심 제외), 대각 포함.' },
-    '3칸이내': { t: '3칸이내', d: '체비셰프 거리 ≤ 3 블록(중심 제외), 대각 포함.' },
-    '주위': { t: '주위 → 「1칸이내」', d: '대각 포함 둘러싼 8칸 = square(1). 「1칸이내」로 통일됨.' },
-    '나이트': { t: '나이트(도약)', d: '자기 칸 기준 (±1,±2)·(±2,±1) 도약 8칸. 중간 칸의 벽·인스턴스를 무시(도약). 체스 나이트와 같은 모양.' },
-    '밀어내기': { t: '밀어내기(넉백)', d: '대상을 적 진영 방향(시전자 반대편)으로 1칸 이동. 그 칸이 비어 있어야 하며, 벽·인스턴스·판 끝으로 막혔으면 시전 불가.' },
-    '끌어당기기': { t: '끌어당기기', d: '대상을 시전자 본체 방향으로 1칸 이동. 시전자 앞칸이 비어 있어야 하며, 막혔으면 시전 불가.' },
-    '1칸이동': { t: '1칸 이동', d: '상하좌우 인접한 빈 칸으로 1칸 옮긴다. 목적 칸이 막혔으면 이동/시전 불가.' },
-    '강제 이동': { t: '강제 이동', d: '효과가 대상의 의사와 무관하게 경로를 따라 옮긴다. 강제이동 트리거(Thrash)와 진입 트리거가 발동.' },
-    '재배치': { t: '재배치(relocate)', d: '위치를 제거한 뒤 새 칸에 재설정. 경로가 없어 이동·진입·강제이동 트리거 전부 비발동(Wormhole).' },
-    '진입 시': { t: '진입 시', d: '해당 범위 칸으로 적이 들어올 때. 자발/강제 이동 공통 발동, 재배치는 비발동.' },
-    '피격 시': { t: '피격 시', d: '가해 인스턴스에게 피해를 받을 때 발동(기본 공격·능력 피해 공통). 피해 계산 이후의 생존/체력 판정도 이 시점으로 통일한다. 반사·반격류는 이때 가해 인스턴스를 대상으로 한다. 포인터 등 가해 인스턴스가 없는 피해에는 비발동.' },
-    '앞직선': { t: '앞직선N', d: '전방 같은 열 광선. N ∈ {숫자, 끝}. 끝=보드 끝까지.' },
-    '앞 직선': { t: '앞 직선', d: '적 본체 방향으로 뻗는 직선 사거리.' },
-    '대각': { t: '대각N', d: '4대각 방향으로 각 N칸 뻗는 사거리 = diagonal(N).' },
-    '대각선': { t: '대각선', d: '네 대각 방향으로 뻗는 사거리 = diagonal(N).' },
-    '홈칸': { t: '홈칸', d: '내 마지막 행(홈row)의 빈 칸. 선언·분신 생성 공통 위치.' },
-    '전개칸': { t: '전개칸', d: '기준 인스턴스 「1칸이내」(8칸) 중 빈 칸. 후보 0칸이면 불발.' },
-    '통로칸': { t: '통로칸', d: '보드 가운데 행2·3의 빈 칸.' }
+    'If': { t: 'If · 선택 발동', d: '조건 충족 시 원할 때 발동(선택).', et: 'If · optional', ed: 'Trigger at will when its condition holds.', en: 'If' },
+    'Switch': { t: 'Switch · 변신', d: '게임당 1회, 두 폼 중 하나로 영구 변신(공·체·능력이 폼에 맞게 바뀜).', et: 'Switch · transform', ed: 'Once per game, permanently transform into one of two forms (ATK/HP/ability change to match).', en: 'Switch' },
+    'When': { t: 'When · 자동 발동', d: '조건이 맞을 때마다 자동 발동(강제).', et: 'When · auto', ed: 'Auto-triggers whenever its condition is met.', en: 'When' },
+    'Once': { t: 'Once · 1회 발동', d: '게임 중 딱 한 번만 발동.', et: 'Once · once/game', ed: 'Triggers only once per game.', en: 'Once' },
+    'While': { t: 'While · 지속', d: '조건이 유지되는 동안 지속 적용.', et: 'While · ongoing', ed: 'Stays active while its condition holds.', en: 'While' },
+    'For': { t: 'For(N) · 능동 턴1회', d: '내 턴마다 1번 직접 발동, 총 N회까지. 무료(액션 X).', et: 'For(N) · active, 1/turn', ed: 'Activate once per turn, up to N times total. Free (no action).', en: ['For(1)', 'For(2)', 'For(3)', 'For(4)', 'For(5)', 'For(6)'] },
+    'require': { t: 'require · 선언 조건', d: '필드에 존재하려면 필요한 조건.', et: 'require · precondition', ed: 'Condition required for this instance to stay on the field.', en: 'require' },
+    '보호': { t: '보호 · 1턴 무피해', d: '이번 턴 받는 모든 피해 무시(내 다음 턴 시작 시 해제).', et: 'Protect · no damage 1 turn', ed: 'Ignores all damage this turn (cleared at your next turn).', en: 'Protect' },
+    '시전 조건': { t: '시전 조건', d: '포인터를 시전하기 위한 조건.', et: 'Cast condition', ed: 'Condition required to cast this pointer.' },
+    '시전조건': { t: '시전 조건', d: '포인터를 시전하기 위한 조건.', et: 'Cast condition', ed: 'Condition required to cast this pointer.' },
+    'thread': { t: 'thread · 공격형', d: '공高체低 글래스캐논. 집단 공격·근접 압박. process↑ memory↓.', et: 'thread · attacker', ed: 'High-ATK, low-HP glass cannon. Group attack and melee pressure. Strong vs process, weak vs memory.', en: 'thread' },
+    'memory': { t: 'memory · 방어형', d: '공低체高. 벽·봉쇄·반사로 통제. thread↑ process↓.', et: 'memory · defender', ed: 'Low-ATK, high-HP. Controls with walls, Lock, and reflect. Strong vs thread, weak vs process.', en: 'memory' },
+    'process': { t: 'process · 유틸형', d: '변칙 사거리·이동·포인터 콤보. memory↑ thread↓.', et: 'process · utility', ed: 'Odd ranges, movement, and pointer combos. Strong vs memory, weak vs thread.', en: 'process' },
+    'generic': { t: 'generic · 무클래스', d: '이종 시너지형 — 클래스를 섞을수록 강함. 참조값: 내 필드 클래스 종류 수(최대 4).', et: 'generic · off-class', ed: 'Cross-class synergy — stronger the more classes you mix. Ref: number of class types on your field (max 4).', en: 'generic' },
+    '적': { t: '적 = 인스턴스 + 본체', d: '적 인스턴스와 적 본체를 함께 지칭. 피해는 본체도 노림. 봉쇄·이동·약화 등 조작은 인스턴스만.', et: 'enemy = instances + core', ed: 'Both enemy instances and the enemy core. Damage can reach the core; control effects (Lock/move/weaken) hit instances only.', en: ['enemy', 'enemies'] },
+    '본체': { t: '본체', d: '플레이어 거점(HP 40). 0이면 패배. 「적」 피해 대상에 포함.', et: 'core', ed: 'Player base (HP 40). Lose at 0. It is a board cell, so it can take enemy damage.', en: 'core' },
+    '봉쇄': { t: '봉쇄', d: '이동·기본 공격·For 능동 불가. While·When/If/Once는 유지.', et: 'Lock', ed: 'No move, basic attack, or For actions. While auras and When/If/Once still work.', en: ['Locked', 'Lock'] },
+    '이동 불가': { t: '이동 불가', d: '이동만 막힘. 기본 공격·능력은 정상(봉쇄와 별개).', et: 'cannot move', ed: 'Movement blocked; basic attack and abilities still work (unlike Lock).', en: 'cannot move' },
+    '관통': { t: '관통(벽 너머)', d: '중간의 벽·인스턴스를 무시하고 대상 지정·타격.', et: 'pierce (through walls)', ed: 'Target through intervening walls and instances.', en: 'ignoring walls' },
+    '벽 너머': { t: '벽 너머(관통)', d: '중간의 벽·인스턴스를 무시하고 대상 지정·타격.', et: 'through walls (pierce)', ed: 'Target through intervening walls and instances.' },
+    '직격': { t: '직격 · 피해감소 무시', d: '받는 피해 감소(-N·절반·상한)를 무시하고 그대로 적용. 차단·반사엔 정상.', et: 'direct · ignores reduction', ed: 'Ignores the target damage reduction. Block and reflect still apply.', en: 'direct' },
+    '분신': { t: '분신(토큰)', d: '효과로 생성된 인스턴스. 생성 카드의 클래스를 상속.', et: 'token', ed: 'An instance created by an effect. It inherits the creating card class.', en: 'token' },
+    '인스턴스': { t: '인스턴스', d: '필드 칸에 놓이는 카드(공격력·체력 보유).', et: 'instance', ed: 'A card placed on a board cell; it has ATK and HP.', en: 'instance' },
+    '포인터': { t: '포인터', d: '1회성 주문 카드. 필드에 안 남고 액션 1 소비. 사거리 무제한.', et: 'pointer', ed: 'A one-shot spell card. Leaves no instance, costs 1 action, unlimited range.', en: 'pointer' },
+    '공격력': { t: '공격력(ATK)', d: '기본 공격·능력의 피해 수치.', et: 'ATK', ed: 'Damage value used by basic attacks and abilities.', en: 'ATK' },
+    '체력': { t: '체력(HP)', d: '0이 되면 파괴. 피해는 턴을 넘겨 누적.', et: 'HP', ed: 'Destroyed at 0. Damage carries over between turns.', en: 'HP' },
+    '회복': { t: '회복', d: '받은 피해를 N만큼 제거(최대 체력까지).', et: 'heal', ed: 'Removes N damage taken (up to max HP).', en: ['heal', 'Heal'] },
+    '수리': { t: '수리 · 피해 전부 회복', d: '받은 피해를 전량 제거.', et: 'fully heal', ed: 'Removes all damage taken.', en: ['fully heal', 'Fully heal'] },
+    '영구': { t: '영구', d: '지속시간 무표기 버프·디버프는 영구.', et: 'permanent', ed: 'Buffs or debuffs with no stated duration are permanent.' },
+    '옆칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우 4칸(직교 인접) = 모든 인스턴스의 기본 공격 범위(빨강 ⚔ 칸).', et: 'adjacent = attack range', ed: 'The 4 orthogonally adjacent cells — the basic attack range (red squares).', en: 'adjacent' },
+    '옆 칸': { t: '옆칸 = 기본 공격 범위', d: '상하좌우 4칸(직교 인접) = 모든 인스턴스의 기본 공격 범위(빨강 ⚔ 칸).', et: 'adjacent = attack range', ed: 'The 4 orthogonally adjacent cells — the basic attack range (red squares).' },
+    '1칸이내': { t: '1칸이내 = 8칸', d: '대각 포함 둘러싼 8칸(체비셰프 ≤1).', et: 'within 1 = 8 cells', ed: 'The surrounding 8 cells (Chebyshev distance up to 1, diagonals included).', en: 'within 1' },
+    '2칸이내': { t: '2칸이내', d: '대각 포함 체비셰프 거리 ≤2.', et: 'within 2', ed: 'Chebyshev distance up to 2, diagonals included.', en: 'within 2' },
+    '3칸이내': { t: '3칸이내', d: '대각 포함 체비셰프 거리 ≤3.', et: 'within 3', ed: 'Chebyshev distance up to 3, diagonals included.', en: 'within 3' },
+    '주위': { t: '주위 → 1칸이내', d: '대각 포함 둘러싼 8칸. 「1칸이내」로 통일.', et: 'around → within 1', ed: 'The surrounding 8 cells. Unified as within 1.' },
+    '나이트': { t: '나이트(도약)', d: '체스 나이트꼴 도약 8칸(중간 벽·인스턴스 무시).', et: 'knight (leap)', ed: '8 chess-knight leap cells; ignores walls and instances in between.', en: 'knight-jump' },
+    '밀어내기': { t: '밀어내기(넉백)', d: '대상을 적 진영 쪽으로 1칸 이동(막히면 불가).', et: 'knockback', ed: 'Push the target 1 cell toward the enemy side (fails if blocked).' },
+    '끌어당기기': { t: '끌어당기기', d: '대상을 내 본체 쪽으로 1칸 이동(막히면 불가).', et: 'pull', ed: 'Pull the target 1 cell toward your core (fails if blocked).', en: 'pull' },
+    '1칸이동': { t: '1칸 이동', d: '인접 빈 칸으로 1칸 이동(막히면 불가).', et: 'move 1 cell', ed: 'Move 1 cell to an adjacent empty cell (fails if blocked).' },
+    '강제 이동': { t: '강제 이동', d: '효과로 경로를 따라 옮김. 강제이동·진입 트리거 발동.', et: 'forced move', ed: 'Moved along a path by an effect; triggers forced-move and entry effects.', en: 'force-moved' },
+    '재배치': { t: '재배치', d: '경로 없이 새 칸으로 재설정 — 이동·진입·강제이동 트리거 전부 비발동.', et: 'relocate', ed: 'Reset to a new cell with no path — no move, entry, or forced-move triggers.', en: 'relocate' },
+    '진입 시': { t: '진입 시', d: '적이 그 칸에 들어올 때. 재배치는 비발동.', et: 'on enter', ed: 'When an enemy enters the cell. Relocate does not trigger it.', en: 'enters' },
+    '피격 시': { t: '피격 시', d: '가해 인스턴스에게 피해받을 때 발동. 반사·반격은 가해자 대상. 포인터 피해엔 비발동.', et: 'when damaged', ed: 'Triggers when hit by an attacker instance. Reflect/counter target that attacker. Not from pointer damage.', en: 'damaged' },
+    '앞직선': { t: '앞직선N', d: '전방 같은 열 직선. N=숫자 또는 끝(보드 끝).', et: 'forward line', ed: 'A straight ray in the forward column. N is a number or end (board edge).', en: 'forward line' },
+    '앞 직선': { t: '앞 직선', d: '전방 같은 열 직선.', et: 'forward line', ed: 'A straight ray in the forward column.' },
+    '대각': { t: '대각N', d: '네 대각 방향으로 각 N칸.', et: 'diagonal', ed: 'N cells in each of the 4 diagonal directions.', en: 'diagonal' },
+    '대각선': { t: '대각선', d: '네 대각 방향으로 뻗는 사거리.', et: 'diagonal', ed: 'N cells in each of the 4 diagonal directions.' },
+    '홈칸': { t: '홈칸', d: '내 마지막 행의 빈 칸(선언·분신 생성 위치).', et: 'home cell', ed: 'An empty cell on your back row (deploy/spawn location).', en: 'home cell' },
+    '전개칸': { t: '전개칸', d: '기준 인스턴스 1칸이내(8칸) 중 빈 칸(없으면 불발).', et: 'deploy cell', ed: 'An empty cell within 1 of the source instance (fails if none).', en: 'adjacent empty cell' },
+    '통로칸': { t: '통로칸', d: '보드 가운데 행(2·3)의 빈 칸.', et: 'lane cell', ed: 'An empty cell in the board middle rows (2-3).', en: 'lane cell' }
   };
   var kwtip = null;
   function ensureTip() {
@@ -666,8 +668,8 @@
   function showKwTip(elm, g) {
     wireKwDismiss();
     var t = ensureTip(); t.innerHTML = '';
-    t.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: '#fff', marginBottom: '3px', letterSpacing: '.03em' } }, [g.t]));
-    t.appendChild(el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: '#cfd0d6' } }, [g.d]));
+    t.appendChild(el('div', { class: 'mono', style: { fontSize: '10px', fontWeight: 700, color: '#fff', marginBottom: '3px', letterSpacing: '.03em' } }, [pickLang(g.t, g.et || g.t)]));
+    t.appendChild(el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: '#cfd0d6' } }, [pickLang(g.d, g.ed || g.d)]));
     t.style.display = 'block';
     var r = elm.getBoundingClientRect(), top = r.bottom + 6, left = Math.max(6, Math.min(r.left, window.innerWidth - 252));
     if (top + (t.offsetHeight || 70) > window.innerHeight) top = Math.max(6, r.top - (t.offsetHeight || 70) - 6);
@@ -682,29 +684,46 @@
   var ATTACK_KW = { '옆칸': 1, '옆 칸': 1 };
   // 피격 트리거 강조(이슈 7). 룰상 「피격 시」로 단일화 — 가독성을 위해 앰버칩으로 강조.
   var DMG_TRIGGER = { '피격 시': 1 };
-  var KW_PHRASES = Object.keys(GLOSS).sort(function (a, b) { return b.length - a.length; });
+  // 언어별 스캔 목록 — {p:매칭문자열, key:GLOSS키}. KO 는 GLOSS 키(=한글 앵커), EN 은 각 항목 en 앵커. 둘 다 길이 내림차순(긴 구절 우선).
+  var KO_KW = Object.keys(GLOSS).map(function (k) { return { p: k, key: k }; }).sort(function (a, b) { return b.p.length - a.p.length; });
+  var EN_KW = (function () {
+    var out = [], seen = {};
+    Object.keys(GLOSS).forEach(function (k) {
+      var en = GLOSS[k].en; if (!en) return;
+      (typeof en === 'string' ? [en] : en).forEach(function (p) { if (p && !seen[p]) { seen[p] = 1; out.push({ p: p, key: k }); } });
+    });
+    return out.sort(function (a, b) { return b.p.length - a.p.length; });
+  })();
+  function kwList() { return isEN() ? EN_KW : KO_KW; }
+  // 현재 언어 기준으로 text 스캔 → [{p,key,i}] (i=시작오프셋). richText(인라인 칩)·패널이 공용 → 카드에 칩된 것과 패널이 일치.
+  function scanKw(text) {
+    var list = kwList(), res = [], i = 0;
+    if (!text) return res;
+    while (i < text.length) {
+      var hit = null;
+      for (var p = 0; p < list.length; p++) { var e = list[p]; if (text.substr(i, e.p.length) === e.p) { hit = e; break; } }
+      if (hit) { res.push({ p: hit.p, key: hit.key, i: i }); i += hit.p.length; } else i++;
+    }
+    return res;
+  }
   // 카드 효과문(현재 언어) — EN 이면 i18n 카드 테이블, 아니면 원문. richText 가 조각내므로 소스레벨에서 치환.
   function cardTextOf(c) { var I = window.RT_I18N; return (I && I.cardText) ? I.cardText(c) : ((c && c.text) || ''); }
+  function kwChipStyle(key) {
+    var chip = { fontFamily: "'Space Mono',monospace", fontSize: '9px', fontWeight: 700, color: '#fff', padding: '0 4px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
+    if (MODE_KW[key]) return { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
+    if (DMG_TRIGGER[key]) return Object.assign({}, chip, { background: '#c8791f' });        // 피격 시 = 앰버칩
+    if (ATTACK_KW[key]) return { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 };
+    return { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 700 };
+  }
   function richText(text) {
     if (!text) return [];
-    var nodes = [], i = 0, buf = '';
-    function flush() { if (buf) { nodes.push(document.createTextNode(buf)); buf = ''; } }
-    while (i < text.length) {
-      var m = null;
-      for (var p = 0; p < KW_PHRASES.length; p++) { var ph = KW_PHRASES[p]; if (text.substr(i, ph.length) === ph) { m = ph; break; } }
-      if (m) {
-        flush();
-        var isMode = MODE_KW[m], label = m, style;
-        var chip = { fontFamily: "'Space Mono',monospace", fontSize: '9px', fontWeight: 700, color: '#fff', padding: '0 4px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
-        if (isMode) style = { fontFamily: "'Space Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#fff', background: '#1d1d24', padding: '1px 5px', margin: '0 1px', borderRadius: '2px', cursor: 'help', whiteSpace: 'nowrap' };
-        else if (DMG_TRIGGER[m]) style = Object.assign({}, chip, { background: '#c8791f' });        // 피격 시/후 = 앰버칩
-        else if (ATTACK_KW[m]) style = { color: SKIN.enemy, borderBottom: '1.5px solid ' + SKIN.enemy, cursor: 'help', fontWeight: 700 };
-        else style = { borderBottom: '1px dotted #8a8a92', cursor: 'help', fontWeight: 700 };
-        nodes.push(el('span', { 'data-kwchip': '1', style: style, onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]), onmouseleave: hideKwTip, onclick: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[m]) }, [label]));
-        i += m.length;
-      } else { buf += text[i]; i++; }
-    }
-    flush();
+    var nodes = [], hits = scanKw(text), pos = 0;
+    hits.forEach(function (h) {
+      if (h.i > pos) nodes.push(document.createTextNode(text.slice(pos, h.i)));
+      nodes.push(el('span', { 'data-kwchip': '1', style: kwChipStyle(h.key), onmouseenter: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[h.key]), onmouseleave: hideKwTip, onclick: function (g) { return function (e) { showKwTip(e.currentTarget || e.target, g); }; }(GLOSS[h.key]) }, [h.p]));
+      pos = h.i + h.p.length;
+    });
+    if (pos < text.length) nodes.push(document.createTextNode(text.slice(pos)));
     // keep-all 래퍼: 효과문이 렌더되는 모든 곳(손패·보드·툴팁·미리보기)에서 한글을 띄어쓰기 단위로만 줄바꿈해 한 글자 widow 방지. break-word로 칸보다 긴 토큰만 예외 분해.
     // fontFamily 명시: 덱빌더(.crt-screen)는 기본이 Space Mono(400/700만) 라 중간 웨이트가 clamp 됨 → 본문 폰트를 IBM Plex Sans KR 로 고정해 웨이트가 실제 적용되게(인게임과도 일치).
     // fontWeight 500: CRT 필터 + 축소 폰트 가독성 확보(원본 400 대비 상향). 강조(키워드칩·용어·라벨·이름)는 700 유지 → 본문 500 < 강조 700 로 스트로크 없이 명확 구분(스트로크는 한글 글자 뭉침 이슈로 폐기).
@@ -778,6 +797,46 @@
   function isEN() { var I = window.RT_I18N; return !!(I && I.is && I.is('en')); }
   // null-safe 언어 분기(dev.html 등 i18n 미로드 페이지에서도 안전 — KO 폴백).
   function pickLang(ko, en) { return isEN() ? en : ko; }
+  // 카드 상세 옆 글로서리 패널 — 이 카드의 클래스·OP·단일덱 칩 + 효과문에 등장한 모든 키워드 칩을
+  // 설명과 함께 한 번에 나열(도감 확대·덱빌더 호버에서 공용). 카드 페이스와 동일한 scanKw(현재 언어 표시문)
+  // 로 스캔하므로 페이스에 칩(밑줄·강조)된 키워드와 패널 항목이 항상 일치한다(KO/EN 공통).
+  function cardGlossItems(id) {
+    var c = CARDS[id]; if (!c) return [];
+    var items = [], seen = {};
+    function push(t, d) { if (t && !seen[t]) { seen[t] = 1; items.push({ t: t, d: d }); } }
+    function pushG(g) { if (g) push(pickLang(g.t, g.et || g.t), pickLang(g.d, g.ed || g.d)); }
+    // 1) 클래스 칩(색·글리프로 표시되는 기본 표식)
+    pushG(GLOSS[c.cls]);
+    // 2) OP(덱당 N장 제한) 금색 젬 칩
+    if (c.deckLimit) push(pickLang('◆ OP 카드 · 덱당 ' + c.deckLimit + '장', '◆ OP card · max ' + c.deckLimit + ' per deck'), pickLang('덱에 ' + c.deckLimit + '장까지만 넣을 수 있는 강력한 카드.', 'A powerful card — at most ' + c.deckLimit + ' copies per deck.'));
+    // 3) 클래스 단일(◈) 칩
+    var drCls = deckRuleLabel(c);
+    if (drCls) push(pickLang('◈ ' + drCls + ' 클래스 단일', '◈ ' + drCls + ' single-class'), pickLang(drCls + ' 단일 클래스 덱(다른 클래스 없이 ' + drCls + '만)에서만 넣을 수 있다.', 'Usable only in a ' + drCls + ' single-class deck (no other classes).'));
+    // 4) 효과문(현재 언어 표시문)에 등장한 키워드 = 카드 페이스에 실제로 칩된 것과 동일 스캔 → 일치.
+    scanKw(cardTextOf(c)).forEach(function (h) { pushG(GLOSS[h.key]); });
+    return items;
+  }
+  // 스크롤은 되되 스크롤바는 숨김(도감 확대·확대 오버레이에서 스크롤바 노출 방지). 페이지 무관 1회 주입.
+  function ensureNoScrollStyle() {
+    if (document.getElementById('rt-noscroll-style')) return;
+    var s = el('div');   // el 로 style 태그를 못 만드는 경우 대비해 직접 생성
+    try { s = document.createElement('style'); s.id = 'rt-noscroll-style'; s.textContent = '.rt-noscroll{scrollbar-width:none;-ms-overflow-style:none;}.rt-noscroll::-webkit-scrollbar{width:0;height:0;display:none;}'; (document.head || document.documentElement).appendChild(s); } catch (e) {}
+  }
+  function cardGlossPanel(id, opts) {
+    opts = opts || {};
+    var items = cardGlossItems(id); if (!items.length) return null;
+    ensureNoScrollStyle();
+    var rows = items.map(function (g, k) {
+      return el('div', { style: { marginTop: k ? '7px' : '0', paddingTop: k ? '7px' : '0', borderTop: k ? '1px solid rgba(255,255,255,.09)' : 'none' } }, [
+        el('div', { class: 'mono', style: { fontSize: '10.5px', fontWeight: 700, color: '#fff', marginBottom: '2px', letterSpacing: '.02em' } }, [g.t]),
+        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: '#cfd0d6', fontWeight: 500, fontFamily: "'IBM Plex Sans KR', sans-serif", wordBreak: 'keep-all' } }, [g.d])
+      ]);
+    });
+    var head = el('div', { class: 'mono', style: { fontSize: '9.5px', fontWeight: 700, letterSpacing: '.09em', color: SKIN.gold, marginBottom: '8px' } }, [pickLang('키워드 · 칩 설명', 'KEYWORDS · CHIPS')]);
+    // opts.scroll===false → 스크롤 없이 내용 전체를 그대로(카드 옆 나란히 배치 시). 기본은 스크롤(바는 .rt-noscroll 로 숨김).
+    var noScroll = opts.scroll === false;
+    return el('div', { class: 'rt-noscroll', style: { width: (opts.w || 232) + 'px', maxHeight: noScroll ? 'none' : (opts.maxH || '76vh'), overflowY: noScroll ? 'visible' : 'auto', flex: 'none', background: '#1d1d24', color: '#e9eaee', border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 10px 30px rgba(0,0,0,.5)', padding: '10px 11px', boxSizing: 'border-box' } }, [head].concat(rows));
+  }
   // 사전에 이미 있는 문자열을 title 등 속성(=DOM 번역기 사각지대)에서 소스레벨로 번역. null-safe.
   function tL(s) { var I = window.RT_I18N; return (I && I.t) ? I.t(s) : s; }
   function cardNm(id) { return CARDS[id] ? CARDS[id].name : id; }
@@ -2608,7 +2667,7 @@
     clear: '특이 효과 없음 — 표준 런타임. 스탯·이동·사거리 모두 기본값으로 진행됩니다.',
     overclock: '양측 모든 인스턴스의 공격력 +1 (상시·즉시). 이후 소환·선언되는 인스턴스에도 적용됩니다.',
     throttle: '양측 모든 인스턴스의 공격력 −1 (상시, 최소 0). 이후 등장하는 인스턴스에도 적용됩니다.',
-    memleak: '8턴째부터 매 턴 시작 시 양측 모든 인스턴스의 HP가 1씩 감소합니다. 장기전일수록 압박이 커집니다.',
+    memleak: '8턴째부터 매 턴 시작 시 양측 본체 HP가 1씩 감소합니다. 유닛은 피해를 받지 않으며, 장기전을 끝내는 시계로 작동합니다.',
     ctxswitch: '양측 모두 매 턴 사용할 수 있는 행동이 1회씩 늘어납니다(기본 2 → 3). 시작 턴부터 상시 적용되어 전개가 빨라집니다.',
     deadlock: '매치 시작 시 통로(2·3행)에 중립 벽 「교착 노드」(공격력 0 · 체력 12) 3개가 배치됩니다. 양측 모두 공격해 부술 수 있으나, 스스로 이동·공격하지 않고 진격로를 가로막습니다.'
   };
@@ -2922,8 +2981,8 @@
     return keys.map(function (k) {
       var g = GLOSS[k]; if (!g) return null;
       return el('div', { style: { padding: '6px 0', borderTop: '1px solid ' + SKIN.line } }, [
-        el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [g.t]),
-        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [g.d])
+        el('div', { class: 'mono', style: { fontSize: '11px', fontWeight: 700, color: SKIN.own, marginBottom: '2px' } }, [pickLang(g.t, g.et || g.t)]),
+        el('div', { style: { fontSize: '11px', lineHeight: 1.5, color: SKIN.muted } }, [pickLang(g.d, g.ed || g.d)])
       ]);
     }).filter(Boolean);
   }
@@ -3394,6 +3453,8 @@
     },
     // 긴 효과문([data-fit]) 자동 축소 — 덱빌더 등 app 밖 렌더 후 잘림 방지용(root 생략 시 app 전체).
     fitCards: function (root) { fitHand(root); },
+    // 카드 상세 옆 글로서리 패널(클래스·OP·단일덱·효과 키워드 칩 설명) — 도감 확대·덱빌더 호버 공용. 없으면 null.
+    cardGloss: function (id, opts) { try { return cardGlossPanel(id, opts); } catch (e) { return null; } },
     // 테마 토큰(SKIN) 스왑 — dev.html 라이트/다크 미리보기용. 재렌더는 호출측 책임.
     setTheme: function (mode) { UI.applyTheme(mode === 'dark' ? 'dark' : 'light'); },
     getTheme: function () { return UI.getTheme(); }

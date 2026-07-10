@@ -572,13 +572,13 @@
     this.checkTurnCap();
     this.emit();
   };
-  // 런타임 환경 틱 — memleak: 8ply부터 매 ply 전 인스턴스 HP−1. (컨텍스트 스위치 등 비피해형 환경은 틱 없음)
+  // 런타임 환경 틱 — memleak: 8ply부터 매 ply 양쪽 본체 HP−1. (구: 전 인스턴스 저격 → 저체력 thread 편파, 본체 드레인으로 클래스 중립화)
+  // 본체=시스템 메모리. 누수가 유닛이 아닌 코어를 갉아 순수 '게임 종료 시계'로 작동. (컨텍스트 스위치 등 비피해형 환경은 틱 없음)
   Game.prototype.applyWeatherTick = function () {
     var w = this.weather; if (!w || this.turnNo < WEATHER_HAZARD_START) return;
     if (w === 'memleak') {
-      var objs = this.objects(); if (!objs.length) return;
       this.fx({ type: 'weather', weather: w });
-      for (var i = 0; i < objs.length; i++) { if (this.winner !== undefined) break; if (this.board[unitKey(this, objs[i])]) this.deal(objs[i], 1, { direct: true, weather: true }); }
+      for (var p = 0; p < 2; p++) { if (this.winner !== undefined) break; var b = this.body(p); if (b) this.deal(b, 1, { direct: true, weather: true }); }
     }
   };
   Game.prototype.fireTurnStart = function (owner) {
