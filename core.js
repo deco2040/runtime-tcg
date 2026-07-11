@@ -1774,10 +1774,8 @@
 
     if (!isPortrait() && isTouchDevice()) wrap.appendChild(portraitGuide()); // 가로(터치) → 세로 유도
     app.appendChild(wrap);
-    // 재렌더 시 손패 가로 스크롤 위치 복원 — render() 진입 때 포착한 실제 위치를 그대로 다시 적용(왼쪽 튐 방지).
-    // 동기 적용(플리커 없음) + iOS 관성 스크롤 레이어 대비 다음 프레임에 한 번 더 보정.
-    var hr = document.getElementById('handrow');
-    if (hr) { hr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
+    // 모바일: 손패 가로 스크롤 위치를 강제로 되돌리지 않는다(정렬 제거). iOS 관성 스크롤 도중 scrollLeft 를
+    //   강제하면 스크롤이 처음/중앙으로 튕겨 카드를 끝까지 못 보던 원인 → 브라우저 네이티브 스크롤에 맡긴다.
   }
 
   // ── 데스크톱 멀리건 ── 실제 게임 필드(디스펜서·보드·사이드패널)를 블러 배경으로 깔고,
@@ -2393,11 +2391,13 @@
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
       // 모바일: 필드 아래 가로 스크롤 손패. 위(필드)로 끌어 시전 → touch-action:pan-x 로 가로 스크롤과 공존.
+      // 중앙 정렬(justify center · auto-margin) 금지 — 사파리(iPad)에선 카드가 넘칠 때 양끝이 잘리고 그 영역으로
+      //   스크롤이 안 돼 패를 끝까지 못 본다(center 와 auto-margin 은 레이아웃이 동일). 항상 flex-start 좌측 정렬로
+      //   두어 넘치면 왼쪽부터 채우고 끝까지 스크롤되게 한다(카드가 적으면 왼쪽에 붙어 보이는 건 감수).
       var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
-      centerHandRow(row);
       return row;
     }
     // 호버 확대는 fixed 승격(liftHandCard)으로 컨테이너 클리핑을 탈출하므로 상단 헤드룸 패딩이 불필요 →
