@@ -83,7 +83,6 @@
   //   튕겨(오른쪽 카드 못 봄) 제스처까지 끊긴다. → 손가락으로 손패를 만지는 중(_handHold)이거나 관성 스크롤 진행 중
   //   (_handScrolling)이면 render 를 미뤘다가, 제스처가 끝나면 한 번만 수행(_flushPendingRender)해 최신 상태로 맞춘다.
   var _handHold = false, _handScrolling = false, _handScrollTO = null, _renderPending = false;
-  var _dbgScr = 0, _dbgRen = 0;   // 진단용 카운터(?dbg=1): onscroll 발생 수 / render 진입 수
   function _flushPendingRender() { if (_renderPending && !_handHold && !_handScrolling) { _renderPending = false; render(); } }
   function _handScrollTouched() { _handScrolling = true; clearTimeout(_handScrollTO); _handScrollTO = setTimeout(function () { _handScrolling = false; _flushPendingRender(); }, 260); }
   // 재렌더(턴 전환·상대 턴 연출·카드 선택 등) 후 손패 가로 스크롤 위치 복원 — 마지막으로 스크롤한 위치(handScroll)를 그대로
@@ -1628,7 +1627,6 @@
     } catch (e) {}
   }
   function render() {
-    _dbgRen++; dbgHud();
     // 손패를 만지거나(터치) 관성 스크롤이 진행 중이면 재렌더를 미룬다(스크롤 튕김·제스처 끊김 방지). 끝나면 flush.
     // COMPACT(모바일 레이아웃)든, 데스크톱 레이아웃이 뜨는 터치 태블릿이든 — 터치기기면 레이아웃과 무관하게 보호.
     if (G && (COMPACT || isTouchDevice()) && (_handHold || _handScrolling)) { _renderPending = true; return; }
@@ -1810,27 +1808,6 @@
     if (!isPortrait() && isTouchDevice()) wrap.appendChild(portraitGuide()); // 가로(터치) → 세로 유도
     app.appendChild(wrap);
     restoreHandScroll();   // 재렌더 후 손패 가로 스크롤 위치 복원(마지막 스크롤 기억 → 턴 전환에도 유지). 스크롤/터치 중엔 render 가 지연돼 안전.
-  }
-  // 진단용 HUD(?dbg=1 일 때만). document.body 에 한 번만 붙여 clear() 로 안 지워지게 하고(레이아웃/재렌더와 무관하게
-  //   항상 보이게), 자체 RAF 루프로 매 프레임 손패 실측값을 노출: 카드수·scrollWidth/clientWidth(넘침 여부)·scrollLeft·
-  //   onscroll 이벤트 수·render 진입 수·제스처 플래그·COMPACT/터치 여부. 어느 레이아웃이 뜨는지까지 한눈에 확인.
-  var _hudOn = false;
-  function dbgHud() {
-    if (_hudOn || !/[?&]dbg=1/.test(location.search || '') || !document.body) return;
-    _hudOn = true;
-    var d = el('div', { id: 'dbghud', style: { position: 'fixed', left: '3px', top: '3px', zIndex: 999999, background: 'rgba(0,0,0,.85)', color: '#3f6', fontFamily: 'monospace', fontSize: '11px', lineHeight: '1.35', padding: '4px 6px', whiteSpace: 'pre', pointerEvents: 'none', border: '1px solid #3f6' } }, ['dbg…']);
-    document.body.appendChild(d);
-    (function tick() {
-      var h = document.getElementById('handrow');
-      var n = (G && G.players && G.players[HUMAN]) ? G.players[HUMAN].hand.length : -1;
-      d.textContent = 'COMPACT=' + (COMPACT ? 1 : 0) + ' coarse=' + (isTouchDevice() ? 1 : 0) + ' w=' + (window.innerWidth || 0)
-        + (h ? ('\ncards=' + n + ' over=' + (h.scrollWidth > h.clientWidth + 1)
-          + '\nsw=' + h.scrollWidth + ' cw=' + h.clientWidth + ' sl=' + Math.round(h.scrollLeft)
-          + '\nscrEvt=' + _dbgScr + ' render=' + _dbgRen
-          + '\nhold=' + (_handHold ? 1 : 0) + ' scrl=' + (_handScrolling ? 1 : 0) + ' pend=' + (_renderPending ? 1 : 0))
-          : '\nno #handrow');
-      RAF(tick);
-    })();
   }
 
   // ── 데스크톱 멀리건 ── 실제 게임 필드(디스펜서·보드·사이드패널)를 블러 배경으로 깔고,
@@ -2450,7 +2427,7 @@
       // 중앙 정렬(justify center · auto-margin) 금지 — 사파리(iPad)에선 카드가 넘칠 때 양끝이 잘리고 그 영역으로
       //   스크롤이 안 돼 패를 끝까지 못 본다(center 와 auto-margin 은 레이아웃이 동일). 항상 flex-start 좌측 정렬로
       //   두어 넘치면 왼쪽부터 채우고 끝까지 스크롤되게 한다(카드가 적으면 왼쪽에 붙어 보이는 건 감수).
-      var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { _dbgScr++; handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
+      var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
@@ -2458,7 +2435,7 @@
     }
     // 호버 확대는 fixed 승격(liftHandCard)으로 컨테이너 클리핑을 탈출하므로 상단 헤드룸 패딩이 불필요 →
     // 작은 여백만(선택 리프트·시전 링용). centerHandRow: 카드가 넘칠 때 앞쪽이 잘려 스크롤 못 하는 문제 방지(왼쪽 끝 카드 온전히 보임).
-    var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { _dbgScr++; handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: 'flex-start', minHeight: '40px', alignItems: 'flex-end', padding: '16px 6px 4px', marginTop: '-8px' } });
+    var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: 'flex-start', minHeight: '40px', alignItems: 'flex-end', padding: '16px 6px 4px', marginTop: '-8px' } });
     if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음']));
     hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
     if (drawPulse) drawPulse = false;
