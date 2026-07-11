@@ -2406,7 +2406,7 @@
   // 재렌더(clear) 시 요소가 통째로 교체되므로 상태가 남아도 자동 정리된다.
   var LIFT_TF = 'translateY(-16px) scale(1.55)', LIFT_BS = '0 24px 46px rgba(0,0,0,.7)';
   function liftHandCard(t) {
-    if (COMPACT) return;
+    if (COMPACT || isTouchDevice()) return; // 터치기기: 탭 시 합성 mouseenter 로 카드가 fixed 승격돼 스크롤을 깨므로 호버확대 금지
     if (t.__dropT) { clearTimeout(t.__dropT); t.__dropT = null; }
     if (t.__ph) { t.style.transform = LIFT_TF; t.style.boxShadow = LIFT_BS; return; } // 이미 승격 상태 → 재확대만
     var r = t.getBoundingClientRect();
@@ -3264,8 +3264,10 @@
       if (peek) return; // 이미 상세보기(peek) 중이면 손가락이 흔들려도 드래그(시전)로 전환하지 않음 — 인스펙트 유지(토스트/재렌더 방지)
       var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
       if (Math.abs(dx) + Math.abs(dy) < 10) return; // 임계값(작은 흔들림 무시)
-      // 모바일: '위로'(필드 방향) 우세일 때만 플레이 드래그 시작. 가로/아래 → 손패 좌우 스크롤에 양보하고 취소.
-      if (COMPACT && !(dy < 0 && Math.abs(dy) > Math.abs(dx))) { endDragListeners(); drag = null; hidePeek(); return; }
+      // 터치: '위로'(필드 방향) 우세일 때만 플레이 드래그 시작. 가로/아래 → 손패 좌우 스크롤(네이티브)에 양보하고 취소.
+      //   COMPACT 여부가 아니라 '터치기기'로 판정 — 큰 태블릿(iPad 가로 w>1024)은 데스크톱 레이아웃이라 COMPACT=false 지만
+      //   여기서 양보 안 하면 카드 옆끌기를 플레이 드래그로 오인해 preventDefault 로 가로 스크롤을 죽인다(스크롤 안 되던 진짜 원인).
+      if (isTouchDevice() && !(dy < 0 && Math.abs(dy) > Math.abs(dx))) { endDragListeners(); drag = null; hidePeek(); return; }
       drag.moved = true; hidePeek(); beginDragVisual();
     }
     if (e.cancelable) e.preventDefault(); // 드래그 확정 후에만 기본동작(스크롤) 억제
