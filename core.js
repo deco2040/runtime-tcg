@@ -2379,23 +2379,34 @@
     t.style.transform = css.transform || ''; t.style.boxShadow = css.boxShadow || ''; // 원위치로 축소 애니 후 정리
     t.__dropT = setTimeout(restore, 180);
   }
+  // 손패 정렬: '카드가 다 들어가면 가운데, 넘치면 왼쪽부터 꽉 채워 양끝까지 스크롤'.
+  //   기존 justify-content:safe center 는 일부 사파리(특히 iPad)에서 safe 키워드가 무시돼 그냥 center 로 동작 →
+  //   넘칠 때 앞/뒤 카드가 화면 밖으로 잘리고 그 영역으로 스크롤이 안 돼(중앙으로 튕겨) 패를 끝까지 못 보는 버그.
+  //   모든 브라우저에서 확실한 auto-margin 기법으로 대체: 컨테이너는 flex-start, 첫/끝 카드에 바깥쪽 auto 마진.
+  //   넘치면 auto 마진이 0 으로 접혀 왼쪽부터 정렬(끝까지 스크롤 가능), 여유 있으면 좌우로 벌어져 중앙 정렬된다.
+  function centerHandRow(row) {
+    var f = row.firstElementChild, l = row.lastElementChild;
+    if (f) f.style.marginLeft = 'auto';
+    if (l) l.style.marginRight = 'auto';
+  }
   function handBar(meTurn) {
     var hand = G.players[HUMAN].hand;
     if (COMPACT) {
       // 모바일: 필드 아래 가로 스크롤 손패. 위(필드)로 끌어 시전 → touch-action:pan-x 로 가로 스크롤과 공존.
-      // safe center: 카드가 넘칠 땐 왼쪽부터 정렬(양끝이 잘려 스크롤 못하는 문제 방지). 관성 스크롤 on.
-      var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'safe center', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
+      var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
+      centerHandRow(row);
       return row;
     }
     // 호버 확대는 fixed 승격(liftHandCard)으로 컨테이너 클리핑을 탈출하므로 상단 헤드룸 패딩이 불필요 →
-    // 작은 여백만(선택 리프트·시전 링용). safe center: 카드가 넘칠 때 앞쪽이 잘려 스크롤 못 하는 문제 방지(왼쪽 끝 카드 온전히 보임).
-    var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: 'safe center', minHeight: '40px', alignItems: 'flex-end', padding: '16px 6px 4px', marginTop: '-8px' } });
+    // 작은 여백만(선택 리프트·시전 링용). centerHandRow: 카드가 넘칠 때 앞쪽이 잘려 스크롤 못 하는 문제 방지(왼쪽 끝 카드 온전히 보임).
+    var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, onmousemove: handEdgeMove, onmouseleave: handEdgeStop, style: { position: 'relative', zIndex: 6, display: 'flex', gap: '7px', flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden', justifyContent: 'flex-start', minHeight: '40px', alignItems: 'flex-end', padding: '16px 6px 4px', marginTop: '-8px' } });
     if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '12px' } }, ['손패 없음']));
     hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
     if (drawPulse) drawPulse = false;
+    centerHandRow(row);
     return row;
   }
   // 손패 풀창(L0). 인스턴스 = 창(타이틀바+뷰포트+효과문+상태바). 포인터 = 다이얼로그(상태바 없이 시전 버튼).
