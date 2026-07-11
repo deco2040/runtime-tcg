@@ -83,6 +83,7 @@
   //   튕겨(오른쪽 카드 못 봄) 제스처까지 끊긴다. → 손가락으로 손패를 만지는 중(_handHold)이거나 관성 스크롤 진행 중
   //   (_handScrolling)이면 render 를 미뤘다가, 제스처가 끝나면 한 번만 수행(_flushPendingRender)해 최신 상태로 맞춘다.
   var _handHold = false, _handScrolling = false, _handScrollTO = null, _renderPending = false;
+  var _dbgScr = 0, _dbgRen = 0;   // 진단용 카운터(?dbg=1): onscroll 발생 수 / render 진입 수
   function _flushPendingRender() { if (_renderPending && !_handHold && !_handScrolling) { _renderPending = false; render(); } }
   function _handScrollTouched() { _handScrolling = true; clearTimeout(_handScrollTO); _handScrollTO = setTimeout(function () { _handScrolling = false; _flushPendingRender(); }, 260); }
   ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup'].forEach(function (ev) {
@@ -1620,6 +1621,7 @@
     } catch (e) {}
   }
   function render() {
+    _dbgRen++;
     // 모바일: 손패를 만지거나(터치) 관성 스크롤이 진행 중이면 재렌더를 미룬다(스크롤 튕김·제스처 끊김 방지). 끝나면 flush.
     if (G && COMPACT && (_handHold || _handScrolling)) { _renderPending = true; return; }
     // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
@@ -1802,6 +1804,28 @@
     app.appendChild(wrap);
     // 모바일: 손패 가로 스크롤 위치를 강제로 되돌리지 않는다(정렬 제거). iOS 관성 스크롤 도중 scrollLeft 를
     //   강제하면 스크롤이 처음/중앙으로 튕겨 카드를 끝까지 못 보던 원인 → 브라우저 네이티브 스크롤에 맡긴다.
+    var _hud = dbgHud(); if (_hud) app.appendChild(_hud);
+  }
+  // 진단용 HUD(?dbg=1 일 때만). 손패 스크롤이 안 되는 원인을 실시간 숫자로 노출: 카드수·scrollWidth/clientWidth(넘침 여부)·
+  //   현재 scrollLeft·onscroll 이벤트 수·render 진입 수·제스처 플래그. 자체 RAF 루프로 매 프레임 갱신(재렌더와 무관).
+  function dbgHud() {
+    if (!/[?&]dbg=1/.test(location.search || '')) return null;
+    var d = el('div', { id: 'dbghud', style: { position: 'fixed', left: '3px', top: '3px', zIndex: 99999, background: 'rgba(0,0,0,.82)', color: '#3f6', fontFamily: 'monospace', fontSize: '10px', lineHeight: '1.35', padding: '4px 6px', whiteSpace: 'pre', pointerEvents: 'none', border: '1px solid #3f6' } }, ['dbg…']);
+    function tick() {
+      if (!document.body || !document.body.contains(d)) return;
+      var h = document.getElementById('handrow');
+      var n = (G && G.players && G.players[HUMAN]) ? G.players[HUMAN].hand.length : -1;
+      d.textContent = h
+        ? ('cards=' + n + '  over=' + (h.scrollWidth > h.clientWidth + 1)
+          + '\nsw=' + h.scrollWidth + ' cw=' + h.clientWidth + ' sl=' + Math.round(h.scrollLeft)
+          + '\nscrEvt=' + _dbgScr + ' render=' + _dbgRen
+          + '\nhold=' + (_handHold ? 1 : 0) + ' scrl=' + (_handScrolling ? 1 : 0) + ' pend=' + (_renderPending ? 1 : 0)
+          + '\nCOMPACT=' + (COMPACT ? 1 : 0) + ' coarse=' + (isTouchDevice() ? 1 : 0) + ' w=' + (window.innerWidth || 0))
+        : 'no #handrow';
+      RAF(tick);
+    }
+    RAF(tick);
+    return d;
   }
 
   // ── 데스크톱 멀리건 ── 실제 게임 필드(디스펜서·보드·사이드패널)를 블러 배경으로 깔고,
@@ -2420,7 +2444,7 @@
       // 중앙 정렬(justify center · auto-margin) 금지 — 사파리(iPad)에선 카드가 넘칠 때 양끝이 잘리고 그 영역으로
       //   스크롤이 안 돼 패를 끝까지 못 본다(center 와 auto-margin 은 레이아웃이 동일). 항상 flex-start 좌측 정렬로
       //   두어 넘치면 왼쪽부터 채우고 끝까지 스크롤되게 한다(카드가 적으면 왼쪽에 붙어 보이는 건 감수).
-      var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
+      var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { _dbgScr++; handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
