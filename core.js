@@ -1629,7 +1629,9 @@
   function render() {
     // 손패를 만지거나(터치) 관성 스크롤이 진행 중이면 재렌더를 미룬다(스크롤 튕김·제스처 끊김 방지). 끝나면 flush.
     // COMPACT(모바일 레이아웃)든, 데스크톱 레이아웃이 뜨는 터치 태블릿이든 — 터치기기면 레이아웃과 무관하게 보호.
-    if (G && (COMPACT || isTouchDevice()) && (_handHold || _handScrolling)) { _renderPending = true; return; }
+    // 단, 플레이 드래그(위로 끌어 시전) 시작 후(drag.moved)엔 지연하지 않는다 — 그때의 render 가 보드에 사거리·놓을칸
+    //   초록 범위를 그리므로, 지연하면 드래그 중 범위표시가 안 뜬다.
+    if (G && (COMPACT || isTouchDevice()) && (_handHold || _handScrolling) && !(drag && drag.moved)) { _renderPending = true; return; }
     // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
     // 스크롤이 왼쪽으로 튀지 않게 — 저장값에 의존하지 않고 매번 DOM 에서 직접 읽어 정확).
     var _hr = document.getElementById('handrow'); if (_hr) handScroll = _hr.scrollLeft;
