@@ -61,7 +61,21 @@
   computeCompact();
   // 멀리건 인트로(코인플립·딜링) 중엔 재렌더 금지 — 모바일 URL바 접힘/방향전환이 resize 를 발생시켜
   // clear() 로 애니메이션(코인·딜)이 지워지는 걸 막는다. 코인은 fxLayer 라 살아남지만 딜 연출까지 보호.
-  window.addEventListener('resize', function () { clearTimeout(_rzT); _rzT = setTimeout(function () { computeCompact(); _vfitIter = 0; if (mullPhase && mullBusy) return; render(); }, 150); });
+  var _lastVW = window.innerWidth || 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(_rzT);
+    _rzT = setTimeout(function () {
+      var w = window.innerWidth || 0, wasCompact = COMPACT;
+      computeCompact();
+      // 모바일에서 손패를 가로로 스크롤하면 브라우저 URL바가 접혔다 펴지며 '높이만' 바뀌는 resize 가 계속 발생한다.
+      // 이때 재렌더(clear→재구성)하면 손패 DOM 이 새로 그려져 가로 스크롤이 0 으로 튕겨 사용자가 스크롤을 제어할 수
+      // 없다(강제 정렬처럼 보임). 터치기기에서 폭·COMPACT 가 그대로면(= 순수 높이 지터) 재렌더를 건너뛴다.
+      if (isTouchDevice() && COMPACT === wasCompact && w === _lastVW) return;
+      _lastVW = w; _vfitIter = 0;
+      if (mullPhase && mullBusy) return;
+      render();
+    }, 150);
+  });
   window.addEventListener('orientationchange', function () { computeCompact(); _vfitIter = 0; setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
   var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false, aiRevealPause = false, handScroll = 0;
   var _vfit = 0, _vfitIter = 0;   // 필드 세로 자동보정: 렌더 후 실측 여유(slack)만큼 보드를 키워 스크롤 없이 화면을 꽉 채운다.
