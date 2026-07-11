@@ -78,6 +78,16 @@
   });
   window.addEventListener('orientationchange', function () { computeCompact(); _vfitIter = 0; setTimeout(function () { if (mullPhase && mullBusy) return; render(); }, 80); });
   var G = null, sel = null, ptr = null, hover = null, hoverCell = null, pinned = null, toast = null, toastT = null, aiTimer = null, aiThinking = false, aiRevealPause = false, handScroll = 0;
+  // 모바일 손패 가로 스크롤 보호. 스크롤이 안 먹히던 근본 원인: 손패를 미는 동안(URL바 접힘 resize·상대턴 연출·토스트/FX
+  //   타이머 등) render() 가 수시로 돌고, render 는 clear()→전체 재구성이라 손패 DOM 이 새로 그려지며 가로 스크롤이 0 으로
+  //   튕겨(오른쪽 카드 못 봄) 제스처까지 끊긴다. → 손가락으로 손패를 만지는 중(_handHold)이거나 관성 스크롤 진행 중
+  //   (_handScrolling)이면 render 를 미뤘다가, 제스처가 끝나면 한 번만 수행(_flushPendingRender)해 최신 상태로 맞춘다.
+  var _handHold = false, _handScrolling = false, _handScrollTO = null, _renderPending = false;
+  function _flushPendingRender() { if (_renderPending && !_handHold && !_handScrolling) { _renderPending = false; render(); } }
+  function _handScrollTouched() { _handScrolling = true; clearTimeout(_handScrollTO); _handScrollTO = setTimeout(function () { _handScrolling = false; _flushPendingRender(); }, 260); }
+  ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup'].forEach(function (ev) {
+    window.addEventListener(ev, function () { if (_handHold) { _handHold = false; _flushPendingRender(); } }, true);
+  });
   var _vfit = 0, _vfitIter = 0;   // 필드 세로 자동보정: 렌더 후 실측 여유(slack)만큼 보드를 키워 스크롤 없이 화면을 꽉 채운다.
   var myDeck = 'T1', oppDeck = '__random';
   var challenge = null;   // 도전 모드: { stage, wins, baseBest, boss } 또는 null
@@ -1610,6 +1620,8 @@
     } catch (e) {}
   }
   function render() {
+    // 모바일: 손패를 만지거나(터치) 관성 스크롤이 진행 중이면 재렌더를 미룬다(스크롤 튕김·제스처 끊김 방지). 끝나면 flush.
+    if (G && COMPACT && (_handHold || _handScrolling)) { _renderPending = true; return; }
     // 재렌더 직전, 손패의 '실제' 가로 스크롤 위치를 그대로 포착해 둔다(탭/롱프레스로 손패가 다시 그려져도
     // 스크롤이 왼쪽으로 튀지 않게 — 저장값에 의존하지 않고 매번 DOM 에서 직접 읽어 정확).
     var _hr = document.getElementById('handrow'); if (_hr) handScroll = _hr.scrollLeft;
@@ -2408,7 +2420,7 @@
       // 중앙 정렬(justify center · auto-margin) 금지 — 사파리(iPad)에선 카드가 넘칠 때 양끝이 잘리고 그 영역으로
       //   스크롤이 안 돼 패를 끝까지 못 본다(center 와 auto-margin 은 레이아웃이 동일). 항상 flex-start 좌측 정렬로
       //   두어 넘치면 왼쪽부터 채우고 끝까지 스크롤되게 한다(카드가 적으면 왼쪽에 붙어 보이는 건 감수).
-      var row = el('div', { id: 'handrow', onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
+      var row = el('div', { id: 'handrow', onpointerdown: function () { _handHold = true; }, ontouchstart: function () { _handHold = true; }, onscroll: function (e) { handScroll = e.currentTarget.scrollLeft; _handScrollTouched(); }, style: { position: 'relative', zIndex: 6, flex: 'none', display: 'flex', flexDirection: 'row', gap: '6px', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', alignItems: 'flex-end', justifyContent: 'flex-start', touchAction: 'pan-x', padding: '4px calc(8px + env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px))', borderTop: '2px solid ' + SKIN.ink, background: SKIN.chassisSunk } });
       if (!hand.length) row.appendChild(el('div', { class: 'mono', style: { fontSize: '11px', color: SKIN.faint, padding: '10px' } }, ['손패 없음']));
       hand.forEach(function (id, i) { var c = handCardEl(id, i, meTurn ? 'play' : 'idle'); c.setAttribute('data-hand-idx', i); if (handFlyIn && handFlyIn.indexOf(i) !== -1) c.style.opacity = '0'; if (drawPulse && i === hand.length - 1) c.style.animation = 'drawIn .42s ease'; row.appendChild(c); });
       if (drawPulse) drawPulse = false;
