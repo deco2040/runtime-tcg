@@ -86,6 +86,13 @@
   var _dbgScr = 0, _dbgRen = 0;   // 진단용 카운터(?dbg=1): onscroll 발생 수 / render 진입 수
   function _flushPendingRender() { if (_renderPending && !_handHold && !_handScrolling) { _renderPending = false; render(); } }
   function _handScrollTouched() { _handScrolling = true; clearTimeout(_handScrollTO); _handScrollTO = setTimeout(function () { _handScrolling = false; _flushPendingRender(); }, 260); }
+  // 재렌더(턴 전환·상대 턴 연출·카드 선택 등) 후 손패 가로 스크롤 위치 복원 — 마지막으로 스크롤한 위치(handScroll)를 그대로
+  //   다시 적용해 턴이 바뀌어도 왼쪽으로 튀지 않게 한다. 스크롤/터치 중엔 render 자체가 지연되므로(위 defer) 이 복원은 항상
+  //   정지 상태에서만 실행돼 관성 스크롤과 싸우지 않는다. 동기 적용(플리커 없음) + 아트/폰트 로딩 대비 다음 프레임 보정.
+  function restoreHandScroll() {
+    var h = document.getElementById('handrow');
+    if (h) { h.scrollLeft = handScroll; RAF(function () { var e = document.getElementById('handrow'); if (e && Math.abs(e.scrollLeft - handScroll) > 1) e.scrollLeft = handScroll; }); }
+  }
   ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup'].forEach(function (ev) {
     window.addEventListener(ev, function () { if (_handHold) { _handHold = false; _flushPendingRender(); } }, true);
   });
@@ -1675,9 +1682,7 @@
       app.appendChild(wrap);
       // 데스크톱: 재렌더(카드 선택/클릭 등) 시 손패 가로 스크롤 위치 복원 — 클릭해도 맨 앞으로 튀지 않게.
       // render() 진입 때 #handrow 에서 포착한 handScroll 을 그대로 재적용(동기 + 다음 프레임 보정).
-      // 터치 태블릿에선 scrollLeft 강제복원 금지 — 관성 스크롤을 방해해 손패가 튕긴다(마우스 데스크톱만 복원).
-      var dhr = document.getElementById('handrow');
-      if (dhr && !isTouchDevice()) { dhr.scrollLeft = handScroll; RAF(function () { var h = document.getElementById('handrow'); if (h && Math.abs(h.scrollLeft - handScroll) > 1) h.scrollLeft = handScroll; }); }
+      restoreHandScroll();     // 재렌더 후 손패 가로 스크롤 위치 복원(마지막 스크롤 기억 → 턴 전환에도 유지)
       RAF(installPanelSync);   // 좌우 패널 높이를 보드 컬럼에 맞춰 고정 + ResizeObserver 로 아트 로딩 후 재동기화
       RAF(fitBoardVertical);   // 필드 세로 자동보정 — 스크롤 없는 최대 크기로 수렴
     }
@@ -1804,8 +1809,7 @@
 
     if (!isPortrait() && isTouchDevice()) wrap.appendChild(portraitGuide()); // 가로(터치) → 세로 유도
     app.appendChild(wrap);
-    // 모바일: 손패 가로 스크롤 위치를 강제로 되돌리지 않는다(정렬 제거). iOS 관성 스크롤 도중 scrollLeft 를
-    //   강제하면 스크롤이 처음/중앙으로 튕겨 카드를 끝까지 못 보던 원인 → 브라우저 네이티브 스크롤에 맡긴다.
+    restoreHandScroll();   // 재렌더 후 손패 가로 스크롤 위치 복원(마지막 스크롤 기억 → 턴 전환에도 유지). 스크롤/터치 중엔 render 가 지연돼 안전.
   }
   // 진단용 HUD(?dbg=1 일 때만). document.body 에 한 번만 붙여 clear() 로 안 지워지게 하고(레이아웃/재렌더와 무관하게
   //   항상 보이게), 자체 RAF 루프로 매 프레임 손패 실측값을 노출: 카드수·scrollWidth/clientWidth(넘침 여부)·scrollLeft·
